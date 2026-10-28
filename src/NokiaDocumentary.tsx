@@ -27,10 +27,14 @@ const WorldGlobe: React.FC<{frame: number}> = ({frame}) => {
   // Start wide, then drive directly along the Finland pin's Z-axis in the first two seconds.
   const zoom = interpolate(frame, [0, 36, 62, 105], [1, 1.04, 2.7, 5.4], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const diveZ = interpolate(frame, [0, 60, 108], [0, 80, 780], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const pinTrack = smooth(frame, 32, 92);
+  // Keep the Finland coordinate pinned to screen center as the globe surface rushes past.
+  const cameraX = pinTrack * (-40 - 400 * zoom);
+  const cameraY = pinTrack * (410 - 196 * zoom);
   const spin = interpolate(frame, [0, 82], [-9, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const glow = interpolate(frame, [0, 52, 90], [.3, .65, .95], clamp);
   const pinPulse = .5 + .5 * Math.sin(frame / 3.8);
-  return <div style={{position: 'absolute', width: 660, height: 660, left: 1000, top: 130, borderRadius: '50%', transform: `perspective(1200px) translate3d(0px,0px,${diveZ}px) scale(${zoom}) rotate(${spin}deg)`, transformOrigin: '50% 50%', opacity: interpolate(frame, [58, 100, 130], [1, .75, 0], clamp), filter: `drop-shadow(0 0 ${35 * glow}px rgba(67,207,235,.27))`}}>
+  return <div style={{position: 'absolute', width: 660, height: 660, left: 1000, top: 130, borderRadius: '50%', transform: `perspective(1200px) translate3d(${cameraX}px,${cameraY}px,${diveZ}px) scale(${zoom}) rotate(${spin}deg)`, transformOrigin: '0 0', opacity: interpolate(frame, [58, 100, 130], [1, .75, 0], clamp), filter: `drop-shadow(0 0 ${35 * glow}px rgba(67,207,235,.27))`}}>
     <svg viewBox="0 0 600 600" width="100%" height="100%">
       <defs><radialGradient id="earth"><stop stopColor="#1b3946" stopOpacity=".28"/><stop offset=".78" stopColor="#0b1520" stopOpacity=".55"/><stop offset="1" stopColor="#112330" stopOpacity=".92"/></radialGradient><clipPath id="globeClip"><circle cx="300" cy="300" r="274"/></clipPath></defs>
       <circle cx="300" cy="300" r="276" fill="url(#earth)" stroke="#6ddff0" strokeOpacity=".65" strokeWidth="1.6"/>
@@ -50,6 +54,7 @@ const ForestMill: React.FC<{frame: number}> = ({frame}) => {
   const trees = Array.from({length: 22}, (_, i) => ({x: 185 + (i * 83) % 760, y: 258 + (i * 47) % 402, s: .68 + (i % 5) * .12, d: i * 2.7}));
   const parallax = interpolate(frame, [38, 106], [160, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const pulse = .74 + Math.sin(frame / 7) * .05;
+  const paperBuild = springIn(frame,30,130);
   return <div style={{position: 'absolute', inset: 0, opacity: reveal, transform: `translateY(${parallax}px) scale(${interpolate(frame, [38, 106], [.88, 1.18], {...clamp, easing: Easing.inOut(Easing.cubic)})})`, transformOrigin: '52% 53%'}}>
     <svg viewBox="0 0 1920 1080" width="100%" height="100%" style={{position: 'absolute', inset: 0}}>
       <defs><linearGradient id="ground" x2="0" y2="1"><stop stopColor="#233b39"/><stop offset="1" stopColor="#101b22"/></linearGradient><linearGradient id="millwall"><stop stopColor="#b97745"/><stop offset="1" stopColor="#4a3328"/></linearGradient><filter id="millglow"><feGaussianBlur stdDeviation="16"/></filter></defs>
@@ -78,7 +83,7 @@ const ForestMill: React.FC<{frame: number}> = ({frame}) => {
     </svg>
     <Glass style={{position: 'absolute', top: 315, right: 220, padding: '21px 27px', minWidth: 190, opacity: springIn(frame, 30, 130), transform: `translateY(${(1-springIn(frame,30,130))*26}px)`}}>
       <div style={{font: '11px Arial', letterSpacing: 2.5, color: C.cyan}}>MATERIAL / 01</div><div style={{font: '26px Georgia', color: C.ivory, marginTop: 8}}>Paper</div>
-      <svg viewBox="0 0 186 45" width="186" height="45" style={{display:'block',marginTop:8}}><path d="M3 34L20 15l17 18 19-25 21 21 19-17 22 18 18-14 21 13 26-15" fill="none" stroke="#79e7ed" strokeWidth="1.4" strokeDasharray="220" strokeDashoffset={interpolate(frame,[130,158],[220,0],clamp)}/><path d="M3 39H182M21 7v34m37-27v27m42-20v20m42-25v25m38-33v33" stroke="#7ab5c0" strokeOpacity=".34" strokeWidth=".8"/><text x="5" y="10" fill="#9bb9c0" fontSize="6" letterSpacing="1.3">FIBRE / PULP SCHEMATIC</text></svg>
+      <svg viewBox="0 0 186 45" width="186" height="45" style={{display:'block',marginTop:8}}><path d="M3 34L20 15l17 18 19-25 21 21 19-17 22 18 18-14 21 13 26-15" fill="none" stroke="#79e7ed" strokeWidth="1.4" strokeDasharray="220" strokeDashoffset={220*(1-Math.min(1,paperBuild))}/><path d="M3 39H182M21 7v34m37-27v27m42-20v20m42-25v25m38-33v33" stroke="#7ab5c0" strokeOpacity=".34" strokeWidth=".8"/><text x="5" y="10" fill="#9bb9c0" fontSize="6" letterSpacing="1.3">FIBRE / PULP SCHEMATIC</text></svg>
       <div style={{font: '12px Arial', color: C.muted, marginTop: 4}}>Pulp · water · timber</div>
     </Glass>
   </div>;
@@ -96,7 +101,9 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
   const boots = springIn(f,30, 60); // 00:08 — the narrated rubber-boots beat
   const cables = springIn(f,30, 120); // 00:10 — copper conductors ignite on “cables”
   const power = springIn(f,30, 165);
+  const outputGraph = springIn(f,30,210);
   const glow = .75 + .25*Math.sin(f/5);
+  const cablePacket=(t:number)=>{const u=1-t;return {x:u*u*u*890+3*u*u*t*1050+3*u*t*t*1050+t*t*t*1255,y:u*u*u*714+3*u*u*t*760+3*u*t*t*433+t*t*t*495};};
   return <AbsoluteFill style={{opacity, overflow: 'hidden', background: 'radial-gradient(ellipse at 47% 62%, #1b3139 0%, #0b0f19 70%)'}}>
     <div style={{position: 'absolute', inset: -200, transform: `translate(${pan}px, ${50+morphUp}px) scale(${scale},${compressY})`, transformOrigin: '50% 55%'}}>
       <svg viewBox="0 0 1920 1080" width="100%" height="100%">
@@ -115,11 +122,11 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
         </g>
         {/* Cable paths thread through the frame and pulse along their length */}
         <g fill="none" stroke="url(#copper)" filter="url(#lineGlow)" opacity={cables} strokeWidth="4">
-          <path d="M890 714C1050 760 1050 433 1255 495S1470 685 1630 410" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
-          <path d="M890 727C1070 775 1085 465 1276 520S1498 710 1650 438" strokeWidth="2" opacity=".72" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
-          <path d="M890 740C1100 800 1120 495 1295 545S1515 735 1673 466" strokeWidth="1.5" opacity=".48" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
+          <path d="M890 714C1050 760 1050 433 1255 495S1470 685 1630 410" strokeDasharray="900" strokeDashoffset={900*(1-Math.min(1,cables))}/>
+          <path d="M890 727C1070 775 1085 465 1276 520S1498 710 1650 438" strokeWidth="2" opacity=".72" strokeDasharray="900" strokeDashoffset={900*(1-Math.min(1,cables))}/>
+          <path d="M890 740C1100 800 1120 495 1295 545S1515 735 1673 466" strokeWidth="1.5" opacity=".48" strokeDasharray="900" strokeDashoffset={900*(1-Math.min(1,cables))}/>
         </g>
-        {[0,1,2,3].map(i=><circle key={i} cx={1040+i*165+Math.sin(f/12+i)*9} cy={663-i*46+Math.cos(f/11+i)*9} r={5+i%2*2} fill={i%2?C.cyan:C.gold} opacity={cables} filter="url(#lineGlow)"/>)}
+        {[0,1,2,3,4].map(i=>{const t=(Math.max(0,f-120)*.014+i*.2)%1;const pt=cablePacket(t);return <g key={i} opacity={cables}><circle cx={pt.x} cy={pt.y} r={4+(i%2)} fill={i%2?C.cyan:C.gold} filter="url(#lineGlow)"/><circle cx={pt.x} cy={pt.y} r="12" fill="none" stroke={C.cyan} strokeOpacity=".58"/></g>;})}
         {/* Grid transformer and luminous electricity arc */}
         <g transform={`translate(${1260+(1-power)*100} 280)`} opacity={power}>
           <path d="M0 185h250v212H0z" fill="#101b26" stroke="#7cb7b7" strokeOpacity=".65" strokeWidth="2"/><path d="M33 184v-45h44v45m67 0v-67h44v67" fill="none" stroke="#c8a16d" strokeWidth="4"/>
@@ -137,7 +144,7 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
     <Glass style={{position: 'absolute', bottom: 153, right: 110, width: 312, padding: '16px 19px', opacity: springIn(f,30,210), transform: `translateY(${(1-springIn(f,30,210))*22}px)`}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}><span style={{font:'10px Arial',color:C.cyan,letterSpacing:2}}>INDUSTRIAL OUTPUT</span><span style={{font:'10px Arial',color:C.muted}}>FINLAND · 1920s</span></div>
       <div style={{font:'21px Georgia',color:C.ivory,marginTop:6}}>A nation electrified</div>
-      <svg viewBox="0 0 280 66" width="100%" height="66" style={{marginTop:9,overflow:'visible'}}><path d="M0 58H280" fill="none" stroke="#63818a" strokeOpacity=".4"/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3" fill="none" stroke="#69e4f5" strokeWidth="2.5" strokeDasharray="210" strokeDashoffset={interpolate(f,[210,246],[210,0],clamp)} style={{filter:'drop-shadow(0 0 5px #69e4f5)'}}/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3 L279 62 L4 62Z" fill="#69e4f5" fillOpacity=".08"/></svg>
+      <svg viewBox="0 0 280 66" width="100%" height="66" style={{marginTop:9,overflow:'visible'}}><path d="M0 58H280" fill="none" stroke="#63818a" strokeOpacity=".4"/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3" fill="none" stroke="#69e4f5" strokeWidth="2.5" strokeDasharray="210" strokeDashoffset={210*(1-Math.min(1,outputGraph))} style={{filter:'drop-shadow(0 0 5px #69e4f5)'}}/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3 L279 62 L4 62Z" fill="#69e4f5" fillOpacity=".08"/></svg>
     </Glass>
     <Caption frame={frame} fps={30} start={180} end={247}>Decades before cell phones, Nokia evolved into an industrial powerhouse—</Caption>
     <Caption frame={frame} fps={30} start={247} end={318}>manufacturing rubber boots, cables,</Caption>
