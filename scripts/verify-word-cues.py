@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CUES = ROOT / "src" / "engine" / "agent-engine-word-cues.json"
 AUDIO_NAME = "voiceover.wav"
-DURATION_SECONDS = 45.0
+ENVELOPE = ROOT / "src" / "engine" / "agent-engine-audio-envelope.json"
 
 
 def tokens(text: str) -> list[str]:
@@ -18,6 +18,8 @@ def tokens(text: str) -> list[str]:
 
 def main() -> None:
     payload = json.loads(CUES.read_text(encoding="utf-8"))
+    envelope = json.loads(ENVELOPE.read_text(encoding="utf-8"))
+    duration_seconds = envelope["trackFrames"][0] / envelope["fps"]
     if len(payload["tracks"]) != 1:
         raise SystemExit("Expected exactly one narration track.")
     track = payload["tracks"][0]
@@ -31,12 +33,12 @@ def main() -> None:
     previous_start = -1.0
     for cue in track["words"]:
         start, end = float(cue["start"]), float(cue["end"])
-        if not (0 <= start < end <= DURATION_SECONDS):
+        if not (0 <= start < end <= duration_seconds):
             raise SystemExit(f"Out-of-range word cue: {cue}")
         if start < previous_start:
             raise SystemExit(f"Non-monotonic word order: {cue}")
         previous_start = start
-    print(f"Verified {len(track['words'])} exact script word cues in one 45-second narration track.")
+    print(f"Verified {len(track['words'])} exact script word cues in one {duration_seconds:.2f}-second narration track.")
 
 
 if __name__ == "__main__":

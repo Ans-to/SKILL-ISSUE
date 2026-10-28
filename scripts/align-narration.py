@@ -44,9 +44,21 @@ def main() -> None:
             if item.word.strip():
                 recognized.append({"text": item.word.strip(), "start": float(item.start), "end": float(item.end)})
 
-    # Whisper splits “codebases” into “co” + “-bases/-basis” and contracts
-    # “prompt to” into “prompter”. Restore the script's lexical events while
-    # keeping each merged/split event on the observed acoustic interval.
+    # Whisper splits “codebases” into “code” + “bases” and contracts “prompt to”
+    # into “prompter”. It can also hallucinate “functions” between “transitions”
+    # and “defined”; drop only that known insertion. When “infer” is emitted with
+    # zero duration after “can't”, split the combined interval at a natural boundary.
+    # Restore the script's lexical events on the observed acoustic interval.
+    for index in range(1, len(recognized)):
+        current = recognized[index]
+        previous = recognized[index - 1]
+        token = current["text"].strip().lower().strip(".,!?;:")
+        previous_token = previous["text"].strip().lower().strip(".,!?;:")
+        if token == "infer" and current["end"] <= current["start"] and previous_token in {"can't", "cant"}:
+            boundary = previous["start"] + (previous["end"] - previous["start"]) * 0.56
+            previous["end"] = boundary
+            current["start"] = boundary
+
     merged = []
     index = 0
     while index < len(recognized):
@@ -54,7 +66,11 @@ def main() -> None:
         token = current["text"].strip().lower().strip(".,!?;:")
         following = recognized[index + 1] if index + 1 < len(recognized) else None
         next_token = following["text"].strip().lower().strip(".,!?;:") if following else ""
-        if token in {"co", "code"} and next_token in {"-bases", "bases", "-basis", "basis"}:
+        previous = recognized[index - 1] if index else None
+        previous_token = previous["text"].strip().lower().strip(".,!?;:") if previous else ""
+        if token in {"function", "functions"} and previous_token == "transitions" and next_token == "defined":
+            index += 1
+        elif token in {"co", "code"} and next_token in {"-bases", "bases", "-basis", "basis"}:
             merged.append({"start": current["start"], "end": following["end"]})
             index += 2
         elif token in {"prompter", "promptto"}:

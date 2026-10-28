@@ -11,8 +11,7 @@ const ORANGE = '#ff4500';
 const WHITE = '#f4f7ff';
 const MUTED = 'rgba(244,247,255,.42)';
 const FPS = 30;
-const DURATION_SECONDS = 45;
-const DURATION_FRAMES = FPS * DURATION_SECONDS;
+const DURATION_FRAMES = (audioEnvelope.trackFrames as number[])[0] ?? FPS * 45;
 
 type RawWord = {text: string; start: number; end: number};
 type RawTrack = {audio: string; words: RawWord[]; text: string};
@@ -331,21 +330,12 @@ const CompilerPipeline: React.FC<{frame: number; energy: number}> = ({frame, ene
   </div>;
 };
 
-const OutroPunch: React.FC<{frame: number; energy: number}> = ({frame, energy}) => {
+const OutroPunch: React.FC<{frame: number}> = ({frame}) => {
   if (frame >= OUTRO_CUT_FRAME) return <div style={{position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, rgba(255,69,0,.055), transparent 13%), radial-gradient(ellipse at center, transparent 15%, rgba(0,0,0,.99) 75%)'}}/>;
-  const buildIndex = OUTRO_BUILD_INDEX;
-  const buildCue = SCRIPT_CUES[buildIndex];
-  const words = [
-    SCRIPT_CUES[buildIndex],
-    SCRIPT_CUES[buildIndex + 1],
-    SCRIPT_CUES[buildIndex + 2],
-  ].filter((cue) => cue.startFrame <= frame);
-  const started = frame >= buildCue.startFrame;
-  const reveal = spring({frame: Math.max(0, frame - buildCue.startFrame), fps: FPS, config: {damping: 10, stiffness: 155}});
-  const scale = .72 + reveal * .4 + Math.min(.24, Math.max(0, frame - buildCue.startFrame) / (FPS * 4));
+  const buildCue = SCRIPT_CUES[OUTRO_BUILD_INDEX];
+  const buildNotStarted = frame < buildCue.startFrame;
   return <div style={{position: 'absolute', inset: '0 2% 0 29.5%', display: 'grid', placeItems: 'center'}}>
-    {!started && <svg viewBox="0 0 420 120" style={{position: 'absolute', top: '20%', left: '50%', width: 680, transform: `translateX(-50%) scale(${.82 + Math.sin(frame * .06) * .035})`, opacity: .34}}><path d="M18 85L104 34L190 85L104 111Z M104 34V72 M190 85V111 M104 72L18 120 M104 72L190 120" fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M230 38H400M230 62H360M230 86H390" stroke={WHITE} strokeOpacity=".3" strokeWidth="3"/></svg>}
-    {started && <div style={{textAlign: 'center', transform: `scale(${scale})`, fontSize: 96, lineHeight: .9, fontWeight: 950, letterSpacing: -8, textTransform: 'uppercase', textShadow: `0 0 ${20 + energy * 35}px rgba(255,69,0,.27)`}}>{words.map((cue, index) => <span key={cue.globalIndex} style={{color: index === 2 ? ORANGE : WHITE, marginRight: 24}}>{cue.text.replace(/[—-]$/, '')}</span>)}</div>}
+    {buildNotStarted && <svg viewBox="0 0 420 120" style={{position: 'absolute', top: '20%', left: '50%', width: 680, transform: `translateX(-50%) scale(${.82 + Math.sin(frame * .06) * .035})`, opacity: .34}}><path d="M18 85L104 34L190 85L104 111Z M104 34V72 M190 85V111 M104 72L18 120 M104 72L190 120" fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M230 38H400M230 62H360M230 86H390" stroke={WHITE} strokeOpacity=".3" strokeWidth="3"/></svg>}
   </div>;
 };
 
@@ -358,7 +348,7 @@ const HUD: React.FC<{frame: number; section: number; activeCue: ScriptCue | null
     <header style={{position: 'absolute', left: '31%', right: '3%', top: 34, display: 'flex', justifyContent: 'space-between', color: 'rgba(244,247,255,.72)', fontSize: 10, fontWeight: 900, letterSpacing: 3.1}}><span>LIVE / MOTION RUNTIME</span><span style={{display: 'flex', alignItems: 'center', gap: 12}}><i style={{width: 6, height: 6, borderRadius: '50%', background: activeCue ? ORANGE : MUTED, boxShadow: activeCue ? `0 0 12px ${ORANGE}` : 'none'}}/>{labels[section]} &nbsp;·&nbsp; {(frame / FPS).toFixed(2)} SEC</span></header>
     {(section === 0 || section === 3 || (section === 1 && frame >= cueAfter('break.', sectionIndices[1]).endFrame)) && <SemanticFlow frame={frame} energy={energy}/>}
 
-    {displayCue && (section < 5 || frame < SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame) && <KineticText key={displayCue.globalIndex} cue={displayCue} section={section} frame={frame}/>}
+    {displayCue && <KineticText key={displayCue.globalIndex} cue={displayCue} section={section} frame={frame}/>}
     {section === 0 && <ShockVector frame={frame} energy={energy}/>}
     <div style={{position: 'absolute', left: 72, right: 72, bottom: 40}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 9, color: 'rgba(244,247,255,.44)', fontSize: 9, fontWeight: 900, letterSpacing: 2.2}}><span>{displayCue ? `WORD / ${String(displayCue.globalIndex + 1).padStart(2, '0')}` : 'BREATH / CUT'}</span><span>{Math.round(energy * 100)}% AUDIO</span></div><div style={{height: 2, background: 'rgba(244,247,255,.14)', position: 'relative'}}><div style={{position: 'absolute', inset: '0 auto 0 0', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${WHITE}, ${ORANGE})`, boxShadow: `0 0 ${6 + energy * 12}px ${ORANGE}`}}/><i style={{position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 6 + energy * 4, height: 6 + energy * 4, borderRadius: '50%', background: ORANGE, transform: 'translate(-50%,-50%)'}}/></div></div>
   </div>;
@@ -394,7 +384,7 @@ const StoryVisuals: React.FC<{frame: number; section: number; energy: number}> =
   if (section === 2) return <AgentShiftScene frame={frame} energy={energy}/>;
   if (section === 3) return <MechanicsScene frame={frame} energy={energy}/>;
   if (section === 4) return <CompilerPipeline frame={frame} energy={energy}/>;
-  return <OutroPunch frame={frame} energy={energy}/>;
+  return <OutroPunch frame={frame}/>;
 };
 
 const TypographyLayer: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive a render-frame RMS envelope from the final 45-second narration."""
+"""Derive a render-frame RMS envelope from the full natural-speed narration."""
 from __future__ import annotations
 
 import array
@@ -15,7 +15,6 @@ AUDIO_FILE = ROOT / "public" / "agent-engine" / "voiceover.wav"
 OUTPUT = ROOT / "src" / "engine" / "agent-engine-audio-envelope.json"
 FFMPEG = ROOT / "node_modules" / "@remotion" / "compositor-linux-x64-gnu" / "ffmpeg"
 FPS = 30
-DURATION_SECONDS = 45.0
 SAMPLE_RATE = 8000
 
 
@@ -37,7 +36,8 @@ def decode(path: Path) -> tuple[list[int], int]:
 
 def main() -> None:
     samples, sample_rate = decode(AUDIO_FILE)
-    frame_count = round(DURATION_SECONDS * FPS)
+    duration_seconds = len(samples) / sample_rate
+    frame_count = math.ceil(duration_seconds * FPS)
     raw: list[float] = []
     for frame in range(frame_count):
         start = round(frame * sample_rate / FPS)

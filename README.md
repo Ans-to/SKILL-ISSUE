@@ -1,8 +1,8 @@
 # Deterministic Motion Documentaries
 
-This Remotion project contains two separate, word-synchronized films. Each uses the same independent compositing architecture: an obsidian background, an isolated Three.js depth layer, and front-facing 2D typography. The established one-minute After Effects explainer remains available alongside the new 45-second engine-first AI-agent film.
+This Remotion project contains two separate, word-synchronized films. Each uses the same independent compositing architecture: an obsidian background, an isolated Three.js depth layer, and front-facing 2D typography. The established one-minute After Effects explainer remains available alongside the engine-first AI-agent film, now using its selected natural-speed narration.
 
-## Engine-First AI Agent Documentary (45 seconds)
+## Engine-First AI Agent Documentary (about 52 seconds)
 
 The new film contrasts template-shaped agent demos with deterministic, code-driven production:
 
@@ -13,7 +13,7 @@ The new film contrasts template-shaped agent demos with deterministic, code-driv
 - **Payoff:** a fast-scrolling timeline resolves through prompt, code, frames, and MP4 stages as each is spoken.
 - **Outro:** “BUILD THE ENGINE” punches forward, then cuts to black.
 
-The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. This film uses its own 45-second narration, 91 exact word cues, and frame-level audio envelope under `public/agent-engine/` and `src/engine/agent-engine-*.json`. The generated narration was retimed by section to preserve the script while meeting the 45-second storyboard beats. Visual transitions follow the spoken-word cues at approximately 0.00, 3.00, 7.92, 15.00, 28.00, and 40.02 seconds. Every scene now follows an asymmetric 30/70 composition: a persistent left telemetry/terminal rail and a center-right visual field with atmospheric coordinate marks. `timestamps[]` drives per-word spring hits to the nearest 30 fps frame; each word dissolves after its cue, with no future-word preview.
+The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. This film uses the selected natural-speed narration, 91 exact word cues, and a frame-level audio envelope under `public/agent-engine/` and `src/engine/agent-engine-*.json`. The voiceover is not time-compressed; its decoded source is about 51.56 seconds, with the Remotion composition rounded to 51.57 seconds at 30 fps. Scene transitions follow their aligned spoken cues. Every scene uses an asymmetric 30/70 composition: a persistent left telemetry/terminal rail and a center-right visual field with atmospheric coordinate marks. `timestamps[]` drives per-word spring hits to the nearest 30 fps frame; each word dissolves after its cue, with no future-word preview.
 
 Render the new AI-agent film:
 
