@@ -1,27 +1,25 @@
-## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES
+## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES (v2)
 
-### 1. High-Retention Cinematic Visual Standards
-- **Zero Boring Layouts:** Absolutely no flat slides, static icons, or predictable corporate templates. Every scene must resemble high-end documentary essays (Johnny Harris / Polymatter style) designed for instant, continuous engagement.
-- **Macro-to-Micro Spatial Zooming:** Use continuous, smooth trigonometric camera motion (`interpolate`) to dive from wide global or country-level contexts straight down into hyper-detailed micro-elements.
-- **Kinetic Data & Spring Physics:** Linear transitions are strictly banned. All UI entrances, stat callouts, and data cards must use Remotion's `spring()` physics (`damping: 12`, `stiffness: 100`).
-- **Obsidian Dark-Mode & Glassmorphism:** Anchor all visuals in deep obsidian foundations (`#0b0f19`) paired with high-contrast neon accents, volumetric shadows, and frosted glassmorphic UI containers (`backdrop-blur`, thin 1px glowing borders).
+### 1. True 3D Spatial Camera & Macro-to-Micro Orchestration
+- **Zero Flat 2D Slides:** Absolute ban on flat fades, static panels, and boring PowerPoint-style layouts. 
+- **Physical Z-Axis Camera Travels:** The camera must utilize true 3D spatial movement (via React Three Fiber or Remotion 3D layers). When transitioning from a global view to a country or city, the camera must physically fly forward along the Z-axis (`camera.position.z`), diving smoothly from macro coordinates down into micro details.
+- **Dynamic Shape Morphing:** Elements must not pop or cut into existence. When transitioning between concepts (e.g., Globe -> Industrial Mill -> Mobile Device), shapes must organically scale, rotate, and morph into one another.
 
-### 2. High-End Vector Character & Avatar Standards
-- **Eradicate Childish Clip-Art:** Ban flat, disjointed, or cartoonish vector avatars with floating detached limbs. 
-- **Sophisticated Editorial Illustration:** Characters and focal elements must feature clean geometric proportions, mature shading, and a professional graphic-novel or high-end motion design aesthetic (resembling studios like Buck or Kurzgesagt).
-- **Procedural Motion & Lighting:** Characters must include subtle continuous micro-motion (e.g., procedural breathing using `Math.sin()`) and integrate directly into the scene's cinematic lighting with directional rim glows and gradient highlights.
+### 2. High-End Cinematic Aesthetics, Glow & Lighting
+- **Obsidian Foundation & Neon Bloom:** Anchor every frame in a deep obsidian dark-mode background (`#0b0f19`) paired with high-contrast, glowing neon vector paths.
+- **Atmospheric Glow & Shadows:** All UI cards, vector lines, and nodes must feature multi-layer box shadows and glowing filters (`filter: drop-shadow(...)` / neon bloom) so they pop off the background with a high-end Netflix/Polymatter sheen.
+- **Kinetic Spring Physics:** Linear CSS transitions are banned. All motion, camera easing, and UI entrances must use Remotion's `spring()` physics (`damping: 12`, `stiffness: 100`).
 
-### 3. Cinematic Geographic & Spatial Zooming Engine
-- **Macro-to-Micro Camera Orchestration:** Whenever a script mentions a country, region, or city, the visuals must utilize continuous spatial zooming. Never use hard cuts between locations.
-- **Dynamic Map Coordinates:** Use programmatic vector maps or 3D globe layers where camera coordinates smoothly animate using `interpolate()` to dive from a wide world view straight down into precise city-level focal points.
-- **Contextual HUD Triggers:** As the camera locks onto a city, trigger spring-physics HUD callouts (`backdrop-blur` glassmorphic cards) displaying local data synchronized precisely with the voiceover timestamp.
+### 3. Sophisticated Vector Art & Zero Cartoons
+- **Eradicate Childish Clip-Art:** Ban flat, disjointed, or cartoonish avatars with floating detached limbs. 
+- **Editorial Illustration Style:** All visual assets must use clean geometric proportions, professional graphic-novel shading, and a sleek tech-documentary aesthetic (Buck / Kurzgesagt standard).
+- **Procedural Micro-Motion:** Elements must feature continuous subtle motion (e.g., procedural breathing/pulsing using `Math.sin()`) integrated into the scene's lighting environment.
 
-### 4. The Law of Literal Visual Synchronization (Narrative-to-Visual Binding)
-- **Zero Idle Visuals:** Every single phrase, noun, statistic, and historical event spoken in the voiceover must be visually represented on screen in real-time. 
-- **Dynamic Context Shifting:** The visual composition must evolve dynamically with the audio track. Never let a single visual state or character linger static across multiple sentences.
-- **Zero Generic Fillers:** Ban generic placeholder avatars, static watermarks, or idle background grids that do not directly serve the exact word being spoken at that exact timestamp.
+### 4. The Law of Literal Visual Synchronization (Voiceover Binding)
+- **Zero Idle Visuals:** Every single noun, milestone, and keyword spoken in your voiceover track must trigger an immediate visual transformation on screen in exact time with your speech.
+- **Dynamic Context Evolution:** Never let a background or visual state linger static across multiple sentences. As the narration shifts, the entire spatial layout must evolve dynamically.
 
-### 5. Automated GitHub Actions Rendering Pipeline (Zero Local Renders)
-- **Mandatory Cloud Rendering:** Local video rendering is strictly prohibited. All final production MP4 builds must be executed via automated GitHub Actions workflows (`.github/workflows/render.yml`).
-- **CI/CD Execution & Download Link:** When a script or scene is pushed, the GitHub Action runner must execute headless Remotion rendering and package the final high-definition MP4 as a workflow artifact, ensuring an automated, direct downloadable link is provided upon completion.
+### 5. Automated GitHub Actions Rendering Pipeline
+- **Mandatory Cloud Rendering:** Local rendering is prohibited. All final production builds must execute via GitHub Actions workflows (`.github/workflows/render.yml`).
+- **Artifact Delivery:** The cloud runner must compile the high-definition MP4 and provide an automated direct download link upon completion.
 -
