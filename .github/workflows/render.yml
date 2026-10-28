@@ -36,16 +36,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules/.remotion
-          key: ${{ runner.os }}-remotion-browser-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-remotion-browser-v2-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-remotion-browser-
+            ${{ runner.os }}-remotion-browser-v2-
+
+      - name: Clear Remotion bundle cache
+        run: rm -rf node_modules/.cache/webpack
 
       - name: Prepare output directory
         run: mkdir -p out && rm -f out/nokia-documentary.mp4
 
       - name: Render MP4 in GitHub Actions
         # Remotion 4.0.539 accepts a percentage, not the literal "max"; 100% resolves to every detected CPU core.
-        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100%
+        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
 
       - name: Upload downloadable MP4 artifact
         uses: actions/upload-artifact@v4
