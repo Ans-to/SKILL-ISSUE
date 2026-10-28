@@ -7,6 +7,8 @@ export const ORANGE = '#ff4500';
 export const WHITE = '#f4f7ff';
 export const MUTED = 'rgba(244,247,255,.42)';
 export const FPS = 30;
+export const COMP_WIDTH = 1080;
+export const COMP_HEIGHT = 1920;
 export const DURATION_FRAMES = (audioEnvelope.trackFrames as number[])[0] ?? FPS * 45;
 export const envelope = audioEnvelope.energy as number[];
 

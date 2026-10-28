@@ -38,37 +38,47 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
     {id: '04', indices: [mp4Index]},
   ];
 
-  const scroll = localFrame * 16;
+  const scroll = localFrame * 14;
 
   return (
-    <div style={{position: 'absolute', left: 468, right: 48, top: 276, bottom: 40, overflow: 'hidden'}}>
-      <Panel style={{position: 'absolute', inset: 0, borderRadius: 14, padding: '22px 26px', boxSizing: 'border-box'}}>
+    <div style={{position: 'absolute', left: 44, right: 44, top: 590, bottom: 48, overflow: 'hidden'}}>
+      <Panel
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 16,
+          padding: '24px 28px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20,
+        }}
+      >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>SEQUENCE TIMELINE // DETERMINISTIC RENDER GRAPH</Micro>
           <Micro>PLAYHEAD L{String(localFrame).padStart(3, '0')} · F{String(globalFrame).padStart(4, '0')}</Micro>
         </div>
 
+        {/* Multi-track Sequence timeline */}
         <div
           style={{
-            position: 'absolute',
-            left: 26,
-            right: codeReached ? 436 : 26,
-            top: 64,
-            bottom: 90,
+            position: 'relative',
+            flex: 1,
+            minHeight: 440,
             overflow: 'hidden',
-            border: '1px solid rgba(244,247,255,.1)',
-            background: 'rgba(6,9,16,.68)',
+            border: '1px solid rgba(244,247,255,.12)',
+            background: 'rgba(6,9,16,.72)',
           }}
         >
           <div
             style={{
               position: 'absolute',
-              inset: 12,
-              transform: `translateX(${-scroll % 520}px)`,
+              inset: 14,
+              transform: `translateX(${-scroll % 480}px)`,
               display: 'grid',
               gridTemplateRows: 'repeat(6, 1fr)',
-              gap: 9,
-              width: 2200,
+              gap: 10,
+              width: 2100,
             }}
           >
             {[0, 1, 2, 3, 4, 5].map((row) => (
@@ -77,7 +87,7 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
                 style={{
                   position: 'relative',
                   border: '1px solid rgba(244,247,255,.08)',
-                  background: 'rgba(244,247,255,.015)',
+                  background: 'rgba(244,247,255,.016)',
                 }}
               >
                 {[0, 1, 2, 3, 4, 5, 6].map((slot) => {
@@ -88,10 +98,10 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
                       style={{
                         position: 'absolute',
                         left: `${slot * 14 + row * 2}%`,
-                        top: 5,
-                        bottom: 5,
+                        top: 6,
+                        bottom: 6,
                         width: `${7 + (slot % 3) * 3}%`,
-                        background: highlight ? 'rgba(255,69,0,.34)' : 'rgba(244,247,255,.13)',
+                        background: highlight ? 'rgba(255,69,0,.36)' : 'rgba(244,247,255,.14)',
                         borderLeft: highlight ? `2px solid ${ORANGE}` : 'none',
                       }}
                     />
@@ -105,80 +115,69 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
               position: 'absolute',
               top: 0,
               bottom: 0,
-              left: `${16 + progress * 68}%`,
-              width: 2,
+              left: `${14 + progress * 72}%`,
+              width: 2.5,
               background: ORANGE,
-              boxShadow: `0 0 ${14 + energy * 18}px ${ORANGE}`,
+              boxShadow: `0 0 ${16 + energy * 18}px ${ORANGE}`,
             }}
           />
         </div>
 
-        {codeReached && (
-          <div
-            style={{
-              position: 'absolute',
-              right: 26,
-              top: 64,
-              width: 392,
-              bottom: 90,
-              border: `1px solid ${ORANGE}`,
-              background: 'rgba(6,9,15,.96)',
-              boxShadow: `0 0 ${24 + energy * 24}px rgba(255,69,0,.2)`,
-              padding: 18,
-              boxSizing: 'border-box',
-              fontFamily: 'monospace',
-              fontSize: 14,
-              lineHeight: 1.65,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div>
-              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 10}}>
-                <span style={{color: ORANGE, fontSize: 11, letterSpacing: 2}}>AST // SEQUENCE COMPILER</span>
-                <span style={{color: MUTED, fontSize: 11}}>30 FPS</span>
-              </div>
-              <div style={{color: ORANGE}}>{'<Sequence from={f0} durationInFrames={df}>'}</div>
-              <div style={{paddingLeft: 16, color: WHITE}}>{'<PayoffScene />'}</div>
-              <div style={{color: ORANGE}}>{'</Sequence>'}</div>
-            </div>
-
-            {framesReached && (
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7}}>
-                {[0, 1, 2, 3].map((idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      height: 50,
-                      border: `1px solid ${mp4Active ? ORANGE : 'rgba(244,247,255,.26)'}`,
-                      background: `linear-gradient(${130 + idx * 14}deg, rgba(255,69,0,${0.14 + idx * 0.08}), rgba(244,247,255,.05))`,
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: 10,
-                      color: WHITE,
-                    }}
-                  >
-                    F{String(globalFrame - 3 + idx).padStart(4, '0')}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
+        {/* AST Compiler & Quantized 9:16 Vertical Frame Previews */}
         <div
           style={{
-            position: 'absolute',
-            left: 26,
-            right: 26,
-            bottom: 20,
-            height: 52,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 12,
+            height: 360,
+            border: `1px solid ${codeReached ? ORANGE : 'rgba(244,247,255,.14)'}`,
+            background: codeReached ? 'rgba(6,9,15,.96)' : 'rgba(6,9,15,.45)',
+            boxShadow: codeReached ? `0 0 ${24 + energy * 24}px rgba(255,69,0,.2)` : 'none',
+            padding: 22,
+            boxSizing: 'border-box',
+            fontFamily: 'monospace',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
           }}
         >
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <span style={{color: ORANGE, fontSize: 12, letterSpacing: 2.2, fontWeight: 900}}>
+              {codeReached ? 'AST // VERTICAL SEQUENCE COMPILER' : 'COMPILER // WAITING FOR CODE CUE'}
+            </span>
+            <span style={{color: MUTED, fontSize: 12}}>1080 × 1920 · 30 FPS</span>
+          </div>
+
+          {codeReached ? (
+            <div style={{fontSize: 17, lineHeight: 1.65}}>
+              <div style={{color: ORANGE}}>{'<Sequence from={f0} durationInFrames={df}>'}</div>
+              <div style={{paddingLeft: 22, color: WHITE}}>{'<PayoffScene format="1080x1920" />'}</div>
+              <div style={{color: ORANGE}}>{'</Sequence>'}</div>
+            </div>
+          ) : (
+            <div style={{height: 84, border: '1px dashed rgba(244,247,255,.14)'}} />
+          )}
+
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, height: 150}}>
+            {[0, 1, 2, 3].map((idx) => (
+              <div
+                key={idx}
+                style={{
+                  border: `1px solid ${mp4Active ? ORANGE : framesReached ? 'rgba(244,247,255,.32)' : 'rgba(244,247,255,.08)'}`,
+                  background: framesReached
+                    ? `linear-gradient(${135 + idx * 14}deg, rgba(255,69,0,${0.16 + idx * 0.08}), rgba(244,247,255,.06))`
+                    : 'rgba(244,247,255,.015)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 12,
+                  color: framesReached ? WHITE : MUTED,
+                }}
+              >
+                {framesReached ? `F${String(globalFrame - 3 + idx).padStart(4, '0')}` : '—'}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 2x2 Pipeline Stage Lock Grid */}
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, height: 152}}>
           {stages.map((stage) => {
             const matchedIdx = stage.indices.find(
               (idx) => globalFrame >= SCRIPT_CUES[idx].startFrame && globalFrame < SCRIPT_CUES[idx].endFrame,
@@ -196,19 +195,19 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
               <div
                 key={stage.id}
                 style={{
-                  border: `1px solid ${activeCue ? ORANGE : passed ? 'rgba(244,247,255,.28)' : 'rgba(244,247,255,.1)'}`,
-                  background: activeCue ? 'rgba(255,69,0,.14)' : 'rgba(244,247,255,.02)',
+                  border: `1px solid ${activeCue ? ORANGE : passed ? 'rgba(244,247,255,.3)' : 'rgba(244,247,255,.12)'}`,
+                  background: activeCue ? 'rgba(255,69,0,.15)' : 'rgba(244,247,255,.02)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0 14px',
+                  padding: '0 22px',
                   transform: `scale(${activeCue ? 0.94 + pop * 0.06 : 1})`,
                 }}
               >
-                <span style={{fontFamily: 'monospace', fontSize: 11, color: passed ? ORANGE : MUTED, letterSpacing: 2}}>
+                <span style={{fontFamily: 'monospace', fontSize: 12, color: passed ? ORANGE : MUTED, letterSpacing: 2}}>
                   STAGE {stage.id}
                 </span>
-                <span style={{fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: WHITE}}>
+                <span style={{fontFamily: 'monospace', fontSize: 20, fontWeight: 900, color: WHITE}}>
                   {activeCue ? activeCue.text : passed ? 'LOCKED' : '—'}
                 </span>
               </div>

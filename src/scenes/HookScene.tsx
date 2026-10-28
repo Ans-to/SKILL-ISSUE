@@ -18,14 +18,14 @@ import {
 import {SceneStage, SceneThreeCanvas} from './SceneStage';
 
 const HookBackground: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => {
-  const sweepX = 460 + ((localFrame * 34) % 1560);
+  const sweepX = ((localFrame * 28) % 1360) - 180;
   return (
     <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(circle at 72% 48%, rgba(255,69,0,${0.05 + energy * 0.12}), transparent 44%)`,
+          background: `radial-gradient(circle at 50% 54%, rgba(255,69,0,${0.06 + energy * 0.14}), transparent 48%)`,
         }}
       />
       <div
@@ -35,18 +35,18 @@ const HookBackground: React.FC<{localFrame: number; energy: number}> = ({localFr
           opacity: 0.14 + energy * 0.08,
           backgroundImage:
             'linear-gradient(rgba(244,247,255,.28) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.28) 1px, transparent 1px)',
-          backgroundSize: '96px 96px',
+          backgroundSize: '90px 90px',
         }}
       />
       <svg
-        viewBox="0 0 1920 1080"
+        viewBox="0 0 1080 1920"
         preserveAspectRatio="none"
-        style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.45 + energy * 0.35}}
+        style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.48 + energy * 0.35}}
       >
-        <circle cx="1380" cy="520" r="280" fill="none" stroke={WHITE} strokeOpacity=".1" strokeDasharray="4 12" />
-        <circle cx="1380" cy="520" r="185" fill="none" stroke={ORANGE} strokeOpacity=".18" />
-        <path d={`M${Math.max(460, sweepX - 380)} 520H${sweepX + 180}`} stroke={ORANGE} strokeWidth={2.2 + energy * 2.4} />
-        <circle cx={sweepX + 180} cy="520" r={5 + energy * 5} fill={ORANGE} />
+        <circle cx="540" cy="1020" r="390" fill="none" stroke={WHITE} strokeOpacity=".1" strokeDasharray="4 12" />
+        <circle cx="540" cy="1020" r="265" fill="none" stroke={ORANGE} strokeOpacity=".2" />
+        <path d={`M${sweepX - 280} 1020H${sweepX + 220}`} stroke={ORANGE} strokeWidth={2.5 + energy * 2.5} />
+        <circle cx={sweepX + 220} cy="1020" r={6 + energy * 5} fill={ORANGE} />
       </svg>
     </div>
   );
@@ -61,28 +61,28 @@ const HookThreeLayer: React.FC<{
   const spoken = sceneSpokenCues(scene, localFrame);
   const rot = localFrame * 0.012;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.2}>
-      <group position={[2.3, 0.05, 0]} rotation={[0.16, rot, -0.05]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.8}>
+      <group position={[0, -0.35, 0]} rotation={[0.16, rot, -0.05]}>
         <mesh rotation={[0.5, 0.2, rot]}>
-          <torusGeometry args={[2.65, 0.012, 8, 96]} />
-          <meshBasicMaterial color={ORANGE} transparent opacity={0.28 + energy * 0.25} />
+          <torusGeometry args={[2.55, 0.014, 8, 96]} />
+          <meshBasicMaterial color={ORANGE} transparent opacity={0.3 + energy * 0.25} />
         </mesh>
         <mesh rotation={[-0.35, rot * 0.8, 0.3]}>
-          <torusGeometry args={[1.85, 0.009, 8, 72]} />
+          <torusGeometry args={[1.75, 0.01, 8, 72]} />
           <meshBasicMaterial color={WHITE} transparent opacity={0.18 + energy * 0.18} />
         </mesh>
         {spoken.map((cue, idx) => {
           const seed = hashText(`hook:${cue.globalIndex}`);
           const angle = idx * 0.72 + (seed % 100) * 0.01;
-          const radius = 1.1 + (idx % 3) * 0.52;
+          const radius = 1.05 + (idx % 3) * 0.5;
           const active = cue.globalIndex === activeCueId;
           return (
             <mesh
               key={cue.globalIndex}
-              position={[Math.cos(angle) * radius, Math.sin(angle * 1.3) * 0.85, Math.sin(angle) * 0.85]}
+              position={[Math.cos(angle) * radius, Math.sin(angle * 1.3) * 1.1, Math.sin(angle) * 0.85]}
             >
-              <sphereGeometry args={[active ? 0.095 : 0.045, 12, 10]} />
-              <meshBasicMaterial color={active ? ORANGE : WHITE} transparent opacity={active ? 0.95 : 0.32} />
+              <sphereGeometry args={[active ? 0.1 : 0.048, 12, 10]} />
+              <meshBasicMaterial color={active ? ORANGE : WHITE} transparent opacity={active ? 0.95 : 0.34} />
             </mesh>
           );
         })}
@@ -127,19 +127,19 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
             localFrame={localFrame}
             activeCue={activeCue}
             energy={energy}
-            style={{right: 56, top: 64}}
+            style={{top: 360}}
           />
           {templateStamp && (
             <div
               style={{
                 position: 'absolute',
-                right: 56,
-                bottom: 44,
-                width: 430,
-                height: 146,
-                border: `1px dashed ${ORANGE}`,
-                background: 'rgba(255,69,0,.07)',
-                padding: 18,
+                left: 64,
+                right: 64,
+                bottom: 64,
+                height: 224,
+                border: `1.5px dashed ${ORANGE}`,
+                background: 'rgba(255,69,0,.075)',
+                padding: '24px 32px',
                 boxSizing: 'border-box',
                 transform: `scale(${0.88 + stampPop * 0.12})`,
                 display: 'flex',
@@ -147,14 +147,17 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
                 justifyContent: 'space-between',
               }}
             >
-              <Micro accent>CLONE DETECTED // ZERO ENGINE</Micro>
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <Micro accent>CLONE DETECTED // ZERO ENGINE</Micro>
+                <Micro>BOILERPLATE SHELL</Micro>
+              </div>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16}}>
                 {[0, 1, 2].map((slot) => (
                   <div
                     key={slot}
                     style={{
-                      height: 52,
-                      border: '1px solid rgba(244,247,255,.22)',
+                      height: 112,
+                      border: '1px solid rgba(244,247,255,.24)',
                       background: 'rgba(244,247,255,.04)',
                     }}
                   />

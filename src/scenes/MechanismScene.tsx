@@ -23,7 +23,7 @@ const MechanismBackground: React.FC<{energy: number}> = ({energy}) => (
       style={{
         position: 'absolute',
         inset: 0,
-        background: `radial-gradient(circle at 66% 56%, rgba(255,69,0,${0.06 + energy * 0.1}), transparent 50%)`,
+        background: `radial-gradient(circle at 50% 60%, rgba(255,69,0,${0.06 + energy * 0.12}), transparent 52%)`,
       }}
     />
     <div
@@ -33,7 +33,7 @@ const MechanismBackground: React.FC<{energy: number}> = ({energy}) => (
         opacity: 0.14,
         backgroundImage:
           'linear-gradient(rgba(244,247,255,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.35) 1px, transparent 1px), linear-gradient(rgba(244,247,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.12) 1px, transparent 1px)',
-        backgroundSize: '120px 120px, 120px 120px, 24px 24px, 24px 24px',
+        backgroundSize: '108px 108px, 108px 108px, 27px 27px, 27px 27px',
       }}
     />
   </div>
@@ -46,22 +46,22 @@ const MechanismThreeLayer: React.FC<{localFrame: number; activeIdx: number; ener
 }) => {
   const rot = localFrame * 0.01;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={12.8} opacity={0.4}>
-      <group position={[2.0, -0.35, 0]} rotation={[0.25, rot, 0.08]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.6} opacity={0.4}>
+      <group position={[0, -0.65, 0]} rotation={[0.25, rot, 0.08]}>
         <mesh>
           <dodecahedronGeometry args={[1.95, 0]} />
           <meshBasicMaterial color={ORANGE} wireframe transparent opacity={0.24 + energy * 0.22} />
         </mesh>
         <mesh rotation={[-rot * 1.2, 0.4, 0.2]}>
-          <torusGeometry args={[2.75, 0.01, 8, 96]} />
-          <meshBasicMaterial color={WHITE} transparent opacity={0.2} />
+          <torusGeometry args={[2.7, 0.012, 8, 96]} />
+          <meshBasicMaterial color={WHITE} transparent opacity={0.22} />
         </mesh>
         {[0, 1, 2, 3, 4, 5].map((node) => {
           const angle = (node / 6) * Math.PI * 2 + rot * 0.5;
           const hot = activeIdx >= 0 && activeIdx % 6 === node;
           return (
-            <mesh key={node} position={[Math.cos(angle) * 2.75, Math.sin(angle) * 1.1, Math.sin(angle) * 1.4]}>
-              <octahedronGeometry args={[hot ? 0.16 : 0.08, 0]} />
+            <mesh key={node} position={[Math.cos(angle) * 2.55, Math.sin(angle) * 1.35, Math.sin(angle) * 1.3]}>
+              <octahedronGeometry args={[hot ? 0.17 : 0.085, 0]} />
               <meshBasicMaterial color={hot ? ORANGE : WHITE} wireframe={!hot} transparent opacity={hot ? 0.95 : 0.45} />
             </mesh>
           );
@@ -72,12 +72,12 @@ const MechanismThreeLayer: React.FC<{localFrame: number; activeIdx: number; ener
 };
 
 const PRIMITIVE_SVGS: ReadonlyArray<string> = [
-  'M16 74 C52 10, 84 96, 122 38 S184 62, 232 46',
-  'M24 20 H224 V76 H24 Z M64 34 H184 V62 H64 Z',
-  'M20 48 H228 M52 24 V72 M100 32 V64 M148 24 V72 M196 32 V64',
-  'M24 72 L124 24 L224 62 M124 14 V82 M64 48 H184',
-  'M20 76 C88 76, 108 20, 228 20',
-  'M20 70 H116 V26 H228',
+  'M16 92 C68 12, 112 118, 168 44 S256 76, 324 52',
+  'M28 22 H312 V98 H28 Z M84 42 H256 V78 H84 Z',
+  'M24 60 H316 M68 28 V92 M134 38 V82 M200 28 V92 M266 38 V82',
+  'M28 92 L170 28 L312 78 M170 16 V104 M84 60 H256',
+  'M24 96 C124 96, 152 24, 316 24',
+  'M24 88 H164 V30 H316',
 ];
 
 export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.mechanism}) => {
@@ -132,17 +132,18 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
             />
           )}
 
+          {/* 2-Column x 3-Row Vertical Mathematical Primitive Matrix */}
           <div
             style={{
               position: 'absolute',
-              left: 468,
-              right: 48,
-              top: 266,
-              bottom: 128,
+              left: 44,
+              right: 44,
+              top: 586,
+              bottom: 196,
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gridTemplateRows: 'repeat(2, 1fr)',
-              gap: 18,
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gridTemplateRows: 'repeat(3, 1fr)',
+              gap: 20,
             }}
           >
             {primitiveIndices.map((cueIdx, cellIdx) => {
@@ -160,41 +161,41 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                 <div
                   key={cellIdx}
                   style={{
-                    border: `1px solid ${isCurrent ? ORANGE : isPast ? 'rgba(244,247,255,.3)' : 'rgba(244,247,255,.12)'}`,
+                    border: `1px solid ${isCurrent ? ORANGE : isPast ? 'rgba(244,247,255,.32)' : 'rgba(244,247,255,.14)'}`,
                     background: isCurrent
-                      ? 'rgba(255,69,0,.13)'
+                      ? 'rgba(255,69,0,.14)'
                       : isPast
-                        ? 'rgba(14,20,33,.84)'
-                        : 'rgba(8,11,19,.68)',
-                    padding: '18px 22px',
+                        ? 'rgba(14,20,33,.86)'
+                        : 'rgba(8,11,19,.72)',
+                    padding: '22px 26px',
                     boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     transform: `scale(${isCurrent ? 0.94 + pop * 0.06 : 1})`,
-                    boxShadow: isCurrent ? '0 0 32px rgba(255,69,0,.22)' : 'none',
+                    boxShadow: isCurrent ? '0 0 34px rgba(255,69,0,.24)' : 'none',
                   }}
                 >
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <Micro accent={isCurrent || isPast}>AXIS 0{cellIdx + 1}</Micro>
-                    <span style={{fontFamily: 'monospace', fontSize: 11, color: isCurrent ? ORANGE : MUTED}}>
+                    <span style={{fontFamily: 'monospace', fontSize: 12, color: isCurrent ? ORANGE : MUTED}}>
                       {isCurrent ? 'ACTIVE' : isPast ? 'f(t) LOCKED' : 'STANDBY'}
                     </span>
                   </div>
 
-                  <svg viewBox="0 0 248 96" style={{width: '100%', height: 110}}>
+                  <svg viewBox="0 0 340 120" style={{width: '100%', height: 145}}>
                     <path
                       d={PRIMITIVE_SVGS[cellIdx]}
                       fill="none"
-                      stroke={isCurrent ? ORANGE : isPast ? WHITE : 'rgba(244,247,255,.26)'}
-                      strokeWidth={isCurrent ? 3 : 1.8}
+                      stroke={isCurrent ? ORANGE : isPast ? WHITE : 'rgba(244,247,255,.28)'}
+                      strokeWidth={isCurrent ? 3.4 : 2}
                     />
                   </svg>
 
                   <div
                     style={{
                       fontFamily: 'monospace',
-                      fontSize: 22,
+                      fontSize: 28,
                       fontWeight: 900,
                       letterSpacing: 1,
                       color: isCurrent ? ORANGE : isPast ? WHITE : MUTED,
@@ -207,16 +208,17 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
             })}
           </div>
 
+          {/* 2x2 Deterministic Proof Grid */}
           <div
             style={{
               position: 'absolute',
-              left: 468,
-              right: 48,
-              bottom: 40,
-              height: 68,
+              left: 44,
+              right: 44,
+              bottom: 48,
+              height: 124,
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 16,
+              gridTemplateColumns: '1fr 1fr',
+              gap: 14,
             }}
           >
             {[
@@ -228,14 +230,14 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
               <div
                 key={badge.code}
                 style={{
-                  border: `1px solid ${badge.active ? ORANGE : 'rgba(244,247,255,.14)'}`,
-                  background: badge.active ? 'rgba(255,69,0,.1)' : 'rgba(8,11,19,.7)',
+                  border: `1px solid ${badge.active ? ORANGE : 'rgba(244,247,255,.15)'}`,
+                  background: badge.active ? 'rgba(255,69,0,.11)' : 'rgba(8,11,19,.75)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0 18px',
+                  padding: '0 22px',
                   fontFamily: 'monospace',
-                  fontSize: 12,
+                  fontSize: 14,
                 }}
               >
                 <span style={{color: badge.active ? ORANGE : MUTED, fontWeight: 900}}>{badge.code}</span>

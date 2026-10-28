@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Verify file-level separation, decoupled <Sequence> assembly in src/Root.tsx,
-// left-zone TelemetryHud isolation, KineticEngine snapping, and all 1,547 frames.
+// vertical 1080x1920 framing, TelemetryHud isolation, KineticEngine snapping, and all 1,547 frames.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -64,6 +64,12 @@ for (const rel of requiredFiles) {
 
 const rootSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');
 assert.ok(/export const Root\b/.test(rootSource), 'src/Root.tsx must export Root');
+assert.equal(model.COMP_WIDTH, 1080, 'COMP_WIDTH must be 1080');
+assert.equal(model.COMP_HEIGHT, 1920, 'COMP_HEIGHT must be 1920');
+assert.ok(
+  /id="EngineFirstExplainer"[\s\S]*?width=\{1080\}[\s\S]*?height=\{1920\}/.test(rootSource),
+  'EngineFirstExplainer must be configured as vertical 1080x1920 in src/Root.tsx',
+);
 assert.equal(
   (rootSource.match(/<Sequence\b/g) || []).length,
   6,
@@ -182,5 +188,5 @@ if (audioSha256 === 'fdd626ed8a3bb1af484e61588aeef72a03ae256be7171c539f53cd6b54f
 }
 
 console.log(
-  `Verified modular file tree, 6 isolated <Sequence> scenes (${SCENE_SEQUENCES.map((s) => `${s.id}:${s.from}-${s.endFrame}`).join(', ')}), all ${DURATION_FRAMES} frames, and live left-zone TelemetryHud/graph/KineticEngine updates across all ${SCRIPT_CUES.length} word onsets.`,
+  `Verified vertical 1080x1920 modular file tree, 6 isolated <Sequence> scenes (${SCENE_SEQUENCES.map((s) => `${s.id}:${s.from}-${s.endFrame}`).join(', ')}), all ${DURATION_FRAMES} frames, and live TelemetryHud/graph/KineticEngine updates across all ${SCRIPT_CUES.length} word onsets.`,
 );

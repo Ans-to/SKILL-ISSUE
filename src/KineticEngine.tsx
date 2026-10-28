@@ -46,9 +46,8 @@ export const isAccentCue = (cue: ScriptCue): boolean =>
   ACCENT_WORDS.has(normalize(cue.text));
 
 /**
- * Word-by-word timestamp-snapping kinetic engine.
+ * Vertical 1080x1920 word-by-word timestamp-snapping kinetic engine.
  * Mounted strictly inside [cue.startFrame, cue.endFrame) using spring {damping: 10, stiffness: 180}.
- * Each scene Sequence selects its own right-stage kinetic geometry with zero card collisions.
  */
 export const KineticEngine: React.FC<{
   cue: ScriptCue;
@@ -68,11 +67,12 @@ export const KineticEngine: React.FC<{
         style={{
           position: 'absolute',
           zIndex: 14,
-          left: 488,
+          left: 56,
           right: 56,
-          top: '48%',
+          top: 990,
           transform: `translateY(-50%) scale(${0.86 + reveal * 0.14})`,
-          transformOrigin: 'left center',
+          transformOrigin: 'center center',
+          textAlign: 'center',
         }}
       >
         <div
@@ -80,27 +80,28 @@ export const KineticEngine: React.FC<{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 12,
-            marginBottom: 14,
+            marginBottom: 18,
             fontFamily: 'monospace',
-            fontSize: 12,
+            fontSize: 13,
             letterSpacing: 3,
             color: accent ? ORANGE : MUTED,
           }}
         >
           <span style={{width: 24, height: 2, background: ORANGE, display: 'inline-block'}} />
           <span>CUE {wordOrder} // F{String(cue.startFrame).padStart(4, '0')}</span>
+          <span style={{width: 24, height: 2, background: ORANGE, display: 'inline-block'}} />
         </div>
         <div
           style={{
-            fontSize: 146,
+            fontSize: 138,
             fontWeight: 950,
             letterSpacing: -4.5,
-            lineHeight: 0.88,
+            lineHeight: 0.9,
             whiteSpace: 'nowrap',
             color,
             textShadow: accent
-              ? '0 0 42px rgba(255,69,0,.42), 8px 0 0 rgba(244,247,255,.16)'
-              : '0 0 28px rgba(255,69,0,.22), 6px 0 0 rgba(255,69,0,.28)',
+              ? '0 0 42px rgba(255,69,0,.44), 6px 0 0 rgba(244,247,255,.16)'
+              : '0 0 28px rgba(255,69,0,.22), 5px 0 0 rgba(255,69,0,.28)',
           }}
         >
           {cue.text}
@@ -116,29 +117,30 @@ export const KineticEngine: React.FC<{
         style={{
           position: 'absolute',
           zIndex: 14,
-          left: 468,
-          right: 48,
-          bottom: 40,
-          height: 218,
-          borderTop: `2px solid ${accent ? ORANGE : 'rgba(244,247,255,.24)'}`,
-          borderBottom: '1px solid rgba(244,247,255,.12)',
-          background: 'linear-gradient(90deg, rgba(11,15,25,.95), rgba(16,22,36,.88) 55%, rgba(11,15,25,.95))',
+          left: 44,
+          right: 44,
+          bottom: 48,
+          height: 310,
+          borderTop: `3px solid ${accent ? ORANGE : 'rgba(244,247,255,.26)'}`,
+          borderBottom: '1px solid rgba(244,247,255,.14)',
+          background: 'linear-gradient(180deg, rgba(16,22,36,.94), rgba(8,11,19,.96))',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 36px',
+          padding: '24px 36px',
           boxSizing: 'border-box',
         }}
       >
-        <div style={{fontFamily: 'monospace', fontSize: 11, letterSpacing: 2.4, color: MUTED}}>
-          <div style={{color: ORANGE, fontWeight: 900, marginBottom: 6}}>AUDIT // TOKEN {wordOrder}</div>
-          <div>F{String(cue.startFrame).padStart(4, '0')}–F{String(cue.endFrame).padStart(4, '0')}</div>
+        <div style={{width: '100%', display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 12, letterSpacing: 2.4, color: MUTED}}>
+          <span style={{color: ORANGE, fontWeight: 900}}>AUDIT // TOKEN {wordOrder}</span>
+          <span>F{String(cue.startFrame).padStart(4, '0')}–F{String(cue.endFrame).padStart(4, '0')}</span>
         </div>
         <div
           style={{
             transform: `scale(${0.86 + reveal * 0.14}) translateY(${(1 - reveal) * 14}px)`,
             transformOrigin: 'center center',
-            fontSize: 112,
+            fontSize: 114,
             fontWeight: 950,
             letterSpacing: -3.5,
             lineHeight: 0.9,
@@ -149,9 +151,8 @@ export const KineticEngine: React.FC<{
         >
           {cue.text}
         </div>
-        <div style={{fontFamily: 'monospace', fontSize: 11, letterSpacing: 2.2, color: accent ? ORANGE : MUTED, textAlign: 'right'}}>
-          <div>{accent ? 'CRITICAL HIT' : 'WORD LOCKED'}</div>
-          <div style={{marginTop: 6}}>SEQUENCE 02</div>
+        <div style={{fontFamily: 'monospace', fontSize: 12, letterSpacing: 2.4, color: accent ? ORANGE : MUTED}}>
+          {accent ? 'CRITICAL FRACTURE HIT' : '30 FPS QUANTIZED LOCK'}
         </div>
       </div>
     );
@@ -164,13 +165,13 @@ export const KineticEngine: React.FC<{
         style={{
           position: 'absolute',
           zIndex: 14,
-          left: 468,
-          right: 48,
-          top: 40,
-          height: 196,
-          border: `1px solid ${accent ? ORANGE : 'rgba(244,247,255,.16)'}`,
-          background: 'linear-gradient(135deg, rgba(14,20,33,.94), rgba(8,11,19,.88))',
-          padding: '0 34px',
+          left: 44,
+          right: 44,
+          top: 336,
+          height: 222,
+          border: `1px solid ${accent ? ORANGE : 'rgba(244,247,255,.18)'}`,
+          background: 'linear-gradient(135deg, rgba(14,20,33,.95), rgba(8,11,19,.9))',
+          padding: '0 32px',
           boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
@@ -180,8 +181,8 @@ export const KineticEngine: React.FC<{
         <div style={{display: 'flex', alignItems: 'center', gap: 22}}>
           <div
             style={{
-              width: 6,
-              height: 112,
+              width: 7,
+              height: 124,
               background: accent ? ORANGE : WHITE,
               boxShadow: accent ? `0 0 20px ${ORANGE}` : 'none',
             }}
@@ -190,7 +191,7 @@ export const KineticEngine: React.FC<{
             style={{
               transform: `scale(${0.88 + reveal * 0.12}) translateX(${(1 - reveal) * -16}px)`,
               transformOrigin: 'left center',
-              fontSize: 108,
+              fontSize: 102,
               fontWeight: 950,
               letterSpacing: -3.5,
               lineHeight: 0.9,
@@ -202,9 +203,9 @@ export const KineticEngine: React.FC<{
             {cue.text}
           </div>
         </div>
-        <div style={{fontFamily: 'monospace', fontSize: 11, letterSpacing: 2.2, color: MUTED, textAlign: 'right'}}>
-          <div style={{color: ORANGE, fontWeight: 900}}>SPLIT WIREFRAME</div>
-          <div style={{marginTop: 6}}>TOKEN {wordOrder} · F{String(cue.startFrame).padStart(4, '0')}</div>
+        <div style={{fontFamily: 'monospace', fontSize: 11, letterSpacing: 2, color: MUTED, textAlign: 'right'}}>
+          <div style={{color: ORANGE, fontWeight: 900}}>TOKEN {wordOrder}</div>
+          <div style={{marginTop: 6}}>F{String(cue.startFrame).padStart(4, '0')}</div>
         </div>
       </div>
     );
@@ -217,16 +218,16 @@ export const KineticEngine: React.FC<{
         style={{
           position: 'absolute',
           zIndex: 14,
-          left: 468,
-          right: 48,
-          top: 40,
-          height: 204,
+          left: 44,
+          right: 44,
+          top: 336,
+          height: 226,
           border: `1px solid ${accent ? ORANGE : 'rgba(244,247,255,.2)'}`,
-          background: 'linear-gradient(135deg, rgba(14,20,33,.94), rgba(8,11,19,.88))',
+          background: 'linear-gradient(135deg, rgba(14,20,33,.95), rgba(8,11,19,.9))',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 36px',
+          padding: '0 32px',
           boxSizing: 'border-box',
         }}
       >
@@ -234,7 +235,7 @@ export const KineticEngine: React.FC<{
           style={{
             transform: `scale(${0.88 + reveal * 0.12})`,
             transformOrigin: 'left center',
-            fontSize: 108,
+            fontSize: 100,
             fontWeight: 950,
             letterSpacing: -3.5,
             lineHeight: 0.9,
@@ -245,9 +246,9 @@ export const KineticEngine: React.FC<{
         >
           {cue.text}
         </div>
-        <div style={{fontFamily: 'monospace', textAlign: 'right', color: MUTED, fontSize: 12, letterSpacing: 2}}>
-          <div style={{color: ORANGE, fontWeight: 900}}>f({cue.startFrame}) → WORD[{wordOrder}]</div>
-          <div style={{marginTop: 8}}>SPRING(d=10, k=180)</div>
+        <div style={{fontFamily: 'monospace', textAlign: 'right', color: MUTED, fontSize: 11, letterSpacing: 1.8}}>
+          <div style={{color: ORANGE, fontWeight: 900}}>f({cue.startFrame}) → [{wordOrder}]</div>
+          <div style={{marginTop: 8}}>d=10, k=180</div>
         </div>
       </div>
     );
@@ -260,13 +261,13 @@ export const KineticEngine: React.FC<{
         style={{
           position: 'absolute',
           zIndex: 14,
-          left: 468,
-          right: 48,
-          top: 40,
-          height: 214,
+          left: 44,
+          right: 44,
+          top: 336,
+          height: 230,
           border: `1px solid ${accent ? ORANGE : 'rgba(244,247,255,.18)'}`,
           background: 'linear-gradient(145deg, rgba(14,20,33,.95), rgba(8,11,19,.9))',
-          padding: '0 36px',
+          padding: '0 32px',
           boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
@@ -281,7 +282,7 @@ export const KineticEngine: React.FC<{
             style={{
               transform: `scale(${0.88 + reveal * 0.12})`,
               transformOrigin: 'left center',
-              fontSize: 110,
+              fontSize: 102,
               fontWeight: 950,
               letterSpacing: -3.5,
               lineHeight: 0.9,
@@ -293,24 +294,23 @@ export const KineticEngine: React.FC<{
             {cue.text}
           </div>
         </div>
-        <div style={{fontFamily: 'monospace', textAlign: 'right', fontSize: 12, letterSpacing: 2, color: MUTED}}>
-          <div style={{color: WHITE, fontWeight: 900}}>SEQUENCE 05 // PIPELINE</div>
-          <div style={{marginTop: 8, color: ORANGE}}>FRAME {String(cue.startFrame).padStart(4, '0')}</div>
+        <div style={{fontFamily: 'monospace', textAlign: 'right', fontSize: 11, letterSpacing: 2, color: MUTED}}>
+          <div style={{color: WHITE, fontWeight: 900}}>SEQUENCE 05</div>
+          <div style={{marginTop: 8, color: ORANGE}}>F{String(cue.startFrame).padStart(4, '0')}</div>
         </div>
       </div>
     );
   }
 
-  // Outro monolith centered inside right stage
   return (
     <div
       data-kinetic-variant="outro"
       style={{
         position: 'absolute',
         zIndex: 14,
-        left: 468,
-        right: 48,
-        top: '48%',
+        left: 44,
+        right: 44,
+        top: 1090,
         transform: `translateY(-50%) scale(${0.84 + reveal * 0.16})`,
         transformOrigin: 'center center',
         textAlign: 'center',
@@ -318,10 +318,10 @@ export const KineticEngine: React.FC<{
     >
       <div
         style={{
-          fontSize: 152,
+          fontSize: 138,
           fontWeight: 950,
           letterSpacing: -4.5,
-          lineHeight: 0.88,
+          lineHeight: 0.9,
           whiteSpace: 'nowrap',
           color,
           textShadow: accent
@@ -349,8 +349,8 @@ export const SceneSemanticGraph: React.FC<{
     const seed = hashText(`${scene.id}:${cue.text}:${cue.globalIndex}`);
     return {
       cue,
-      x: 36 + (index / Math.max(1, spoken.length - 1)) * 560,
-      y: 110 + ((seed % 140) - 70) * 0.65 + Math.sin(localFrame * 0.04 + index) * energy * 7,
+      x: 48 + (index / Math.max(1, spoken.length - 1)) * 880,
+      y: 120 + ((seed % 150) - 75) * 0.65 + Math.sin(localFrame * 0.04 + index) * energy * 8,
     };
   });
 
@@ -358,19 +358,20 @@ export const SceneSemanticGraph: React.FC<{
     <svg
       data-scene-semantic={scene.id}
       aria-hidden="true"
-      viewBox="0 0 640 220"
+      viewBox="0 0 980 240"
       preserveAspectRatio="xMidYMid meet"
       style={{
         position: 'absolute',
-        width: 580,
-        height: 200,
-        opacity: 0.36 + energy * 0.3,
+        left: 50,
+        width: 980,
+        height: 240,
+        opacity: 0.38 + energy * 0.3,
         overflow: 'visible',
         pointerEvents: 'none',
         ...style,
       }}
     >
-      <path d="M20 110H620" stroke={WHITE} strokeOpacity=".12" strokeDasharray="3 10" />
+      <path d="M24 120H956" stroke={WHITE} strokeOpacity=".12" strokeDasharray="3 10" />
       {points.slice(1).map((point, index) => (
         <line
           key={`edge-${point.cue.globalIndex}`}
@@ -379,8 +380,8 @@ export const SceneSemanticGraph: React.FC<{
           x2={point.x}
           y2={point.y}
           stroke={index % 2 === 0 ? ORANGE : WHITE}
-          strokeOpacity={0.22 + energy * 0.28}
-          strokeWidth={index % 2 === 0 ? 1.8 : 1.1}
+          strokeOpacity={0.24 + energy * 0.28}
+          strokeWidth={index % 2 === 0 ? 2 : 1.2}
         />
       ))}
       {points.map((point) => {
@@ -391,16 +392,16 @@ export const SceneSemanticGraph: React.FC<{
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={14 + energy * 5}
+                r={16 + energy * 5}
                 fill="none"
                 stroke={ORANGE}
-                strokeOpacity={0.55}
+                strokeOpacity={0.58}
               />
             )}
             <circle
               cx={point.x}
               cy={point.y}
-              r={active ? 7 + energy * 3 : 3.4}
+              r={active ? 8 + energy * 3 : 3.8}
               fill={active ? ORANGE : WHITE}
             />
           </g>

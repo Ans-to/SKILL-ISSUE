@@ -17,9 +17,9 @@ The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff45
 
 The telemetry, kinetic typography layout, background grid state, node constellation, and Three.js rig are isolated per `<Sequence>` so every beat unmounts cleanly before the next scene hard-cuts in—no elements, history, or geometry bleed across scene boundaries:
 
-- `src/Root.tsx` (re-exported by `src/RootComposition.tsx`) exports `Root` and `RemotionRoot`, registering the composition total frames (`1,547`) and assembling six non-overlapping `<Sequence durationInFrames={...} from={...}>` blocks.
-- `src/TelemetryHud.tsx` provides the reusable, scene-isolated left-zone telemetry HUD and scene-distinct node constellations.
-- `src/KineticEngine.tsx` handles `{damping: 10, stiffness: 180}` spring physics and word-by-word absolute-frame snapping across distinct right-stage layouts.
+- `src/Root.tsx` (re-exported by `src/RootComposition.tsx`) exports `Root` and `RemotionRoot`, registering `EngineFirstExplainer` as a vertical `1080×1920` composition (`1,547` frames at `30 fps`) and assembling six non-overlapping `<Sequence durationInFrames={...} from={...}>` blocks.
+- `src/TelemetryHud.tsx` provides the reusable, scene-isolated vertical top-dock telemetry HUD and `1080×1920` scene-distinct node constellations.
+- `src/KineticEngine.tsx` handles `{damping: 10, stiffness: 180}` spring physics and word-by-word absolute-frame snapping across distinct vertical stage layouts.
 - `src/scenes/HookScene.tsx`, `src/scenes/TwistScene.tsx`, `src/scenes/ShiftScene.tsx`, `src/scenes/MechanismScene.tsx`, `src/scenes/PayoffScene.tsx`, and `src/scenes/OutroScene.tsx` implement each isolated `<Sequence>` beat (`src/TimelineGrid.tsx` renders the Payoff timeline).
 - `src/engine/agentEngineModel.ts` owns cue lookup, non-overlapping `<Sequence>` boundaries, scene-scoped selectors, color, and audio-envelope data.
 

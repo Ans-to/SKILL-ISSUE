@@ -3,6 +3,8 @@ import {useThree} from '@react-three/fiber';
 import {ThreeCanvas} from '@remotion/three';
 import {spring} from 'remotion';
 import {
+  COMP_HEIGHT,
+  COMP_WIDTH,
   FPS,
   OBSIDIAN,
   ORANGE,
@@ -18,12 +20,12 @@ const BoundedCameraRig: React.FC<{
   energy: number;
   baseZ?: number;
   dollyRange?: number;
-  offsetX?: number;
-}> = ({localFrame, energy, baseZ = 12.8, dollyRange = 1.4, offsetX = 0}) => {
+  offsetY?: number;
+}> = ({localFrame, energy, baseZ = 13.6, dollyRange = 1.4, offsetY = 0}) => {
   const camera = useThree((state) => state.camera);
-  const dollyZ = clamp(baseZ - localFrame * 0.004 - energy * dollyRange, 9.8, 14.5);
-  camera.position.set(offsetX, 0, dollyZ);
-  camera.lookAt(offsetX * 0.35, 0, 0);
+  const dollyZ = clamp(baseZ - localFrame * 0.004 - energy * dollyRange, 10.2, 15.2);
+  camera.position.set(0, offsetY, dollyZ);
+  camera.lookAt(0, offsetY * 0.35, 0);
   return null;
 };
 
@@ -33,14 +35,14 @@ export const SceneThreeCanvas: React.FC<{
   opacity?: number;
   baseZ?: number;
   dollyRange?: number;
-  offsetX?: number;
+  offsetY?: number;
   children: React.ReactNode;
-}> = ({localFrame, energy, opacity = 0.44, baseZ = 12.8, dollyRange = 1.4, offsetX = 0, children}) => (
+}> = ({localFrame, energy, opacity = 0.44, baseZ = 13.6, dollyRange = 1.4, offsetY = 0, children}) => (
   <ThreeCanvas
-    width={1920}
-    height={1080}
+    width={COMP_WIDTH}
+    height={COMP_HEIGHT}
     dpr={1}
-    camera={{position: [offsetX, 0, baseZ], fov: 38, near: 0.1, far: 60}}
+    camera={{position: [0, offsetY, baseZ], fov: 42, near: 0.1, far: 60}}
     gl={{antialias: true, alpha: true, powerPreference: 'high-performance'}}
     style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity}}
   >
@@ -49,11 +51,11 @@ export const SceneThreeCanvas: React.FC<{
       energy={energy}
       baseZ={baseZ}
       dollyRange={dollyRange}
-      offsetX={offsetX}
+      offsetY={offsetY}
     />
     <ambientLight intensity={0.72} />
-    <pointLight position={[1.8, 2.4, 5.5]} color={ORANGE} intensity={0.85 + energy * 1.1} />
-    <pointLight position={[-2.5, -2, 4]} color={WHITE} intensity={0.35} />
+    <pointLight position={[0, 2.4, 5.8]} color={ORANGE} intensity={0.85 + energy * 1.1} />
+    <pointLight position={[-2.2, -2.5, 4.2]} color={WHITE} intensity={0.35} />
     {children}
   </ThreeCanvas>
 );
