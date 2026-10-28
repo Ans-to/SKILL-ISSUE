@@ -19,15 +19,34 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Install dependencies
         run: npm ci
+
+      # Remotion stores its downloaded browser in this project-local directory.
+      # Restore it after npm ci, which removes node_modules, and key it to the lockfile.
+      - name: Cache Remotion browser
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.remotion
+          key: ${{ runner.os }}-remotion-browser-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-remotion-browser-
+
+      - name: Prepare output directory
+        run: mkdir -p out && rm -f out/nokia-documentary.mp4
+
       - name: Render MP4 in GitHub Actions
-        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle
+        # Remotion 4.0.539 accepts a percentage, not the literal "max"; 100% resolves to every detected CPU core.
+        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100%
+
       - name: Upload downloadable MP4 artifact
         uses: actions/upload-artifact@v4
         with:
