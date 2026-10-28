@@ -9,6 +9,9 @@ export const MUTED = 'rgba(244,247,255,.42)';
 export const FPS = 30;
 export const COMP_WIDTH = 1080;
 export const COMP_HEIGHT = 1920;
+export const HUD_WIDTH = 320;
+export const STAGE_WIDTH = COMP_WIDTH - HUD_WIDTH;
+export const STAGE_HEIGHT = COMP_HEIGHT;
 export const DURATION_FRAMES = (audioEnvelope.trackFrames as number[])[0] ?? FPS * 45;
 export const envelope = audioEnvelope.energy as number[];
 

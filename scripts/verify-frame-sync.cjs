@@ -48,6 +48,7 @@ const {
 // 1. Verify required modular files exist at exact paths.
 const requiredFiles = [
   'src/Root.tsx',
+  'src/SceneContainer.tsx',
   'src/TelemetryHud.tsx',
   'src/KineticEngine.tsx',
   'src/TimelineGrid.tsx',
@@ -60,6 +61,33 @@ const requiredFiles = [
 ];
 for (const rel of requiredFiles) {
   assert.ok(fs.existsSync(path.join(__dirname, '..', rel)), `Missing required modular file: ${rel}`);
+}
+
+const sceneContainerSource = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'SceneContainer.tsx'),
+  'utf8',
+);
+assert.ok(/export const SceneContainer\b/.test(sceneContainerSource), 'SceneContainer export missing');
+assert.ok(
+  sceneContainerSource.includes("gridTemplateColumns: '320px 1fr'"),
+  "SceneContainer must enforce gridTemplateColumns: '320px 1fr'",
+);
+assert.ok(
+  sceneContainerSource.includes('<TelemetryHud />'),
+  'SceneContainer left column must mount <TelemetryHud />',
+);
+
+for (const sceneFile of [
+  'src/scenes/HookScene.tsx',
+  'src/scenes/TwistScene.tsx',
+  'src/scenes/ShiftScene.tsx',
+  'src/scenes/MechanismScene.tsx',
+  'src/scenes/PayoffScene.tsx',
+  'src/scenes/OutroScene.tsx',
+]) {
+  const src = fs.readFileSync(path.join(__dirname, '..', sceneFile), 'utf8');
+  assert.ok(src.includes('<SceneContainer>'), `${sceneFile} must inherit <SceneContainer>`);
+  assert.ok(!src.includes('<TelemetryHud'), `${sceneFile} must not duplicate <TelemetryHud> inside right column`);
 }
 
 const rootSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');

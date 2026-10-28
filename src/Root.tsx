@@ -11,6 +11,7 @@ import {ShiftScene} from './scenes/ShiftScene';
 import {MechanismScene} from './scenes/MechanismScene';
 import {PayoffScene} from './scenes/PayoffScene';
 import {OutroScene} from './scenes/OutroScene';
+export {SceneContainer} from './SceneContainer';
 
 export const Root: React.FC = () => (
   <AbsoluteFill style={{backgroundColor: OBSIDIAN, overflow: 'hidden'}}>
