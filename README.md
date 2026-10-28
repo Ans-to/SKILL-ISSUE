@@ -8,12 +8,19 @@ The new film contrasts template-shaped agent demos with deterministic, code-driv
 
 - **Hook:** spring-slamming electric-white words over a gridded, audio-reactive vector streak.
 - **Twist:** an intentionally generic dashboard is cut by a safety-orange vector slash on “break.”
-- **Shift:** split chat/terminal view reveals spoken codebase constraints as they arrive.
-- **Mechanism:** physics, isolation, and math scale into view on exact narration cues; timing/easing details and same-input/same-frame proof reveal progressively.
-- **Payoff:** a fast-scrolling timeline resolves through prompt, code, frames, and MP4 stages as each is spoken.
-- **Outro:** “BUILD THE ENGINE” punches forward, then cuts to black.
+- **Shift:** split chat/terminal views update only with the active spoken word.
+- **Mechanism:** physics, isolation, math, and timing details snap in and out on their own narration cues.
+- **Payoff:** a fast-scrolling timeline highlights prompt, code, frames, and MP4 only as each is spoken.
+- **Outro:** the final words hit individually, then cut to black.
 
-The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. This film uses the selected natural-speed narration, 91 exact word cues, and a frame-level audio envelope under `public/agent-engine/` and `src/engine/agent-engine-*.json`. The voiceover is not time-compressed; its decoded source is about 51.56 seconds, with the Remotion composition rounded to 51.57 seconds at 30 fps. Scene transitions follow their aligned spoken cues. Every scene uses an asymmetric 30/70 composition: a persistent left telemetry/terminal rail and a center-right visual field with atmospheric coordinate marks. `timestamps[]` drives per-word spring hits to the nearest 30 fps frame; each word dissolves after its cue, with no future-word preview.
+The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. The selected narration stays at natural speed: its decoded WAV is about 51.56 seconds, with a 1,547-frame composition (51.57 seconds at 30 fps). The 91 canonical words have phonetic audio alignment and a reviewed correction tied to the WAV's SHA-256. `agent-engine-frame-cues.json` stores absolute start/end frame arrays; the runtime builds a direct per-frame lookup with no accumulating timers, crossfades, previous-word echoes, or future-word previews. Every aligned boundary uses the first frame at or after its timestamp, so a 30 fps render can resolve it to within one frame rather than arbitrary subframe milliseconds. Genuine pauses remain pauses.
+
+The left telemetry rail shows only the currently active word and a numeric frame history, while the background graph changes its active node and edges on every word. The audio envelope drives motion intensity independently of word visibility. The code is split by responsibility:
+
+- `src/RootComposition.tsx` registers both compositions; `src/engine/AgentEngineMotion.tsx` assembles the independent 2D and Three.js layers.
+- `src/engine/agentEngineModel.ts` owns cue lookup, timing, color, and audio-envelope data.
+- `src/engine/KineticEngine.tsx` owns kinetic words and the spoken-word graph.
+- `src/engine/TelemetryHud.tsx` owns telemetry and word-driven graph overlays; `src/engine/TimelineGrid.tsx` owns the timeline visualization; `src/engine/StoryScenes.tsx` owns supporting scenes and 3D.
 
 Render the new AI-agent film:
 
@@ -47,11 +54,15 @@ npm run verify:sync
 npm run start
 ```
 
-Regenerate exact AI-agent narration timestamps from a local faster-whisper model:
+The sync check verifies spelling and punctuation, WAV SHA-256, every absolute frame boundary, every composition frame, and telemetry/graph changes on all 91 word onsets. To regenerate phonetic word and frame cues for the current WAV:
 
 ```sh
-python3 scripts/align-narration.py --model-dir /path/to/whisper-model
+python3 -m pip install pocketsphinx==5.1.1
+python3 scripts/align-narration-phonetic.py
+npm run verify:sync
 ```
+
+The reviewed correction in `scripts/agent-engine-align-overrides.json` is bound to this exact WAV. A different narration requires reviewing the correction and updating its audio hash before re-alignment. `scripts/align-narration.py` can optionally provide a separate faster-whisper transcript check; run the phonetic aligner afterwards to regenerate the frame map.
 
 Regenerate the AI-agent frame-level RMS envelope:
 

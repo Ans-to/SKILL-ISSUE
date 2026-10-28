@@ -1,0 +1,12 @@
+{
+  "audioSha256": "fdd626ed8a3bb1af484e61588aeef72a03ae256be7171c539f53cd6b54fb2cd1",
+  "overrides": [
+    {
+      "wordIndex": 66,
+      "text": "It",
+      "start": 37.61,
+      "end": 37.70,
+      "reason": "The forced aligner placed this short word in the tail of the preceding engine; its actual onset follows the intervening pause."
+    }
+  ]
+}

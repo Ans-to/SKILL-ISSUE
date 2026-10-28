@@ -6,7 +6,7 @@
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",
-    "verify:sync": "python3 scripts/verify-word-cues.py",
+    "verify:sync": "python3 scripts/verify-word-cues.py && node scripts/verify-frame-sync.cjs",
     "render": "remotion render src/index.ts EngineFirstExplainer out/AI-Agent-Engine-First.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite",
     "render:after-effects": "remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
   },
