@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
+import {CRIMSON, TENSION_SPRING_CONFIG} from '../EmotionalPacing';
 import {KineticEngine} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -41,7 +42,8 @@ const TwistBackground: React.FC<{broken: boolean; energy: number}> = ({broken, e
   </div>
 );
 
-const TwistThreeLayer: React.FC<{localFrame: number; broken: boolean; slash: number; energy: number}> = ({
+const TwistThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; broken: boolean; slash: number; energy: number}> = ({
+  scene,
   localFrame,
   broken,
   slash,
@@ -49,7 +51,7 @@ const TwistThreeLayer: React.FC<{localFrame: number; broken: boolean; slash: num
 }) => {
   const split = broken ? slash * 1.15 : 0;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
       <group position={[0, 0.5, 0]} rotation={[0.08, Math.sin(localFrame * 0.018) * 0.14, broken ? -0.14 * slash : 0]}>
         {[-1, 0, 1].map((idx) => (
           <mesh
@@ -83,12 +85,12 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
   const slash = spring({
     frame: Math.max(0, globalFrame - breakCue.startFrame),
     fps: FPS,
-    config: {damping: 10, stiffness: 180},
+    config: TENSION_SPRING_CONFIG,
   });
   const reveal = spring({
     frame: localFrame,
     fps: FPS,
-    config: {damping: 14, stiffness: 190},
+    config: TENSION_SPRING_CONFIG,
   });
   const realLocalFrame = WORD_START_FRAMES[realCue.globalIndex] - scene.from;
   const breakLocalFrame = WORD_START_FRAMES[breakCue.globalIndex] - scene.from;
@@ -107,7 +109,7 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
         localFrame={localFrame}
         activeCue={activeCue}
         background={<TwistBackground broken={broken} energy={energy} />}
-        threeD={<TwistThreeLayer localFrame={localFrame} broken={broken} slash={slash} energy={energy} />}
+        threeD={<TwistThreeLayer scene={scene} localFrame={localFrame} broken={broken} slash={slash} energy={energy} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
@@ -130,7 +132,7 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                   borderRadius: 18,
                   padding: '28px 32px',
                   boxSizing: 'border-box',
-                  borderColor: broken ? ORANGE : stressed ? 'rgba(255,69,0,.45)' : 'rgba(244,247,255,.16)',
+                  borderColor: broken ? CRIMSON : stressed ? 'rgba(255,69,0,.45)' : 'rgba(244,247,255,.16)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 20,
@@ -138,7 +140,7 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
               >
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                   <Micro accent>DEMO SURFACE // SAAS BOILERPLATE</Micro>
-                  <Micro>{broken ? 'STATE: FRACTURED' : stressed ? 'STATE: STRESS LOAD' : 'STATE: POLISHED MOCK'}</Micro>
+                  <Micro>{broken ? 'STATE: CRITICAL ERROR // FRACTURED' : stressed ? 'STATE: STRESS LOAD' : 'STATE: POLISHED MOCK'}</Micro>
                 </div>
 
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18}}>

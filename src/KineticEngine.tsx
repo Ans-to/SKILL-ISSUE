@@ -1,8 +1,7 @@
 import React from 'react';
-import {spring} from 'remotion';
+import {CRIMSON, computeWordMotion, getConflictImpactWeight} from './EmotionalPacing';
 import {Micro} from './TelemetryHud';
 import {
-  FPS,
   MUTED,
   ORANGE,
   WHITE,
@@ -47,8 +46,9 @@ const fitWordSize = (text: string, maxPx: number, innerWidthPx: number): number 
 
 /**
  * Full-canvas 1080x1920 word-by-word timestamp-snapping kinetic engine.
- * Uses 100% of the horizontal canvas with floating reticle accents and
- * strict {damping: 10, stiffness: 180} spring physics.
+ * Dynamically adapts kinematics to narrative emotional tone:
+ * - Tension & Urgency ('tension'): violent spring slam ({damping: 8, stiffness: 300})
+ * - Calm & Precision ('precision'): fluid easeInOutCubic glide & deliberate text fade
  */
 export const KineticEngine: React.FC<{
   cue: ScriptCue;
@@ -56,21 +56,24 @@ export const KineticEngine: React.FC<{
   globalFrame: number;
   style?: React.CSSProperties;
 }> = ({cue, variant, globalFrame, style}) => {
-  const localCueFrame = Math.max(0, globalFrame - cue.startFrame);
-  const slam = spring({
-    frame: localCueFrame,
-    fps: FPS,
-    config: {damping: 10, stiffness: 180},
-  });
+  const motion = computeWordMotion(cue, variant, globalFrame);
+  const p = motion.progress;
   const hot = isEmphasis(cue.text);
+  const conflictWeight = getConflictImpactWeight(cue.text);
   const color = hot ? ORANGE : WHITE;
-  const glow = hot ? '0 0 54px rgba(255,69,0,.48)' : '0 18px 48px rgba(0,0,0,.72)';
+  const glow =
+    conflictWeight >= 0.9
+      ? `0 0 62px rgba(225,29,72,.58), 0 0 36px rgba(255,69,0,.55)`
+      : hot
+        ? '0 0 54px rgba(255,69,0,.48)'
+        : '0 18px 48px rgba(0,0,0,.72)';
 
   if (variant === 'hook') {
     const size = fitWordSize(cue.text, 166, 940);
     return (
       <div
         data-kinetic-variant="hook"
+        data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
           left: 56,
@@ -85,11 +88,11 @@ export const KineticEngine: React.FC<{
         }}
       >
         <div style={{display: 'flex', alignItems: 'center', gap: 18, marginBottom: 22}}>
-          <span style={{width: 44, height: 2, background: ORANGE}} />
+          <span style={{width: 44, height: 2, background: conflictWeight > 0 ? CRIMSON : ORANGE}} />
           <Micro accent>
             CUE {String(cue.globalIndex + 1).padStart(2, '0')} // F{String(cue.startFrame).padStart(4, '0')}
           </Micro>
-          <span style={{width: 44, height: 2, background: ORANGE}} />
+          <span style={{width: 44, height: 2, background: conflictWeight > 0 ? CRIMSON : ORANGE}} />
         </div>
         <div
           style={{
@@ -100,7 +103,8 @@ export const KineticEngine: React.FC<{
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
-            transform: `translateY(${(1 - slam) * 38}px) scale(${0.84 + slam * 0.16})`,
+            opacity: motion.opacity,
+            transform: `translateY(${(1 - p) * 52}px) scale(${0.78 + p * 0.22})`,
           }}
         >
           {cue.text}
@@ -114,6 +118,7 @@ export const KineticEngine: React.FC<{
     return (
       <div
         data-kinetic-variant="twist"
+        data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
           left: 56,
@@ -131,8 +136,20 @@ export const KineticEngine: React.FC<{
       >
         <div style={{width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>AUDIT // TOKEN {String(cue.globalIndex + 1).padStart(2, '0')}</Micro>
-          <span style={{flex: 1, height: 1, margin: '0 20px', background: hot ? 'rgba(255,69,0,.45)' : 'rgba(244,247,255,.16)'}} />
-          <Micro>{hot ? 'CRITICAL FRACTURE' : `F${String(cue.startFrame).padStart(4, '0')}`}</Micro>
+          <span
+            style={{
+              flex: 1,
+              height: 1,
+              margin: '0 20px',
+              background:
+                conflictWeight >= 0.9
+                  ? CRIMSON
+                  : hot
+                    ? 'rgba(255,69,0,.45)'
+                    : 'rgba(244,247,255,.16)',
+            }}
+          />
+          <Micro>{conflictWeight >= 0.9 ? 'CRITICAL ERROR // FRACTURE' : hot ? 'CRITICAL FRACTURE' : `F${String(cue.startFrame).padStart(4, '0')}`}</Micro>
         </div>
         <div
           style={{
@@ -143,7 +160,8 @@ export const KineticEngine: React.FC<{
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
-            transform: `translateX(${(1 - slam) * -34}px) scale(${0.86 + slam * 0.14})`,
+            opacity: motion.opacity,
+            transform: `translateX(${(1 - p) * -46}px) scale(${0.8 + p * 0.2})`,
           }}
         >
           {cue.text}
@@ -154,9 +172,11 @@ export const KineticEngine: React.FC<{
 
   if (variant === 'shift') {
     const size = fitWordSize(cue.text, 138, 880);
+    const isTension = motion.mode === 'tension';
     return (
       <div
         data-kinetic-variant="shift"
+        data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
           left: 56,
@@ -167,8 +187,8 @@ export const KineticEngine: React.FC<{
           boxSizing: 'border-box',
           background: 'rgba(11,15,25,.66)',
           backdropFilter: 'blur(12px)',
-          borderTop: `1px solid ${hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
-          borderBottom: `1px solid ${hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
+          borderTop: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
+          borderBottom: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
           display: 'flex',
           flexDirection: 'column',
           gap: 14,
@@ -179,7 +199,7 @@ export const KineticEngine: React.FC<{
       >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>SCHEMA BRIDGE // TOKEN {String(cue.globalIndex + 1).padStart(2, '0')}</Micro>
-          <Micro>F{String(cue.startFrame).padStart(4, '0')}</Micro>
+          <Micro>{isTension ? 'CONFLICT // SLAM' : 'PRECISION // CUBIC'}</Micro>
         </div>
         <div style={{display: 'flex', alignItems: 'center', gap: 22}}>
           <div
@@ -187,7 +207,7 @@ export const KineticEngine: React.FC<{
               width: 8,
               height: 108,
               flexShrink: 0,
-              background: hot ? ORANGE : WHITE,
+              background: conflictWeight > 0 ? CRIMSON : hot ? ORANGE : WHITE,
               boxShadow: hot ? `0 0 22px ${ORANGE}` : 'none',
             }}
           />
@@ -200,7 +220,10 @@ export const KineticEngine: React.FC<{
               color,
               textShadow: glow,
               whiteSpace: 'nowrap',
-              transform: `translateY(${(1 - slam) * 24}px) scale(${0.88 + slam * 0.12})`,
+              opacity: motion.opacity,
+              transform: isTension
+                ? `translateY(${(1 - p) * 34}px) scale(${0.82 + p * 0.18})`
+                : `translateY(${(1 - p) * 14}px) scale(${0.96 + p * 0.04})`,
               transformOrigin: 'left center',
             }}
           >
@@ -216,6 +239,7 @@ export const KineticEngine: React.FC<{
     return (
       <div
         data-kinetic-variant="mechanism"
+        data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
           left: 56,
@@ -238,7 +262,7 @@ export const KineticEngine: React.FC<{
             f({cue.startFrame}) // PRIMITIVE {String(cue.globalIndex + 1).padStart(2, '0')}
           </Micro>
           <span style={{fontFamily: 'monospace', fontSize: 13, color: MUTED, letterSpacing: 1.5}}>
-            SPRING d=10 · k=180
+            EASE // CUBIC_IN_OUT
           </span>
         </div>
         <div
@@ -250,7 +274,8 @@ export const KineticEngine: React.FC<{
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
-            transform: `scale(${0.86 + slam * 0.14})`,
+            opacity: motion.opacity,
+            transform: `translateY(${(1 - p) * 16}px) scale(${0.96 + p * 0.04})`,
             transformOrigin: 'left center',
           }}
         >
@@ -265,6 +290,7 @@ export const KineticEngine: React.FC<{
     return (
       <div
         data-kinetic-variant="payoff"
+        data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
           left: 56,
@@ -284,7 +310,7 @@ export const KineticEngine: React.FC<{
       >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>COMPILER STREAM // TOKEN {String(cue.globalIndex + 1).padStart(2, '0')}</Micro>
-          <Micro>SEQ 05 · F{String(cue.startFrame).padStart(4, '0')}</Micro>
+          <Micro>EASE // CUBIC · F{String(cue.startFrame).padStart(4, '0')}</Micro>
         </div>
         <div
           style={{
@@ -295,7 +321,8 @@ export const KineticEngine: React.FC<{
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
-            transform: `translateX(${(1 - slam) * 32}px) scale(${0.88 + slam * 0.12})`,
+            opacity: motion.opacity,
+            transform: `translateX(${(1 - p) * 18}px) scale(${0.96 + p * 0.04})`,
             transformOrigin: 'left center',
           }}
         >
@@ -305,11 +332,12 @@ export const KineticEngine: React.FC<{
     );
   }
 
-  // Outro monolith lock across full 1080x1920 canvas
+  // Outro monolith lock across full 1080x1920 canvas ('tension' slam)
   const outroSize = fitWordSize(cue.text, 170, 940);
   return (
     <div
       data-kinetic-variant="outro"
+      data-kinetic-pacing={motion.mode}
       style={{
         position: 'absolute',
         left: 56,
@@ -331,7 +359,8 @@ export const KineticEngine: React.FC<{
           color,
           textShadow: glow,
           whiteSpace: 'nowrap',
-          transform: `translateY(${(1 - slam) * 30}px) scale(${0.84 + slam * 0.16})`,
+          opacity: motion.opacity,
+          transform: `translateY(${(1 - p) * 44}px) scale(${0.78 + p * 0.22})`,
         }}
       >
         {cue.text}

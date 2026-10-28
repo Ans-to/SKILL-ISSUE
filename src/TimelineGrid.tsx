@@ -1,8 +1,7 @@
 import React from 'react';
-import {spring} from 'remotion';
+import {Easing, interpolate} from 'remotion';
 import {Micro, Panel} from './TelemetryHud';
 import {
-  FPS,
   MUTED,
   ORANGE,
   SCENE_MAP,
@@ -20,10 +19,10 @@ export const TimelineGrid: React.FC<{
   energy: number;
 }> = ({localFrame, globalFrame, energy}) => {
   const scene = SCENE_MAP.payoff;
-  const enter = spring({
-    frame: localFrame,
-    fps: FPS,
-    config: {damping: 14, stiffness: 185},
+  const enter = interpolate(localFrame, [0, 18], [0, 1], {
+    easing: Easing.inOut(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
   });
   const activeCue =
     SCRIPT_CUES.find(

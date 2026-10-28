@@ -195,7 +195,7 @@ def synth_telemetry_hum() -> tuple[list[float], list[float]]:
     """
     Seamless 4.000s high-tech data stream hum loop.
     All frequencies are integer multiples of 0.25 Hz so endpoints match in phase,
-    plus a gentle 15 ms crossfade window for click-free looping at volume={0.15}.
+    with wide stereo telemetry harmonics across the full 1080x1920 canvas.
     """
     dur = 4.0
     n = int(SAMPLE_RATE * dur)
@@ -219,9 +219,96 @@ def synth_telemetry_hum() -> tuple[list[float], list[float]]:
             0.045 * math.sin(2.0 * math.pi * 990.0 * t) * ((1.0 - frame_gate) ** 3) * sub_gate
             + 0.028 * math.sin(2.0 * math.pi * 1760.0 * t) * (frame_gate ** 4)
         )
-        # Biased slightly left toward the persistent 320px TelemetryHud column
-        left.append((carrier * 1.05 + data_tone_l) * 0.62)
-        right.append((carrier * 0.82 + data_tone_r) * 0.62)
+        left.append((carrier * 0.96 + data_tone_l) * 0.62)
+        right.append((carrier * 0.94 + data_tone_r) * 0.62)
+    return left, right
+
+
+def synth_tension_riser() -> tuple[list[float], list[float]]:
+    """
+    1.20s (36-frame) ascending-pitch high-tension telemetry riser leading into
+    sentence climaxes. Sweeps fundamental 55->172 Hz and data harmonics 330->1120 Hz.
+    """
+    dur = 1.20
+    n = int(SAMPLE_RATE * dur)
+    rng = random.Random(361200)
+    left, right = [], []
+    p_low = 0.0
+    p_mid_l = 0.0
+    p_mid_r = 0.0
+    bp1 = 0.0
+    bp2 = 0.0
+    for i in range(n):
+        t = i / SAMPLE_RATE
+        u = t / dur
+        # Exponential tension curve peaking right before climax downbeat, 15ms tail taper
+        tail = min(1.0, (1.0 - u) / 0.025)
+        env = (u ** 1.65) * tail
+
+        f_low = 55.0 + 118.0 * (u ** 1.85)
+        f_mid_l = 330.0 + 780.0 * (u ** 2.0)
+        f_mid_r = 334.0 + 810.0 * (u ** 2.0)
+        p_low += 2.0 * math.pi * f_low / SAMPLE_RATE
+        p_mid_l += 2.0 * math.pi * f_mid_l / SAMPLE_RATE
+        p_mid_r += 2.0 * math.pi * f_mid_r / SAMPLE_RATE
+
+        # Accelerating pulse gate (8 Hz -> 28 Hz)
+        pulse = 0.62 + 0.38 * math.sin(2.0 * math.pi * (8.0 + 18.0 * u) * t)
+
+        white = rng.uniform(-1.0, 1.0)
+        alpha = 0.03 + 0.26 * (u ** 1.7)
+        bp1 += alpha * (white - bp1)
+        bp2 += alpha * (bp1 - bp2)
+        air = (bp1 - bp2) * 0.85
+
+        low = math.sin(p_low) * 0.46 + 0.18 * math.sin(2.0 * p_low)
+        sig_l = env * (low + 0.24 * math.sin(p_mid_l) * pulse + air * 0.44)
+        sig_r = env * (low + 0.24 * math.sin(p_mid_r) * pulse - air * 0.44)
+        left.append(sig_l * 0.78)
+        right.append(sig_r * 0.78)
+    return left, right
+
+
+def synth_sub_drop() -> tuple[list[float], list[float]]:
+    """
+    0.68s (20-frame) heavy cinematic sub-bass drop synced to sentence climaxes.
+    Exponentially drops from 98 Hz -> 31 Hz with upper-bass harmonic translation
+    and clean zero-crossing decay.
+    """
+    dur = 0.68
+    n = int(SAMPLE_RATE * dur)
+    rng = random.Random(980031)
+    left, right = [], []
+    p_sub = 0.0
+    p_punch = 0.0
+    lp = 0.0
+    for i in range(n):
+        t = i / SAMPLE_RATE
+        u = t / dur
+        attack = min(1.0, i / (SAMPLE_RATE * 0.0022))
+        release = min(1.0, (1.0 - u) / 0.08)
+        env_sub = attack * math.exp(-t / 0.28) * release
+        env_punch = attack * math.exp(-t / 0.026)
+
+        f_sub = 31.0 + 67.0 * math.exp(-t / 0.075)
+        f_punch = 140.0 + 280.0 * math.exp(-t / 0.014)
+        p_sub += 2.0 * math.pi * f_sub / SAMPLE_RATE
+        p_punch += 2.0 * math.pi * f_punch / SAMPLE_RATE
+
+        white = rng.uniform(-1.0, 1.0)
+        lp = 0.82 * lp + 0.18 * white
+        thump_air = (white - lp) * math.exp(-t / 0.012) * 0.26
+
+        # Pure mono-compatible sub core + subtle stereo transient width
+        sub_core = (
+            0.66 * math.sin(p_sub)
+            + 0.22 * math.sin(2.0 * p_sub)
+            + 0.07 * math.tanh(2.2 * math.sin(p_sub))
+        ) * env_sub
+        punch = math.sin(p_punch) * env_punch * 0.28
+
+        left.append((sub_core + punch + thump_air) * 0.84)
+        right.append((sub_core + punch - thump_air * 0.6) * 0.84)
     return left, right
 
 
@@ -232,6 +319,8 @@ def main() -> None:
         "whoosh.mp3": synth_whoosh(),
         "slash-impact.mp3": synth_slash_impact(),
         "telemetry-hum.mp3": synth_telemetry_hum(),
+        "tension-riser.mp3": synth_tension_riser(),
+        "sub-drop.mp3": synth_sub_drop(),
     }
     for filename, (left, right) in assets.items():
         write_stereo_mp3(filename, left, right)

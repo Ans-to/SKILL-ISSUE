@@ -40,10 +40,10 @@ const PayoffBackground: React.FC<{localFrame: number; energy: number}> = ({local
   </div>
 );
 
-const PayoffThreeLayer: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => {
-  const travel = (localFrame * 0.06) % 1.8;
+const PayoffThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; energy: number}> = ({scene, localFrame, energy}) => {
+  const travel = (localFrame * 0.05) % 1.8;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.38}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.38}>
       <group position={[0, -0.35, 0]}>
         {[0, 1, 2, 3, 4].map((idx) => {
           const z = -idx * 1.8 + travel;
@@ -103,7 +103,7 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
         localFrame={localFrame}
         activeCue={activeCue}
         background={<PayoffBackground localFrame={localFrame} energy={energy} />}
-        threeD={<PayoffThreeLayer localFrame={localFrame} energy={energy} />}
+        threeD={<PayoffThreeLayer scene={scene} localFrame={localFrame} energy={energy} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />

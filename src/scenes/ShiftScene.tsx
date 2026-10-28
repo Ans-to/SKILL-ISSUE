@@ -55,14 +55,15 @@ const ShiftBackground: React.FC<{localFrame: number; energy: number}> = ({localF
   </div>
 );
 
-const ShiftThreeLayer: React.FC<{localFrame: number; rightActive: boolean; energy: number}> = ({
+const ShiftThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; rightActive: boolean; energy: number}> = ({
+  scene,
   localFrame,
   rightActive,
   energy,
 }) => {
   const spin = localFrame * 0.014;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.6} opacity={0.42}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.6} opacity={0.42}>
       <group position={[0, 2.25, 0]} rotation={[spin * 0.7, spin, 0]}>
         <mesh>
           <icosahedronGeometry args={[1.45, 1]} />
@@ -134,6 +135,7 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
         background={<ShiftBackground localFrame={localFrame} energy={energy} />}
         threeD={
           <ShiftThreeLayer
+            scene={scene}
             localFrame={localFrame}
             rightActive={timingHot || graphHot || constraintsHot}
             energy={energy}

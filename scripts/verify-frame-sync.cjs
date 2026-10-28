@@ -28,7 +28,27 @@ const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
 const {TelemetryHud, AtmosphericOverlays, getHudLifecycle} = require('../src/TelemetryHud.tsx');
 const {KineticEngine, SceneSemanticGraph} = require('../src/KineticEngine.tsx');
-const {SFX_PATHS, getSceneWordAudioCues, getSceneActiveAudioFrames} = require('../src/SceneAudio.tsx');
+const {
+  SFX_PATHS,
+  getSceneWordAudioCues,
+  getSceneActiveAudioFrames,
+  getSceneClimaxAudioEvents,
+  getSceneHumToneFrequency,
+  computeDynamicHumVolume,
+} = require('../src/SceneAudio.tsx');
+const {
+  classifyBrollKeyword,
+  SCENE_BROLL_BURSTS,
+  getActiveBrollBursts,
+  ContextualVectorBroll,
+} = require('../src/ContextualBroll.tsx');
+const {
+  TENSION_SPRING_CONFIG,
+  getEmotionalPacingMode,
+  getConflictImpactWeight,
+  computeWordMotion,
+  getCinematographyState,
+} = require('../src/EmotionalPacing.tsx');
 
 const {
   SCRIPT_CUES,
@@ -51,6 +71,8 @@ const requiredFiles = [
   'src/Root.tsx',
   'src/SceneContainer.tsx',
   'src/SceneAudio.tsx',
+  'src/ContextualBroll.tsx',
+  'src/EmotionalPacing.tsx',
   'src/TelemetryHud.tsx',
   'src/KineticEngine.tsx',
   'src/TimelineGrid.tsx',
@@ -128,6 +150,67 @@ for (const scene of SCENE_SEQUENCES) {
   }
 }
 assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
+
+// Verify Contextual Holographic B-Roll keyword mapping & 1-to-2s temporal flash/fade bursts.
+assert.equal(classifyBrollKeyword('AI'), 'neural');
+assert.equal(classifyBrollKeyword('Agent'), 'neural');
+assert.equal(classifyBrollKeyword('Codebase'), 'syntax');
+assert.equal(classifyBrollKeyword('Prompt'), 'syntax');
+assert.equal(classifyBrollKeyword('Servers'), 'orbital');
+assert.equal(classifyBrollKeyword('Engine'), 'orbital');
+
+let totalBrollBursts = 0;
+for (const scene of SCENE_SEQUENCES) {
+  const bursts = SCENE_BROLL_BURSTS[scene.id];
+  for (const b of bursts) {
+    assert.ok(b.durationFrames >= 16 && b.durationFrames <= 56, `Burst ${b.id} outside 1-2s window`);
+    const peakLocal = (b.startFrame + 4) - scene.from;
+    const activeAtPeak = getActiveBrollBursts(scene, peakLocal).find((x) => x.id === b.id);
+    assert.ok(activeAtPeak && activeAtPeak.opacity > 0.7, `Burst ${b.id} failed instant flash-in`);
+    const renderedBroll = renderToStaticMarkup(
+      React.createElement(ContextualVectorBroll, {scene, localFrame: peakLocal}),
+    );
+    assert.ok(renderedBroll.includes(`data-broll-kind="${b.kind}"`), `Missing vector B-roll ${b.kind}`);
+    totalBrollBursts += 1;
+  }
+  const activeAudioFrames = getSceneActiveAudioFrames(scene);
+  assert.equal(getActiveBrollBursts(scene, activeAudioFrames).length, 0, `B-roll leaked into clear window in ${scene.id}`);
+
+  // Verify climax risers & heavy sub-bass drops + dynamic hum ducking
+  const climaxes = getSceneClimaxAudioEvents(scene);
+  assert.ok(climaxes.length >= 1, `Scene ${scene.id} must have at least one climax sub-drop`);
+  for (const ev of climaxes) {
+    if (ev.riserLocalStart !== null) {
+      const preClimaxHum = computeDynamicHumVolume(scene, ev.climaxLocalFrame - 2);
+      const onDropHum = computeDynamicHumVolume(scene, ev.climaxLocalFrame + 1);
+      assert.ok(onDropHum < preClimaxHum, `Ambient hum must sidechain-duck on sub-bass drop in ${scene.id}`);
+    }
+  }
+}
+assert.ok(totalBrollBursts >= 6, 'Expected contextual B-roll bursts across neural, syntax, and orbital keywords');
+
+// Verify Emotional Pacing & Dynamic Cinematography rules.
+assert.equal(TENSION_SPRING_CONFIG.damping, 8);
+assert.equal(TENSION_SPRING_CONFIG.stiffness, 300);
+assert.equal(getEmotionalPacingMode('hook', 20), 'tension');
+assert.equal(getEmotionalPacingMode('twist', 345), 'tension');
+assert.equal(getEmotionalPacingMode('mechanism', 700), 'precision');
+assert.equal(getEmotionalPacingMode('payoff', 1180), 'precision');
+assert.equal(getConflictImpactWeight('break.'), 1.0);
+assert.equal(getConflictImpactWeight('fail'), 1.0);
+assert.equal(getConflictImpactWeight('error'), 1.0);
+assert.ok(getSceneHumToneFrequency('twist') > getSceneHumToneFrequency('mechanism'));
+
+const breakScene = sceneForFrame(343);
+const breakCinema = getCinematographyState(breakScene, 344 - breakScene.from);
+assert.notEqual(breakCinema.shakeX, 0, 'Conflict word "break." must trigger translateX screen shake');
+assert.ok(breakCinema.crimsonFlash > 0.25, 'Conflict word "break." must trigger crimson flash overlay');
+
+const mechCue = SCRIPT_CUES[45]; // "physics," in MechanismScene
+const mechStart = computeWordMotion(mechCue, 'mechanism', mechCue.startFrame);
+const mechSettled = computeWordMotion(mechCue, 'mechanism', mechCue.startFrame + 10);
+assert.equal(mechStart.mode, 'precision');
+assert.ok(mechStart.opacity < 0.25 && mechSettled.opacity === 1, 'Precision scenes must easeInOutCubic fade words');
 
 const rootSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');
 assert.ok(/export const Root\b/.test(rootSource), 'src/Root.tsx must export Root');

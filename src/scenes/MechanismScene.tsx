@@ -1,11 +1,10 @@
 import React from 'react';
-import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
+import {Audio, Easing, Sequence, interpolate, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
-  FPS,
   MUTED,
   OBSIDIAN,
   ORANGE,
@@ -42,14 +41,15 @@ const MechanismBackground: React.FC<{energy: number}> = ({energy}) => (
   </div>
 );
 
-const MechanismThreeLayer: React.FC<{localFrame: number; activeIdx: number; energy: number}> = ({
+const MechanismThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; activeIdx: number; energy: number}> = ({
+  scene,
   localFrame,
   activeIdx,
   energy,
 }) => {
-  const rot = localFrame * 0.01;
+  const rot = localFrame * 0.008;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
       <group position={[0, -0.35, 0]} rotation={[0.25, rot, 0.08]}>
         <mesh>
           <dodecahedronGeometry args={[2.05, 0]} />
@@ -88,7 +88,11 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
   const globalFrame = scene.from + localFrame;
   const activeCue = findSceneCue(scene, localFrame);
   const energy = energyAt(globalFrame);
-  const enter = spring({frame: localFrame, fps: FPS, config: {damping: 14, stiffness: 185}});
+  const enter = interpolate(localFrame, [0, 18], [0, 1], {
+    easing: Easing.inOut(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   const primitiveWords = [
     'physics,',
@@ -136,6 +140,7 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
         background={<MechanismBackground energy={energy} />}
         threeD={
           <MechanismThreeLayer
+            scene={scene}
             localFrame={localFrame}
             activeIdx={activeCue?.globalIndex ?? -1}
             energy={energy}
@@ -173,10 +178,10 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                 const isCurrent = globalFrame >= cue.startFrame && globalFrame < cue.endFrame;
                 const isPast = globalFrame >= cue.endFrame;
                 const pop = isCurrent
-                  ? spring({
-                      frame: Math.max(0, globalFrame - cue.startFrame),
-                      fps: FPS,
-                      config: {damping: 10, stiffness: 180},
+                  ? interpolate(Math.max(0, globalFrame - cue.startFrame), [0, 9], [0, 1], {
+                      easing: Easing.inOut(Easing.cubic),
+                      extrapolateLeft: 'clamp',
+                      extrapolateRight: 'clamp',
                     })
                   : 1;
                 return (

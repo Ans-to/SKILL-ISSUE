@@ -47,14 +47,15 @@ const OutroBackground: React.FC<{buildPhase: boolean; energy: number}> = ({build
   </div>
 );
 
-const OutroThreeLayer: React.FC<{localFrame: number; buildPhase: boolean; energy: number}> = ({
+const OutroThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; buildPhase: boolean; energy: number}> = ({
+  scene,
   localFrame,
   buildPhase,
   energy,
 }) => {
-  const spin = localFrame * 0.016;
+  const spin = localFrame * 0.018;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44}>
       <group position={[0, 0.15, 0]} rotation={[0.2, spin, 0.06]}>
         <mesh>
           <octahedronGeometry args={[buildPhase ? 2.1 : 1.72, 0]} />
@@ -106,7 +107,7 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
         localFrame={localFrame}
         activeCue={activeCue}
         background={<OutroBackground buildPhase={buildPhase} energy={energy} />}
-        threeD={<OutroThreeLayer localFrame={localFrame} buildPhase={buildPhase} energy={energy} />}
+        threeD={<OutroThreeLayer scene={scene} localFrame={localFrame} buildPhase={buildPhase} energy={energy} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />

@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
+import {TENSION_SPRING_CONFIG} from '../EmotionalPacing';
 import {KineticEngine, SceneSemanticGraph} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -64,7 +65,7 @@ const HookThreeLayer: React.FC<{
   const spoken = sceneSpokenCues(scene, localFrame);
   const rot = localFrame * 0.012;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.5}>
+    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5}>
       <group position={[0, 0.25, 0]} rotation={[0.16, rot, -0.05]}>
         <mesh rotation={[0.5, 0.2, rot]}>
           <torusGeometry args={[2.65, 0.014, 8, 96]} />
@@ -104,7 +105,7 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
   const stampPop = spring({
     frame: Math.max(0, globalFrame - pastedCue.startFrame),
     fps: FPS,
-    config: {damping: 10, stiffness: 180},
+    config: TENSION_SPRING_CONFIG,
   });
   const pastedLocalFrame = WORD_START_FRAMES[pastedCue.globalIndex] - scene.from;
 

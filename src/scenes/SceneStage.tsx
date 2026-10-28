@@ -1,5 +1,11 @@
 import React from 'react';
 import {ThreeCanvas} from '@remotion/three';
+import {ContextualThreeBroll, ContextualVectorBroll} from '../ContextualBroll';
+import {
+  AmbientPrecisionGrid,
+  CrimsonConflictFlashOverlay,
+  getCinematographyState,
+} from '../EmotionalPacing';
 import {
   OBSIDIAN,
   STAGE_HEIGHT,
@@ -13,8 +19,9 @@ export {SceneContainer} from '../SceneContainer';
 
 /**
  * Full-bleed 1080x1920 stage wrapper inside <SceneContainer>.
- * Separates background, Three.js WebGL depth, and 2D vector/kinetic typography
- * while enforcing clean hard-cut clears before each <Sequence> unmounts.
+ * Separates background (+ contextual holographic vector B-roll + ambient precision grids),
+ * Three.js WebGL depth, and 2D vector/kinetic typography, while applying emotional-pacing
+ * brightness/contrast curves, `translateX` conflict screen-shake jitter, and crimson flashes.
  */
 export const SceneStage: React.FC<{
   scene: SceneSpec;
@@ -25,12 +32,14 @@ export const SceneStage: React.FC<{
   typography: React.ReactNode;
 }> = ({scene, localFrame, activeCue, background, threeD, typography}) => {
   const cleared = isSceneCleared(scene, localFrame);
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <div
       data-scene-id={scene.id}
       data-scene-local-frame={localFrame}
       data-scene-cleared={cleared ? 'true' : 'false'}
+      data-pacing-mode={cinema.mode}
       data-active-word={activeCue ? activeCue.globalIndex : -1}
       style={{
         position: 'relative',
@@ -44,11 +53,34 @@ export const SceneStage: React.FC<{
     >
       {!cleared && (
         <>
-          <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>{background}</div>
-          <div style={{position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none'}}>
-            {threeD}
+          <div
+            data-stage-shake={cinema.shakeX}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              overflow: 'hidden',
+              transform:
+                cinema.shakeX !== 0
+                  ? `translateX(${cinema.shakeX}px) scale(1.012)`
+                  : undefined,
+              filter: `brightness(${cinema.brightness.toFixed(3)}) contrast(${cinema.contrast.toFixed(3)})`,
+            }}
+          >
+            <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
+              {background}
+              <AmbientPrecisionGrid opacity={cinema.ambientGridOpacity} mode={cinema.mode} />
+              <ContextualVectorBroll scene={scene} localFrame={localFrame} />
+            </div>
+            <div style={{position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none'}}>
+              {threeD}
+            </div>
+            <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>{typography}</div>
           </div>
-          <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>{typography}</div>
+
+          <CrimsonConflictFlashOverlay
+            flash={cinema.crimsonFlash}
+            conflictWord={cinema.conflictWord}
+          />
         </>
       )}
     </div>
@@ -57,15 +89,17 @@ export const SceneStage: React.FC<{
 
 /**
  * Full-canvas 1080x1920 scene-isolated Three.js WebGL camera rig.
+ * Automatically mounts contextual 3D wireframe B-roll bursts when `scene` is provided.
  */
 export const SceneThreeCanvas: React.FC<{
+  scene?: SceneSpec;
   localFrame: number;
   energy: number;
   baseZ?: number;
   fov?: number;
   opacity?: number;
   children: React.ReactNode;
-}> = ({localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.58, children}) => (
+}> = ({scene, localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.58, children}) => (
   <ThreeCanvas
     width={STAGE_WIDTH}
     height={STAGE_HEIGHT}
@@ -84,6 +118,7 @@ export const SceneThreeCanvas: React.FC<{
     style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity}}
   >
     <ambientLight intensity={0.9} />
+    {scene && <ContextualThreeBroll scene={scene} localFrame={localFrame} />}
     {children}
   </ThreeCanvas>
 );
