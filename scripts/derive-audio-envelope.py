@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO_DIR = ROOT / "public" / "audio"
-OUTPUT = ROOT / "src" / "kinetic" / "audio-envelope.json"
+OUTPUT = ROOT / "src" / "engine" / "audio-envelope.json"
 FFMPEG = ROOT / "node_modules" / "@remotion" / "compositor-linux-x64-gnu" / "ffmpeg"
 FPS = 30
 PLAYBACK_RATE = 1.0

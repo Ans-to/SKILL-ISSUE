@@ -1,18 +1,16 @@
-# Nokia: Word-Synced Kinetic Film
+# Nokia MotionEngine
 
-A 31-second Remotion documentary whose typography and procedural graphics are synchronized to word-level timestamps aligned from the supplied narration. The active spoken word drives oversized kinetic type, a live-updating node graph, motif transitions, and a measured audio-energy response. Every word cue is frame-seekable and deterministic.
+The Remotion timeline now renders exclusively through `src/engine/MotionEngine.tsx`. The engine contains three explicit layers: the obsidian background, procedural 3D word-cue graphics, and an isolated 2D kinetic-typography plane at z-index 10.
 
-## Engine layout
+## Deterministic components
 
-- `src/kinetic/word-cues.json` — verified per-word timestamps and spoken transcript for all three audio tracks.
-- `src/kinetic/timing.ts` — maps word times to composition frames and tracks active/paused narration.
-- `src/kinetic/KineticLayer.tsx` — giant exact-word typography and 2D node graph, independent of the 3D camera.
-- `src/kinetic/ProceduralWorld.tsx` — procedural Three.js graph/motifs and fixed-lens, clamped Z dolly.
-- `src/kinetic/audio-envelope.json` — deterministic RMS energy samples used to modulate motion intensity.
+- **`KineticText`** — exact active narration word, with hardcoded Remotion spring (`damping: 12`, `stiffness: 120`), 96px/900-weight type, orange/white fills, and word-aligned onset.
+- **`CinematicStack`** — background layer 1, Three.js layer 2, and isolated front-facing 2D typography at z-index 10.
+- **`SemanticFlow`** — a live graph that grows from already-started script cues; future word nodes are not exposed early.
 
-The composition is `NokiaDocumentary`, 1920×1080, 30 fps, 932 frames. The original narration speed is preserved. Only the currently spoken word and already-spoken transcript context are shown; future words are never revealed early. All editorial text remains in the independent 2D layer.
+The final render remains 1920×1080, 30 fps, with all narration at natural speed. Word-level cue data and the audio-energy envelope are stored in `src/engine/`.
 
-## Preview, align, and render
+## Preview, alignment, and render
 
 ```sh
 npm ci
@@ -21,22 +19,22 @@ npm run verify:sync
 npm run start
 ```
 
-To regenerate word-level cues after replacing narration, install `faster-whisper` and supply a local CTranslate2 Whisper model:
+Regenerate word cues after changing narration with a local faster-whisper model:
 
 ```sh
 python3 scripts/align-narration.py --model-dir /path/to/whisper-model
 ```
 
-Rebuild the frame-level RMS envelope after replacing audio:
+Regenerate the frame RMS envelope:
 
 ```sh
 python3 scripts/derive-audio-envelope.py
 ```
 
-Render locally with maximum Remotion concurrency:
+Render locally at maximum supported Remotion concurrency:
 
 ```sh
 npm run render
 ```
 
-If needed, pass a local Chromium executable with `npm run render -- --browser-executable=/path/to/chromium`. The encoded MP4 is written to `out/Nokia-Documentary.mp4`; the requested GitHub deliverable is `deliverables/Nokia-Documentary.mp4`.
+If needed, pass the local Chromium executable: `npm run render -- --browser-executable=/path/to/chromium`. Remotion 4.0.539 uses `--concurrency=100%` for its maximum; it does not accept the literal `max`. The MP4 is written to `out/Nokia-Documentary.mp4` and published in `deliverables/Nokia-Documentary.mp4`.

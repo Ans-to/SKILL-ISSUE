@@ -2,7 +2,7 @@
   "name": "nokia-documentary-remotion",
   "version": "1.0.0",
   "private": true,
-  "description": "Word-synchronized kinetic Remotion documentary about Nokia",
+  "description": "Deterministic word-synced Nokia documentary MotionEngine",
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",

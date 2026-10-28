@@ -9,7 +9,7 @@ from faster_whisper import WhisperModel
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO_DIR = ROOT / "public" / "audio"
-OUTPUT = ROOT / "src" / "kinetic" / "word-cues.json"
+OUTPUT = ROOT / "src" / "engine" / "word-cues.json"
 
 
 def main() -> None:

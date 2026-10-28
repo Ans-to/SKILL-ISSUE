@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CUES = ROOT / "src" / "kinetic" / "word-cues.json"
+CUES = ROOT / "src" / "engine" / "word-cues.json"
 DURATIONS = {"scene-1.mp3": 10.87, "scene-2.mp3": 11.08, "scene-3.mp3": 9.04}
 
 
