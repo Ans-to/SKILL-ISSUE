@@ -1,6 +1,6 @@
 # The Empire of Timber & Tech
 
-A 30-second Remotion documentary about Nokia, authored as a separated 3D world and 2D editorial layer. `src/NokiaRebuilt.tsx` owns the scene: a fixed-camera Three.js canvas renders the globe, Finnish timber mill, forest, industrial artifacts, network routes, and phone. All titles, captions, and HUD cards are DOM/CSS siblings in a dedicated absolute overlay at z-index 10; no text is placed in 3D, billboarded, or rotated with the camera.
+A 30-second Remotion documentary about Nokia, authored as a separated 3D world and 2D editorial layer. `src/NokiaRebuilt.tsx` owns the scene: a fixed-camera Three.js canvas renders the globe with neon coordinate rings and vector nodes, the Finnish timber mill, industrial artifacts, network routes, and a detailed phone. Soft cast shadows and floating dust add depth; custom SVG schematics, radar sweeps, and frosted-glass HUD panels stay in the DOM/CSS overlay at z-index 10. Editorial text is never placed in 3D or rotated with the camera.
 
 ## Preview
 
