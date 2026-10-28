@@ -1,6 +1,6 @@
 # The Empire of Timber & Tech
 
-A 30-second Remotion documentary authored as a React Three Fiber scene with `@remotion/three`. The camera performs a clamped, fixed-lens Z-axis dolly toward Nokia's 1865 mill site; mill, industrial and global-network stages morph as 3D geometry, then converge on a 3D phone. The scene uses volumetric grid cages and curves rather than flat scene planes, 3D-attached glass HUDs, spring-timed actions, CSS neon drop-shadow bloom, a depth-of-field/vignette pass and 1.35× render density for sub-pixel edge smoothing.
+A 30-second Remotion documentary authored as a React Three Fiber scene with `@remotion/three`. The camera performs a clamped, fixed-lens Z-axis dolly toward Nokia's 1865 mill site; mill, industrial and global-network stages morph as 3D geometry, then converge on a 3D phone. The scene uses volumetric grid cages and curves rather than flat scene planes, 3D-attached glass HUDs, spring-timed actions, CSS neon drop-shadow bloom, a CSS depth-of-field/vignette falloff, and 1.2× antialiased render density for sub-pixel edge smoothing.
 
 ## Preview
 

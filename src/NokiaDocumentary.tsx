@@ -2,7 +2,6 @@ import React, {useMemo, useRef} from 'react';
 import {AbsoluteFill, Audio, Easing, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {ThreeCanvas} from '@remotion/three';
 import {Html, RoundedBox} from '@react-three/drei';
-import {EffectComposer, DepthOfField, Vignette} from '@react-three/postprocessing';
 import {useFrame, useThree} from '@react-three/fiber';
 import {
   BufferGeometry,
@@ -469,10 +468,6 @@ const SceneWorld: React.FC<{frame:number}> = ({frame}) => {
     <directionalLight position={[-5,8,10]} intensity={2.25} color="#c7f0ee" castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024}/>
     <pointLight position={[0,0,10]} intensity={2.4} color="#2b9cae" distance={22}/>
     <pointLight position={[-6,1,7]} intensity={1.7} color={C.amber} distance={18}/>
-    <EffectComposer multisampling={0}>
-      <DepthOfField focusDistance={frame<180?0.09:frame<450?0.06:0.035} focalLength={0.02} bokehScale={0.7}/>
-      <Vignette eskil={false} offset={0.22} darkness={0.78}/>
-    </EffectComposer>
     <CameraRig/>
     <group scale={springAt(frame,fps,0)}>
       <group rotation={[0,globeRotation,0]}><Globe frame={frame}/></group>
@@ -504,10 +499,11 @@ const SceneWorld: React.FC<{frame:number}> = ({frame}) => {
 };
 
 export const NokiaDocumentary: React.FC = () => (
-  <AbsoluteFill style={{background:C.obsidian,overflow:'hidden',boxShadow:'inset 0 0 210px 18px rgba(0,0,0,.82)'}}>
-    <ThreeCanvas width={W} height={H} dpr={1.35} camera={{position:[0,0,18],fov:43,near:0.05,far:120}} gl={{antialias:true,alpha:true,powerPreference:'high-performance'}} shadows style={{filter:'drop-shadow(0 0 14px rgba(65,205,225,.18)) saturate(1.12) contrast(1.04)'}}>
+  <AbsoluteFill style={{background:C.obsidian,overflow:'hidden'}}>
+    <ThreeCanvas width={W} height={H} dpr={1.2} camera={{position:[0,0,18],fov:43,near:0.05,far:120}} gl={{antialias:true,alpha:true,powerPreference:'high-performance'}} shadows style={{filter:'drop-shadow(0 0 14px rgba(65,205,225,.18)) saturate(1.12) contrast(1.04)'}}>
       <SceneWorld frame={useCurrentFrame()}/>
     </ThreeCanvas>
+    <AbsoluteFill style={{pointerEvents:'none',backdropFilter:'blur(1.4px)',WebkitBackdropFilter:'blur(1.4px)',maskImage:'radial-gradient(ellipse 67% 68% at 50% 45%, transparent 43%, rgba(0,0,0,.28) 72%, #000 100%)',background:'radial-gradient(ellipse 68% 70% at 50% 45%, transparent 38%, rgba(6,10,17,.2) 72%, rgba(4,7,13,.78) 100%)',boxShadow:'inset 0 0 210px 18px rgba(0,0,0,.82)'}}/>
     <Sequence from={0} durationInFrames={180}><Audio src={staticFile('audio/scene-1.mp3')} volume={1} playbackRate={0.92}/></Sequence>
     <Sequence from={180} durationInFrames={270}><Audio src={staticFile('audio/scene-2.mp3')} volume={1} playbackRate={0.68}/></Sequence>
     <Sequence from={450} durationInFrames={450}><Audio src={staticFile('audio/scene-3.mp3')} volume={1} playbackRate={0.56}/></Sequence>
