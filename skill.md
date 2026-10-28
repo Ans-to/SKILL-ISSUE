@@ -23,5 +23,12 @@
 ## 4. LOCAL SANDBOX RENDERING & GIT AUTOMATION
 - **Max Concurrency Execution:** Always execute Remotion renders locally inside the sandbox using `--concurrency=max` for maximum multi-core speed.
 - **Auto-Sync Pipeline:** Automatically commit the finalized MP4 artifact and push it directly back to the GitHub repository upon completion.
--
+
+## 5. **Voiceover Performance and Quality**
+
+Read the approved script verbatim: no omissions, additions, paraphrasing, or ad-libs. Preserve spelling, names, and intended pronunciation.
+Choose a voice and delivery that fit the script’s audience and tone. Use clear diction, natural phrasing, expressive emphasis, and consistent character—never a flat, rushed, or robotic read.
+Keep the voiceover at natural speaking speed. Do not time-compress or stretch it to fit the video; adjust the edit or ask for approval if the duration doesn’t fit.
+Keep pauses intentional and cadence easy to follow. Prioritize clarity over speed.
+Check the complete audio for accurate wording, pronunciation, pacing, consistency, clipping, noise, and intelligibility over music or effects before syncing visuals.
 
