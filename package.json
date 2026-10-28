@@ -1,0 +1,24 @@
+{
+  "name": "nokia-documentary-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cinematic Remotion short documentary: The Empire of Timber & Tech",
+  "scripts": {
+    "start": "remotion preview src/index.ts",
+    "render": "remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "@remotion/google-fonts": "4.0.539",
+    "@remotion/media-utils": "4.0.539",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.24",
+    "@types/react-dom": "18.3.7",
+    "typescript": "5.9.3"
+  }
+}

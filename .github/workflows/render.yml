@@ -1,0 +1,37 @@
+name: Render Nokia documentary
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REMOTION_TELEMETRY_DISABLED: "1"
+
+jobs:
+  render:
+    name: Render 30-second documentary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Render MP4 in GitHub Actions
+        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p
+      - name: Upload downloadable MP4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nokia-documentary-${{ github.sha }}
+          path: out/nokia-documentary.mp4
+          if-no-files-found: error
+          retention-days: 30
