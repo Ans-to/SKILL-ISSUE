@@ -1,24 +1,27 @@
-# Remotion Documentary Engine - Studio-Grade Standard
+# Remotion Documentary Engine - Elite Cinematic Standard
 
-## 1. DYNAMIC SEMANTIC INTERPRETATION (BEYOND RIGID SCRIPT MAPPING)
-- **Zero Literal Script-Slaving:** Do not hardcode the script line-by-line into static slides or rigid visual cards. 
-- **Conceptual Visual Translation:** The agent must analyze the incoming narrative text programmatically, extract the core historical entities, data points, or dramatic shifts, and dynamically generate matching visual metaphors (e.g., technical schematics, node networks, or kinetic typography scales) that reflect the *meaning* of the words, not just echo them.
-- **Organic Flow & Pacing:** Scene changes must be driven by narrative momentum and audio pacing—breathing room must be given to heavy moments, while rapid-fire history must trigger fast, rhythmic kinetic cuts.
+## 1. STRICT SEMANTIC-TO-VISUAL SYNCHRONIZATION (ZERO DISCONNECT)
+- **Literal Narrative Coupling:** Visuals must mirror the audio stream in real-time. What the narrator speaks *must* have an exact, literal visual counterpart on screen at that precise millisecond.
+- **Dynamic Concept Mapping:** 
+  - If a timeline or workflow sequence is mentioned (e.g., "After Effects -> Layers -> Keyframes"), build a step-by-step flowchart or node graph that populates live as the words are uttered.
+  - If a metric, entity, or historical concept is named, it must manifest instantly as a high-contrast typographic callout or technical wireframe element.
+- **Audio-Beat Matching:** Scene transitions, kinetic text slams, and camera punches must align with the narration's vocal inflection and pacing.
 
-## 2. ELITE KINETIC TYPOGRAPHY & HIGH-IMPACT AESTHETIC
-- **Absolute Ban on Generic UI:** No boring static rectangles, flat cards, or default dashboard boxes.
-- **Massive Kinetic Scaling:** 
-  - Typography must dominate the frame with bold weight contrasts, tight tracking, and explosive Remotion `spring()` physics.
-  - Anchor the color palette in deep obsidian (`#0b0f19`) paired with high-contrast safety orange (`#ff4500`) and electric white text accents.
-- **Dynamic Keyword Emphasis:** Automatically parse sentence structures to highlight critical keywords in high-contrast accent colors as the voiceover hits them.
+## 2. PROCEDURAL KINETIC TYPOGRAPHY & AESTHETIC (NO TEMPLATES)
+- **Absolute Prohibition of Boring UI:** Never generate static rectangles, generic grey dashboard containers, or uninspired templates.
+- **High-Velocity Kinetic Motion:**
+  - Typography must dominate the screen using massive scale contrasts, heavy font weight shifts, tracking expansions, and crisp Spring physics (`spring()`).
+  - Text elements must stretch, warp, and slam into frame dynamically based on code-driven math, mirroring elite programmatic motion design.
+- **Cinematic Contrast & Neon Accents:** Anchor frames in deep obsidian (`#0b0f19`) paired with high-impact highlights (electric lime/green `#39ff14`, safety orange, or stark white).
 
 ## 3. CAMERA & LAYER ARCHITECTURE (ANTI-GLITCH PROTOCOL)
-- **Strict Separation of Planes:** 
-  - Layer 1: Obsidian background with radial vignette and subtle particle dust.
-  - Layer 2: 3D world elements/objects with volumetric rim-lighting.
-  - Layer 3: Pure 2D kinetic typography and HUD overlay (`position: absolute; z-index: 10`) completely decoupled from 3D rotations to prevent text-flipping or clipping.
+- **Strict Layer Separation:**
+  - Layer 1: Obsidian background with subtle grid lines and cinematic vignette.
+  - Layer 2: Procedural 3D node networks, node paths, and glowing points with depth.
+  - Layer 3: Pure 2D kinetic typography overlay (`position: absolute; z-index: 10`) completely decoupled from 3D world rotations to prevent text-flipping, overlapping, or clipping.
 
 ## 4. LOCAL SANDBOX RENDERING & GIT AUTOMATION
-- **Max Concurrency Execution:** Always render locally in the sandbox using `--concurrency=max` for maximum multi-core speed.
-- **Auto-Sync Pipeline:** Automatically commit the final MP4 artifact and push it directly back to the GitHub repository upon completion.
+- **Max Concurrency Execution:** Always execute Remotion renders locally inside the sandbox using `--concurrency=max` for maximum multi-core speed.
+- **Auto-Sync Pipeline:** Automatically commit the finalized MP4 artifact and push it directly back to the GitHub repository upon completion.
 -
+
