@@ -15,12 +15,13 @@ The new film contrasts template-shaped agent demos with deterministic, code-driv
 
 The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. The selected narration stays at natural speed: its decoded WAV is about 51.56 seconds, with a 1,547-frame composition (51.57 seconds at 30 fps). The 91 canonical words have phonetic audio alignment and a reviewed correction tied to the WAV's SHA-256. `agent-engine-frame-cues.json` stores absolute start/end frame arrays; the runtime builds a direct per-frame lookup with no accumulating timers, crossfades, previous-word echoes, or future-word previews. Every aligned boundary uses the first frame at or after its timestamp, so a 30 fps render can resolve it to within one frame rather than arbitrary subframe milliseconds. Genuine pauses remain pauses.
 
-The left telemetry rail shows only the currently active word and a numeric frame history, while the background graph changes its active node and edges on every word. The audio envelope drives motion intensity independently of word visibility. The code is split by responsibility:
+The telemetry, kinetic typography layout, background grid state, node constellation, and Three.js rig are isolated per `<Sequence>` so every beat unmounts cleanly before the next scene hard-cuts in—no elements, history, or geometry bleed across scene boundaries:
 
-- `src/RootComposition.tsx` registers both compositions; `src/engine/AgentEngineMotion.tsx` assembles the independent 2D and Three.js layers.
-- `src/engine/agentEngineModel.ts` owns cue lookup, timing, color, and audio-envelope data.
-- `src/engine/KineticEngine.tsx` owns kinetic words and the spoken-word graph.
-- `src/engine/TelemetryHud.tsx` owns telemetry and word-driven graph overlays; `src/engine/TimelineGrid.tsx` owns the timeline visualization; `src/engine/StoryScenes.tsx` owns supporting scenes and 3D.
+- `src/Root.tsx` (re-exported by `src/RootComposition.tsx`) registers both compositions and decouples `EngineFirstExplainer` into six non-overlapping `<Sequence from={...} durationInFrames={...}>` blocks.
+- `src/engine/SceneHook.tsx`, `src/engine/SceneTwist.tsx`, `src/engine/SceneShift.tsx`, `src/engine/SceneMechanism.tsx`, `src/engine/ScenePayoff.tsx`, and `src/engine/SceneOutro.tsx` implement each isolated beat, backed by `src/engine/SceneStage.tsx`.
+- `src/engine/agentEngineModel.ts` owns cue lookup, non-overlapping `<Sequence>` boundaries, scene-scoped selectors, color, and audio-envelope data.
+- `src/engine/KineticEngine.tsx` owns per-scene kinetic typography variants and the scene-isolated spoken-word graph.
+- `src/engine/TelemetryHud.tsx` owns per-scene live telemetry and scene-distinct node constellations; `src/engine/TimelineGrid.tsx` owns the Payoff sequence timeline visualization.
 
 Render the new AI-agent film:
 

@@ -1,41 +1,224 @@
 import React from 'react';
+import {spring} from 'remotion';
 import {Micro, Panel} from './TelemetryHud';
-import {MUTED, ORANGE, SCRIPT_CUES, SECTION_STARTS, WHITE, clamp, cueIndexFor, sectionIndices} from './agentEngineModel';
+import {
+  FPS,
+  MUTED,
+  ORANGE,
+  SCENE_MAP,
+  SCRIPT_CUES,
+  WHITE,
+  clamp,
+  cueIndexFor,
+} from './agentEngineModel';
 
-export const TimelineGrid: React.FC<{frame: number; energy: number}> = ({frame, energy}) => {
-  const sectionStart = sectionIndices[4];
-  const promptIndex = cueIndexFor('prompt', sectionStart);
-  const codeIndex = cueIndexFor('code', promptIndex);
-  const framesIndex = cueIndexFor('frames', codeIndex);
-  const mp4Index = cueIndexFor('MP4.', framesIndex);
+export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; energy: number}> = ({
+  localFrame,
+  globalFrame,
+  energy,
+}) => {
+  const payoffScene = SCENE_MAP.payoff;
+  const promptIndex = cueIndexFor('prompt', payoffScene.firstWordIndex);
+  const codeCommaIndex = cueIndexFor('code,', promptIndex);
+  const codeSecondIndex = cueIndexFor('code', codeCommaIndex + 1);
+  const framesCommaIndex = cueIndexFor('frames,', codeSecondIndex);
+  const framesSecondIndex = cueIndexFor('frames', framesCommaIndex + 1);
+  const mp4Index = cueIndexFor('MP4.', framesSecondIndex);
+
+  const progress = clamp(localFrame / Math.max(1, payoffScene.durationInFrames - 1), 0, 1);
+  const codeReached = globalFrame >= SCRIPT_CUES[codeCommaIndex].startFrame;
+  const framesReached = globalFrame >= SCRIPT_CUES[framesCommaIndex].startFrame;
+  const mp4Active =
+    globalFrame >= SCRIPT_CUES[mp4Index].startFrame && globalFrame < SCRIPT_CUES[mp4Index].endFrame;
+
   const stages = [
-    {label: 'PROMPT', index: promptIndex},
-    {label: 'CODE', index: codeIndex},
-    {label: 'FRAMES', index: framesIndex},
-    {label: 'MP4', index: mp4Index},
+    {id: '01', indices: [promptIndex]},
+    {id: '02', indices: [codeCommaIndex, codeSecondIndex]},
+    {id: '03', indices: [framesCommaIndex, framesSecondIndex]},
+    {id: '04', indices: [mp4Index]},
   ];
-  const elapsed = Math.max(0, frame - SECTION_STARTS[4]);
-  const progress = clamp(elapsed / Math.max(1, SECTION_STARTS[5] - SECTION_STARTS[4]), 0, 1);
-  const codeVisible = frame >= SCRIPT_CUES[codeIndex].startFrame;
-  const promptVisible = frame >= SCRIPT_CUES[promptIndex].startFrame && frame < SCRIPT_CUES[promptIndex].endFrame;
-  const framesVisible = frame >= SCRIPT_CUES[framesIndex].startFrame;
-  const mp4Visible = frame >= SCRIPT_CUES[mp4Index].startFrame && frame < SCRIPT_CUES[mp4Index].endFrame;
-  const scroll = elapsed * 21;
-  return <div style={{position: 'absolute', inset: '125px 2% 130px 30%', overflow: 'hidden'}}>
-    <Panel style={{position: 'absolute', inset: 0, borderRadius: 18, padding: 26, opacity: .78}}>
-      <div style={{display: 'flex', justifyContent: 'space-between'}}><Micro accent>TIMELINE / RENDER QUEUE</Micro><Micro>FRAME {String(Math.floor(frame)).padStart(4, '0')}</Micro></div>
-      <div style={{position: 'absolute', left: 24, right: 24, top: 74, bottom: 28, overflow: 'hidden', opacity: codeVisible ? .2 : .7}}>
-        <div style={{position: 'absolute', inset: 0, transform: `translateX(${-scroll}px)`, display: 'grid', gridTemplateRows: 'repeat(6, 1fr)', gap: 10, width: 2700}}>{[0, 1, 2, 3, 4, 5].map((row) => <div key={row} style={{position: 'relative', border: '1px solid rgba(244,247,255,.1)', background: 'rgba(244,247,255,.012)'}}>{[0, 1, 2, 3, 4, 5, 6, 7].map((block) => <i key={block} style={{position: 'absolute', left: `${block * 13 + row * 3}%`, top: 6, bottom: 6, width: `${6 + (block % 3) * 4}%`, background: block % 4 === 1 ? 'rgba(255,69,0,.3)' : 'rgba(244,247,255,.12)'}}/>)}</div>)}</div>
-        <div style={{position: 'absolute', top: 0, bottom: 0, left: '53%', width: 2, background: ORANGE, boxShadow: `0 0 15px ${ORANGE}`}}/>
-      </div>
-      <div style={{position: 'absolute', right: 35, top: 64, width: 390, height: 280, border: `1px solid rgba(255,69,0,${codeVisible ? .72 : .05})`, background: codeVisible ? 'rgba(6,9,15,.96)' : 'rgba(6,9,15,.26)', boxShadow: codeVisible ? `0 0 ${26 + energy * 28}px rgba(255,69,0,.21)` : 'none', padding: 22, fontFamily: 'monospace', fontSize: 18, lineHeight: 1.7, opacity: codeVisible ? 1 : 0, transform: `translateY(${codeVisible ? 0 : 24}px) scale(${codeVisible ? 1 : .95})`}}>
-        <div style={{color: ORANGE}}>const render = (intent) =&gt; {'{'}</div><div style={{paddingLeft: 22, color: WHITE}}>compile(intent);</div><div style={{paddingLeft: 22, color: 'rgba(244,247,255,.55)'}}>return output;</div><div style={{color: ORANGE}}>{'}'}</div>
-        <div style={{position: 'absolute', right: 14, top: 13, color: MUTED, fontSize: 9, letterSpacing: 2}}>ENGINE / LIVE</div>
-      </div>
-      {framesVisible && <div style={{position: 'absolute', right: 58, bottom: 55, display: 'flex', gap: 8, transform: `translateX(${(1 - progress) * 80}px)`}}>{[0, 1, 2, 3].map((i) => <div key={i} style={{width: 92, height: 57, border: '1px solid rgba(244,247,255,.24)', background: `linear-gradient(${135 + i * 12}deg, rgba(255,69,0,${.12 + i * .07}), rgba(244,247,255,.06))`}}/>)}</div>}
-      {mp4Visible && <div style={{position: 'absolute', right: 48, bottom: 40, width: 148, height: 88, border: `1px solid ${ORANGE}`, background: 'rgba(255,69,0,.1)', display: 'grid', placeItems: 'center', color: WHITE, fontSize: 18, fontWeight: 900, letterSpacing: 2, boxShadow: `0 0 30px rgba(255,69,0,.24)`}}>{SCRIPT_CUES[mp4Index].text}</div>}
-      {promptVisible && <div style={{position: 'absolute', left: 42, bottom: 42, color: WHITE, fontSize: 20, fontWeight: 850, letterSpacing: 1, textTransform: 'uppercase'}}><span style={{color: ORANGE}}>→</span> {SCRIPT_CUES[promptIndex].text}</div>}
-      {stages.map((stage, index) => {const cue = SCRIPT_CUES[stage.index]; const shown = frame >= cue.startFrame && frame < cue.endFrame; return <React.Fragment key={stage.label}>{index > 0 && shown && <span style={{position: 'absolute', top: 404, left: `${20 + index * 18}%`, color: ORANGE, fontSize: 26}}>→</span>}<span style={{position: 'absolute', top: 418, left: `${8 + index * 19}%`, opacity: shown ? 1 : 0, color: index === 3 ? ORANGE : WHITE, fontSize: 17, fontWeight: 900, letterSpacing: 3, textTransform: 'uppercase', textShadow: shown ? `0 0 18px rgba(255,69,0,.3)` : 'none'}}>{cue.text}</span></React.Fragment>;})}
-    </Panel>
-  </div>;
+
+  const scroll = localFrame * 16;
+
+  return (
+    <div style={{position: 'absolute', left: 56, right: 56, top: 320, bottom: 48, overflow: 'hidden'}}>
+      <Panel style={{position: 'absolute', inset: 0, borderRadius: 16, padding: '22px 28px', boxSizing: 'border-box'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <Micro accent>SEQUENCE TIMELINE // DETERMINISTIC RENDER GRAPH</Micro>
+          <Micro>PLAYHEAD L{String(localFrame).padStart(3, '0')} · F{String(globalFrame).padStart(4, '0')}</Micro>
+        </div>
+
+        {/* Scrolling 6-track <Sequence> block timeline */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 28,
+            right: codeReached ? 490 : 28,
+            top: 66,
+            bottom: 92,
+            overflow: 'hidden',
+            border: '1px solid rgba(244,247,255,.1)',
+            background: 'rgba(6,9,16,.65)',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 12,
+              transform: `translateX(${-scroll % 540}px)`,
+              display: 'grid',
+              gridTemplateRows: 'repeat(6, 1fr)',
+              gap: 9,
+              width: 2400,
+            }}
+          >
+            {[0, 1, 2, 3, 4, 5].map((row) => (
+              <div
+                key={row}
+                style={{
+                  position: 'relative',
+                  border: '1px solid rgba(244,247,255,.08)',
+                  background: 'rgba(244,247,255,.015)',
+                }}
+              >
+                {[0, 1, 2, 3, 4, 5, 6].map((slot) => {
+                  const highlight = (row + slot) % 3 === 0;
+                  return (
+                    <i
+                      key={slot}
+                      style={{
+                        position: 'absolute',
+                        left: `${slot * 14 + row * 2}%`,
+                        top: 5,
+                        bottom: 5,
+                        width: `${7 + (slot % 3) * 3}%`,
+                        background: highlight ? 'rgba(255,69,0,.34)' : 'rgba(244,247,255,.13)',
+                        borderLeft: highlight ? `2px solid ${ORANGE}` : 'none',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `${18 + progress * 64}%`,
+              width: 2,
+              background: ORANGE,
+              boxShadow: `0 0 ${14 + energy * 18}px ${ORANGE}`,
+            }}
+          />
+        </div>
+
+        {/* Deterministic compiler block — snaps in on "code," without unspoken script previews */}
+        {codeReached && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 28,
+              top: 66,
+              width: 440,
+              bottom: 92,
+              border: `1px solid ${ORANGE}`,
+              background: 'rgba(6,9,15,.96)',
+              boxShadow: `0 0 ${24 + energy * 24}px rgba(255,69,0,.2)`,
+              padding: 20,
+              boxSizing: 'border-box',
+              fontFamily: 'monospace',
+              fontSize: 15,
+              lineHeight: 1.65,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 10}}>
+                <span style={{color: ORANGE, fontSize: 11, letterSpacing: 2}}>AST // SEQUENCE COMPILER</span>
+                <span style={{color: MUTED, fontSize: 11}}>30 FPS</span>
+              </div>
+              <div style={{color: ORANGE}}>{'<Sequence from={f0} durationInFrames={df}>'}</div>
+              <div style={{paddingLeft: 18, color: WHITE}}>{'<SceneFrame tick={frame} />'}</div>
+              <div style={{color: ORANGE}}>{'</Sequence>'}</div>
+            </div>
+
+            {framesReached && (
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8}}>
+                {[0, 1, 2, 3].map((idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      height: 52,
+                      border: `1px solid ${mp4Active ? ORANGE : 'rgba(244,247,255,.26)'}`,
+                      background: `linear-gradient(${130 + idx * 14}deg, rgba(255,69,0,${0.14 + idx * 0.08}), rgba(244,247,255,.05))`,
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      color: WHITE,
+                    }}
+                  >
+                    F{String(globalFrame - 3 + idx).padStart(4, '0')}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bottom 4-step pipeline bar: spoken tokens light up ONLY during their active cue interval */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 28,
+            right: 28,
+            bottom: 20,
+            height: 54,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 14,
+          }}
+        >
+          {stages.map((stage) => {
+            const matchedIdx = stage.indices.find(
+              (idx) => globalFrame >= SCRIPT_CUES[idx].startFrame && globalFrame < SCRIPT_CUES[idx].endFrame,
+            );
+            const activeCue = matchedIdx !== undefined ? SCRIPT_CUES[matchedIdx] : null;
+            const passed = globalFrame >= SCRIPT_CUES[stage.indices[0]].startFrame;
+            const pop = activeCue
+              ? spring({
+                  frame: Math.max(0, globalFrame - activeCue.startFrame),
+                  fps: FPS,
+                  config: {damping: 10, stiffness: 180},
+                })
+              : 1;
+            return (
+              <div
+                key={stage.id}
+                style={{
+                  border: `1px solid ${activeCue ? ORANGE : passed ? 'rgba(244,247,255,.28)' : 'rgba(244,247,255,.1)'}`,
+                  background: activeCue ? 'rgba(255,69,0,.14)' : 'rgba(244,247,255,.02)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 16px',
+                  transform: `scale(${activeCue ? 0.94 + pop * 0.06 : 1})`,
+                }}
+              >
+                <span style={{fontFamily: 'monospace', fontSize: 11, color: passed ? ORANGE : MUTED, letterSpacing: 2}}>
+                  STAGE {stage.id}
+                </span>
+                <span style={{fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: WHITE}}>
+                  {activeCue ? activeCue.text : passed ? 'LOCKED' : '—'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+    </div>
+  );
 };

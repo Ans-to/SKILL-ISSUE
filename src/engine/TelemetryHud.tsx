@@ -1,72 +1,553 @@
 import React from 'react';
-import {KineticText, SemanticFlow} from './KineticEngine';
-import {DURATION_FRAMES, FPS, MUTED, ORANGE, OUTRO_CUT_FRAME, SCRIPT_CUES, WHITE, cueAfter, envelope, lastStartedCue, sectionIndices, type ScriptCue} from './agentEngineModel';
+import {
+  FPS,
+  MUTED,
+  ORANGE,
+  SCRIPT_CUES,
+  WHITE,
+  envelope,
+  isSceneCleared,
+  sceneForFrame,
+  sceneLatestCue,
+  sceneSpokenCues,
+  type SceneKey,
+  type SceneSpec,
+  type ScriptCue,
+} from './agentEngineModel';
 
-export const Panel: React.FC<{children: React.ReactNode; style?: React.CSSProperties}> = ({children, style}) => <div style={{background: 'linear-gradient(145deg, rgba(18,24,38,.96), rgba(8,11,19,.9))', border: '1px solid rgba(244,247,255,.13)', boxShadow: '0 24px 90px rgba(0,0,0,.4)', backdropFilter: 'blur(12px)', ...style}}>{children}</div>;
-export const Micro: React.FC<{children: React.ReactNode; accent?: boolean}> = ({children, accent = false}) => <span style={{fontSize: 10, fontWeight: 900, letterSpacing: 2.4, color: accent ? ORANGE : 'rgba(244,247,255,.52)', textTransform: 'uppercase'}}>{children}</span>;
+export const Panel: React.FC<{children: React.ReactNode; style?: React.CSSProperties}> = ({
+  children,
+  style,
+}) => (
+  <div
+    style={{
+      background: 'linear-gradient(145deg, rgba(16,22,36,.95), rgba(8,11,19,.91))',
+      border: '1px solid rgba(244,247,255,.15)',
+      boxShadow: '0 24px 80px rgba(0,0,0,.42)',
+      ...style,
+    }}
+  >
+    {children}
+  </div>
+);
 
-export const TelemetryRail: React.FC<{frame: number; section: number; energy: number; activeCue: ScriptCue | null}> = ({frame, section, energy, activeCue}) => {
-  if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
-  const latest = lastStartedCue(frame);
-  const history = SCRIPT_CUES.filter((cue) => cue.startFrame <= frame).slice(-8);
-  const sectionName = ['HOOK', 'TWIST', 'SHIFT', 'MECHANISM', 'PAYOFF', 'OUTRO'][section];
-  const samples = envelope.slice(Math.max(0, Math.floor(frame) - 34), Math.floor(frame) + 1);
-  const points = samples.map((value, index) => `${index * 10},${58 - value * 42}`).join(' ');
-  const cueNumber = latest ? String(latest.globalIndex + 1).padStart(2, '0') : '00';
-  return <div data-active-cue={activeCue?.globalIndex ?? -1} style={{position: 'absolute', zIndex: 12, left: '2%', top: 92, bottom: 96, width: '26vw', minWidth: 360, maxWidth: 480, pointerEvents: 'none'}}>
-    <Panel style={{height: '100%', borderRadius: 14, padding: 18, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 15, overflow: 'hidden', background: 'linear-gradient(155deg, rgba(15,21,34,.96), rgba(6,9,16,.94))', borderColor: 'rgba(244,247,255,.2)'}}>
-      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid rgba(244,247,255,.12)'}}><Micro accent>AGENT / LIVE</Micro><span style={{fontFamily: 'monospace', fontSize: 11, color: activeCue ? ORANGE : MUTED}}>● {activeCue ? 'LOCKED' : 'HOLD'}</span></div>
-      <div style={{display: 'flex', alignItems: 'end', justifyContent: 'space-between'}}><div><Micro>FRAME COUNTER</Micro><div style={{fontFamily: 'monospace', fontSize: 42, lineHeight: 1, fontWeight: 800, letterSpacing: -2, color: WHITE}}>{String(Math.floor(frame)).padStart(4, '0')}</div></div><div style={{textAlign: 'right'}}><Micro>SCENE</Micro><div style={{fontSize: 13, fontWeight: 900, letterSpacing: 2, color: ORANGE}}>{sectionName}</div></div></div>
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8}}>{[
-        ['WORD CUE', `${cueNumber} / ${String(SCRIPT_CUES.length).padStart(2, '0')}`],
-        ['AUDIO RMS', `${Math.round(energy * 100)}%`],
-        ['FRAME RATE', '30 FPS'],
-        ['SYNC STATE', activeCue ? 'REALTIME' : 'BREATH'],
-      ].map(([label, value], index) => <div key={label} style={{padding: '9px 10px', border: '1px solid rgba(244,247,255,.12)', background: index === 0 ? 'rgba(255,69,0,.075)' : 'rgba(244,247,255,.025)'}}><Micro accent={index === 0}>{label}</Micro><div style={{marginTop: 5, fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: WHITE}}>{value}</div></div>)}</div>
-      <div style={{border: '1px solid rgba(244,247,255,.12)', background: 'rgba(244,247,255,.025)', padding: '10px 11px'}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 7}}><Micro>TRANSIENT / ENVELOPE</Micro><Micro accent>30 × 30</Micro></div><svg viewBox="0 0 340 70" preserveAspectRatio="none" style={{display: 'block', width: '100%', height: 66}}><path d={`M0 59 L${points || '0,58'}`} fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M0 60H340" stroke={WHITE} strokeOpacity=".17" strokeDasharray="3 7"/></svg></div>
-      <div style={{display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, border: '1px solid rgba(244,247,255,.12)', background: 'rgba(0,0,0,.2)', padding: 11, fontFamily: 'monospace'}}>
-        <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: 9, borderBottom: '1px solid rgba(244,247,255,.1)'}}><Micro accent>TERMINAL / STREAM</Micro><Micro>NO BUFFER</Micro></div>
-        <div style={{paddingTop: 9, color: ORANGE, fontSize: 12, whiteSpace: 'nowrap'}}>$ engine --sync --frame {String(Math.floor(frame)).padStart(4, '0')}</div>
-        <div style={{paddingTop: 8, color: 'rgba(244,247,255,.43)', fontSize: 10, letterSpacing: 1.2}}>OUTPUT / ACTIVE TOKEN</div>
-        <div style={{display: 'flex', alignItems: 'baseline', gap: 8, minHeight: 35, paddingTop: 8, color: activeCue ? WHITE : MUTED, fontSize: 19, fontWeight: 800}}><span style={{color: ORANGE}}>&gt;</span><span data-current-token="true">{activeCue?.text ?? '—'}</span><span style={{marginLeft: 'auto', fontSize: 10, color: MUTED}}>{activeCue ? `F${String(activeCue.startFrame).padStart(4, '0')}` : 'HOLD'}</span></div>
-        <div style={{paddingTop: 12, color: 'rgba(244,247,255,.43)', fontSize: 10, letterSpacing: 1.2}}>FRAME HISTORY / NO BUFFER</div>
-        <div style={{display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', paddingTop: 10}}>{history.slice(-6).map((cue) => <div key={cue.globalIndex} style={{display: 'flex', gap: 8, alignItems: 'center', color: cue.globalIndex === latest?.globalIndex ? WHITE : 'rgba(244,247,255,.38)', fontSize: 11}}><span style={{color: cue.globalIndex === latest?.globalIndex ? ORANGE : MUTED}}>{String(cue.globalIndex + 1).padStart(2, '0')}</span><span>F{String(cue.startFrame).padStart(4, '0')}–{String(cue.endFrame).padStart(4, '0')}</span><i style={{height: 3, marginLeft: 'auto', width: `${18 + (cue.globalIndex * 17) % 45}%`, background: cue.globalIndex === activeCue?.globalIndex ? ORANGE : 'rgba(244,247,255,.16)'}}/></div>)}</div>
-        <div style={{display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 10, borderTop: '1px solid rgba(244,247,255,.1)'}}><Micro>SEQUENCE {String(section + 1).padStart(2, '0')} / 06</Micro><Micro accent>{activeCue ? 'WORD-LOCKED' : 'STANDBY'}</Micro></div>
+export const Micro: React.FC<{children: React.ReactNode; accent?: boolean}> = ({
+  children,
+  accent = false,
+}) => (
+  <span
+    style={{
+      fontSize: 10,
+      fontWeight: 900,
+      letterSpacing: 2.4,
+      color: accent ? ORANGE : 'rgba(244,247,255,.54)',
+      textTransform: 'uppercase',
+    }}
+  >
+    {children}
+  </span>
+);
+
+type TelemetryProps = {
+  scene?: SceneSpec;
+  localFrame?: number;
+  frame?: number;
+  section?: number;
+  energy: number;
+  activeCue: ScriptCue | null;
+};
+
+const resolveSceneState = (props: TelemetryProps) => {
+  if (props.scene !== undefined && props.localFrame !== undefined) {
+    return {
+      scene: props.scene,
+      localFrame: props.localFrame,
+      globalFrame: props.scene.from + props.localFrame,
+    };
+  }
+  const globalFrame = Math.floor(props.frame ?? 0);
+  const scene = sceneForFrame(globalFrame);
+  return {scene, localFrame: globalFrame - scene.from, globalFrame};
+};
+
+// Six distinct 14-node constellations — one per isolated <Sequence> beat.
+const SCENE_CONSTELLATIONS: Record<
+  SceneKey,
+  {nodes: ReadonlyArray<readonly [number, number]>; edges: ReadonlyArray<readonly [number, number]>}
+> = {
+  hook: {
+    nodes: [
+      [220, 190], [490, 145], [780, 210], [1090, 150], [1410, 200], [1710, 165], [1760, 460],
+      [1520, 560], [1220, 480], [940, 620], [640, 740], [340, 700], [1360, 820], [1710, 840],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
+      [8, 9], [9, 10], [10, 11], [7, 12], [12, 13], [3, 8], [2, 9],
+    ],
+  },
+  twist: {
+    nodes: [
+      [130, 170], [360, 260], [620, 175], [890, 250], [1160, 175], [1430, 260], [1740, 180],
+      [1690, 470], [1430, 580], [1150, 490], [880, 590], [600, 485], [330, 585], [150, 470],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
+      [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 0], [3, 10], [4, 9],
+    ],
+  },
+  shift: {
+    nodes: [
+      [140, 310], [340, 270], [560, 340], [780, 290], [260, 610], [520, 720], [790, 660],
+      [1130, 290], [1380, 260], [1640, 320], [1780, 520], [1560, 730], [1310, 690], [1120, 620],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [0, 4], [4, 5], [5, 6], [3, 6],
+      [7, 8], [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 7], [8, 12],
+    ],
+  },
+  mechanism: {
+    nodes: [
+      [520, 310], [760, 310], [1000, 310], [1240, 310], [1480, 310], [1720, 310], [1820, 560],
+      [1720, 820], [1480, 820], [1240, 820], [1000, 820], [760, 820], [520, 820], [620, 560],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
+      [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 0], [2, 10], [4, 8],
+    ],
+  },
+  payoff: {
+    nodes: [
+      [110, 360], [330, 420], [560, 365], [790, 430], [1020, 370], [1250, 435], [1480, 375],
+      [1740, 430], [1810, 740], [1540, 860], [1260, 790], [960, 865], [640, 785], [290, 855],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
+      [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [2, 12], [5, 10],
+    ],
+  },
+  outro: {
+    nodes: [
+      [960, 170], [1220, 225], [1430, 375], [1490, 540], [1430, 705], [1220, 855], [960, 910],
+      [700, 855], [490, 705], [430, 540], [490, 375], [700, 225], [960, 320], [960, 760],
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
+      [8, 9], [9, 10], [10, 11], [11, 0], [0, 12], [6, 13],
+    ],
+  },
+};
+
+export const AtmosphericOverlays: React.FC<TelemetryProps> = (props) => {
+  const {scene, localFrame, globalFrame} = resolveSceneState(props);
+  if (isSceneCleared(scene, localFrame)) return null;
+
+  const {activeCue, energy} = props;
+  const {nodes, edges} = SCENE_CONSTELLATIONS[scene.id];
+  const hotNode = activeCue ? activeCue.globalIndex % nodes.length : -1;
+  const hit = activeCue ? Math.max(0, 1 - (globalFrame - activeCue.startFrame) / 6) : 0;
+
+  return (
+    <svg
+      data-scene-graph={scene.id}
+      data-active-cue={activeCue?.globalIndex ?? -1}
+      data-hot-node={hotNode}
+      aria-hidden="true"
+      viewBox="0 0 1920 1080"
+      preserveAspectRatio="none"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 3,
+        pointerEvents: 'none',
+        opacity: scene.id === 'outro' ? 0.36 : 0.5,
+      }}
+    >
+      {edges.map(([a, b], index) => {
+        const active = a === hotNode || b === hotNode;
+        return (
+          <line
+            key={`edge-${scene.id}-${index}`}
+            x1={nodes[a][0]}
+            y1={nodes[a][1]}
+            x2={nodes[b][0]}
+            y2={nodes[b][1]}
+            stroke={active ? ORANGE : WHITE}
+            strokeOpacity={active ? 0.34 + energy * 0.22 + hit * 0.2 : 0.08}
+            strokeWidth={active ? 1.8 : 1}
+          />
+        );
+      })}
+      {nodes.map(([x, y], index) => {
+        const active = index === hotNode;
+        const driftY = Math.sin(localFrame * 0.04 + index) * 2.5;
+        return (
+          <g key={`node-${scene.id}-${index}`} transform={`translate(${x} ${y + driftY})`}>
+            <circle
+              r={active ? 8.5 + energy * 3 + hit * 4 : 3.5 + energy * 1.2}
+              fill={active ? ORANGE : WHITE}
+              fillOpacity={active ? 0.88 : 0.2}
+            />
+            <circle
+              r={active ? 18 + hit * 11 : 9}
+              fill="none"
+              stroke={active ? ORANGE : WHITE}
+              strokeOpacity={active ? 0.44 : 0.07}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+export const TelemetryRail: React.FC<TelemetryProps> = (props) => {
+  const {scene, localFrame, globalFrame} = resolveSceneState(props);
+  if (isSceneCleared(scene, localFrame)) return null;
+
+  const {activeCue, energy} = props;
+  const spokenInScene = sceneSpokenCues(scene, localFrame);
+  const latestInScene = sceneLatestCue(scene, localFrame);
+  const sceneWordTotal = scene.lastWordIndex - scene.firstWordIndex + 1;
+  const sceneWordDone = spokenInScene.length;
+  const cueNumber = activeCue
+    ? String(activeCue.globalIndex + 1).padStart(2, '0')
+    : latestInScene
+      ? String(latestInScene.globalIndex + 1).padStart(2, '0')
+      : '00';
+  const sceneProgress = Math.min(1, localFrame / Math.max(1, scene.durationInFrames - 1));
+
+  // Strictly scene-bounded audio envelope slice so earlier scenes never bleed into this waveform.
+  const waveStart = Math.max(scene.from, globalFrame - 28);
+  const samples = envelope.slice(waveStart, globalFrame + 1);
+  const wavePoints = samples
+    .map((val, idx) => `${idx * 10},${42 - val * 32}`)
+    .join(' ');
+
+  if (scene.id === 'hook') {
+    return (
+      <div
+        data-scene-telemetry="hook"
+        data-active-cue={activeCue?.globalIndex ?? -1}
+        style={{position: 'absolute', inset: 0, zIndex: 13, pointerEvents: 'none'}}
+      >
+        <header
+          style={{
+            position: 'absolute',
+            left: 104,
+            right: 104,
+            top: 38,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingBottom: 14,
+            borderBottom: '1px solid rgba(244,247,255,.14)',
+          }}
+        >
+          <Micro accent>{scene.code} // {scene.subtitle}</Micro>
+          <span style={{fontFamily: 'monospace', fontSize: 12, color: WHITE, letterSpacing: 2}}>
+            SEQ F{String(localFrame).padStart(3, '0')} &nbsp;·&nbsp; ABS F{String(globalFrame).padStart(4, '0')}
+          </span>
+        </header>
+        <Panel
+          style={{
+            position: 'absolute',
+            left: 104,
+            bottom: 52,
+            width: 680,
+            borderRadius: 10,
+            padding: '14px 20px',
+            display: 'grid',
+            gridTemplateColumns: '1.3fr 1fr 1fr',
+            gap: 18,
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <Micro accent>ACTIVE TOKEN</Micro>
+            <div style={{marginTop: 5, fontFamily: 'monospace', fontSize: 20, fontWeight: 900, color: activeCue ? WHITE : MUTED}}>
+              <span style={{color: ORANGE}}>&gt; </span>
+              <span data-current-token="true">{activeCue?.text ?? '—'}</span>
+            </div>
+          </div>
+          <div>
+            <Micro>SCENE CUES</Micro>
+            <div style={{marginTop: 5, fontFamily: 'monospace', fontSize: 15, fontWeight: 800, color: WHITE}}>
+              {String(sceneWordDone).padStart(2, '0')} / {String(sceneWordTotal).padStart(2, '0')} (GLOBAL {cueNumber})
+            </div>
+          </div>
+          <div>
+            <Micro>RMS / LOCK</Micro>
+            <div style={{marginTop: 5, fontFamily: 'monospace', fontSize: 15, fontWeight: 800, color: activeCue ? ORANGE : MUTED}}>
+              {Math.round(energy * 100)}% · {activeCue ? 'LOCKED' : 'HOLD'}
+            </div>
+          </div>
+        </Panel>
       </div>
-    </Panel>
-  </div>;
-};
+    );
+  }
 
-export const AtmosphericOverlays: React.FC<{frame: number; section: number; energy: number; activeCue: ScriptCue | null}> = ({frame, section, energy, activeCue}) => {
-  if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
-  const trackX = 30 + ((frame * .07) % 38);
-  const graphNodes = [[610,290],[820,180],[1035,350],[1240,220],[1490,340],[1780,225],[700,620],[960,760],[1195,590],[1440,760],[1660,610],[1840,850],[620,885],[1040,900]];
-  const graphEdges = [[0,1],[0,6],[1,2],[1,3],[2,3],[2,7],[3,4],[3,8],[4,5],[4,8],[4,9],[5,10],[6,7],[6,12],[7,8],[7,12],[8,9],[8,13],[9,10],[9,13],[10,11],[11,13]];
-  const hotNode = activeCue ? activeCue.globalIndex % graphNodes.length : -1;
-  const hit = activeCue ? Math.max(0, 1 - (frame - activeCue.startFrame) / 6) : 0;
-  return <svg data-active-cue={activeCue?.globalIndex ?? -1} data-hot-node={hotNode} aria-hidden="true" viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none', opacity: .52}}>
-    <path d="M552 92V982" stroke={WHITE} strokeOpacity=".17" strokeWidth="1" strokeDasharray="2 10"/>
-    <path d="M585 140H1850M585 940H1850" stroke={WHITE} strokeOpacity=".08" strokeWidth="1"/>
-    <path d={`M${trackX * 19.2} 110V948`} stroke={ORANGE} strokeOpacity=".16" strokeWidth="1" strokeDasharray="2 18"/>
-    <g>{graphEdges.map(([a,b],index) => {const active = a === hotNode || b === hotNode; return <line key={`graph-edge-${index}`} x1={graphNodes[a][0]} y1={graphNodes[a][1]} x2={graphNodes[b][0]} y2={graphNodes[b][1]} stroke={active ? ORANGE : WHITE} strokeOpacity={active ? .28 + energy * .2 + hit * .18 : .09} strokeWidth={active ? 1.7 : 1}/>;})}
-    {graphNodes.map(([x,y],index) => <g key={`graph-node-${index}`} transform={`translate(${x} ${y + Math.sin(frame * .025 + index) * 3})`}><circle r={index === hotNode ? 9 + energy * 3 + hit * 4 : 4 + energy * 1.5} fill={index === hotNode ? ORANGE : WHITE} fillOpacity={index === hotNode ? .8 : .22}/><circle r={index === hotNode ? 18 + hit * 12 : 10} fill="none" stroke={index === hotNode ? ORANGE : WHITE} strokeOpacity={index === hotNode ? .4 : .08}/></g>)}</g>
-    {[ [585,140], [1845,140], [585,940], [1845,940], [552,540] ].map(([x,y],i) => <g key={i} transform={`translate(${x} ${y})`} stroke={i === 4 ? ORANGE : WHITE} strokeOpacity={i === 4 ? .48 : .26} strokeWidth="1"><path d="M-12 0H12M0-12V12"/><circle r="4" fill="none"/></g>)}
-    <text x="570" y="120" fill={WHITE} fillOpacity=".35" fontSize="10" letterSpacing="3">X / 0300</text>
-    <text x="1815" y="965" fill={ORANGE} fillOpacity=".55" fontSize="10" letterSpacing="3">TRACE / {String(Math.floor(frame)).padStart(4, '0')}</text>
-    <path d="M560 360h14m-14 90h8m-8 90h14m-14 90h8m-8 90h14" stroke={WHITE} strokeOpacity=".36"/>
-  </svg>;
-};
+  if (scene.id === 'twist') {
+    return (
+      <Panel
+        style={{
+          position: 'absolute',
+          zIndex: 13,
+          left: 88,
+          right: 88,
+          top: 26,
+          height: 68,
+          borderRadius: 10,
+          padding: '0 26px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          data-scene-telemetry="twist"
+          data-active-cue={activeCue?.globalIndex ?? -1}
+          style={{display: 'flex', alignItems: 'center', gap: 18}}
+        >
+          <Micro accent>{scene.code}</Micro>
+          <span style={{color: 'rgba(244,247,255,.22)'}}>|</span>
+          <span style={{fontFamily: 'monospace', fontSize: 14, color: WHITE, fontWeight: 800}}>
+            TOKEN: <span data-current-token="true" style={{color: activeCue ? ORANGE : MUTED}}>{activeCue?.text ?? '—'}</span>
+          </span>
+        </div>
+        <svg viewBox="0 0 290 48" style={{width: 240, height: 36}}>
+          <path d={`M0 42 L${wavePoints || '0,42'}`} fill="none" stroke={ORANGE} strokeWidth="2" />
+        </svg>
+        <div style={{display: 'flex', alignItems: 'center', gap: 22, fontFamily: 'monospace', fontSize: 12, color: WHITE}}>
+          <span>BEAT {String(sceneWordDone).padStart(2, '0')}/{String(sceneWordTotal).padStart(2, '0')}</span>
+          <span style={{color: ORANGE}}>F{String(globalFrame).padStart(4, '0')}</span>
+        </div>
+      </Panel>
+    );
+  }
 
-export const HUD: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => {
-  if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
-  const progress = frame / (DURATION_FRAMES - 1);
-  const displayCue = activeCue;
-  const labels = ['01 / HOOK', '02 / TWIST', '03 / SHIFT', '04 / MECHANISM', '05 / PAYOFF', '06 / OUTRO'];
-  return <div style={{position: 'absolute', inset: 0, zIndex: 13, color: WHITE, pointerEvents: 'none', fontFamily: 'Arial, Helvetica, sans-serif'}}>
-    <header style={{position: 'absolute', left: '31%', right: '3%', top: 34, display: 'flex', justifyContent: 'space-between', color: 'rgba(244,247,255,.72)', fontSize: 10, fontWeight: 900, letterSpacing: 3.1}}><span>LIVE / MOTION RUNTIME</span><span style={{display: 'flex', alignItems: 'center', gap: 12}}><i style={{width: 6, height: 6, borderRadius: '50%', background: activeCue ? ORANGE : MUTED, boxShadow: activeCue ? `0 0 12px ${ORANGE}` : 'none'}}/>{labels[section]} &nbsp;·&nbsp; {(frame / FPS).toFixed(2)} SEC</span></header>
-    {(section === 0 || section === 3 || (section === 1 && frame >= cueAfter('break.', sectionIndices[1]).endFrame)) && <SemanticFlow frame={frame} energy={energy}/>}
+  if (scene.id === 'shift') {
+    return (
+      <div
+        data-scene-telemetry="shift"
+        data-active-cue={activeCue?.globalIndex ?? -1}
+        style={{position: 'absolute', inset: 0, zIndex: 13, pointerEvents: 'none'}}
+      >
+        <Panel
+          style={{
+            position: 'absolute',
+            right: 64,
+            top: 34,
+            width: 560,
+            height: 178,
+            borderRadius: 12,
+            padding: '16px 22px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <Micro accent>{scene.code} // WIREFRAME INSPECTOR</Micro>
+            <span style={{fontFamily: 'monospace', fontSize: 12, color: ORANGE}}>
+              F{String(globalFrame).padStart(4, '0')}
+            </span>
+          </div>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'}}>
+            <div style={{fontFamily: 'monospace', fontSize: 22, fontWeight: 900, color: activeCue ? WHITE : MUTED}}>
+              <span style={{color: ORANGE}}>&gt; </span>
+              <span data-current-token="true">{activeCue?.text ?? '—'}</span>
+            </div>
+            <div style={{fontFamily: 'monospace', fontSize: 12, color: MUTED}}>
+              CUE {cueNumber}/{SCRIPT_CUES.length} · {Math.round(energy * 100)}% RMS
+            </div>
+          </div>
+          <div style={{height: 3, background: 'rgba(244,247,255,.12)', position: 'relative'}}>
+            <div style={{width: `${sceneProgress * 100}%`, height: '100%', background: ORANGE}} />
+          </div>
+        </Panel>
+      </div>
+    );
+  }
 
-    {activeCue && <KineticText key={activeCue.globalIndex} cue={activeCue} section={section} frame={frame}/>}
-    <div style={{position: 'absolute', left: 72, right: 72, bottom: 40}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 9, color: 'rgba(244,247,255,.44)', fontSize: 9, fontWeight: 900, letterSpacing: 2.2}}><span>{displayCue ? `WORD / ${String(displayCue.globalIndex + 1).padStart(2, '0')}` : 'BREATH / CUT'}</span><span>{Math.round(energy * 100)}% AUDIO</span></div><div style={{height: 2, background: 'rgba(244,247,255,.14)', position: 'relative'}}><div style={{position: 'absolute', inset: '0 auto 0 0', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${WHITE}, ${ORANGE})`, boxShadow: `0 0 ${6 + energy * 12}px ${ORANGE}`}}/><i style={{position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 6 + energy * 4, height: 6 + energy * 4, borderRadius: '50%', background: ORANGE, transform: 'translate(-50%,-50%)'}}/></div></div>
-  </div>;
+  if (scene.id === 'mechanism') {
+    return (
+      <div
+        data-scene-telemetry="mechanism"
+        data-active-cue={activeCue?.globalIndex ?? -1}
+        style={{
+          position: 'absolute',
+          zIndex: 13,
+          left: 48,
+          top: 44,
+          bottom: 44,
+          width: 396,
+          pointerEvents: 'none',
+        }}
+      >
+        <Panel
+          style={{
+            height: '100%',
+            borderRadius: 14,
+            padding: 22,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(244,247,255,.12)', paddingBottom: 12}}>
+            <Micro accent>{scene.code}</Micro>
+            <span style={{fontFamily: 'monospace', fontSize: 11, color: activeCue ? ORANGE : MUTED}}>
+              ● {activeCue ? 'DETERMINISTIC' : 'BREATH'}
+            </span>
+          </div>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
+            <div>
+              <Micro>LOCAL / ABS FRAME</Micro>
+              <div style={{fontFamily: 'monospace', fontSize: 36, fontWeight: 900, color: WHITE, marginTop: 4}}>
+                {String(localFrame).padStart(3, '0')}{' '}
+                <span style={{fontSize: 16, color: MUTED}}>/ {String(globalFrame).padStart(4, '0')}</span>
+              </div>
+            </div>
+            <div style={{textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: ORANGE}}>
+              {(globalFrame / FPS).toFixed(2)}s
+            </div>
+          </div>
+          <div style={{padding: 12, border: '1px solid rgba(244,247,255,.12)', background: 'rgba(255,69,0,.06)'}}>
+            <Micro accent>ACTIVE LEXICAL STATE</Micro>
+            <div style={{marginTop: 8, fontFamily: 'monospace', fontSize: 22, fontWeight: 900, color: activeCue ? WHITE : MUTED}}>
+              <span style={{color: ORANGE}}>&gt; </span>
+              <span data-current-token="true">{activeCue?.text ?? '—'}</span>
+            </div>
+          </div>
+          <div style={{padding: 12, border: '1px solid rgba(244,247,255,.12)'}}>
+            <Micro>SCENE ENVELOPE</Micro>
+            <svg viewBox="0 0 290 48" style={{width: '100%', height: 46, marginTop: 8}}>
+              <path d={`M0 42 L${wavePoints || '0,42'}`} fill="none" stroke={ORANGE} strokeWidth="2" />
+            </svg>
+          </div>
+          <div style={{flex: 1, border: '1px solid rgba(244,247,255,.12)', padding: 12, fontFamily: 'monospace', overflow: 'hidden'}}>
+            <Micro accent>SCENE 04 LOG (ISOLATED)</Micro>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10}}>
+              {spokenInScene.slice(-7).map((cue) => (
+                <div
+                  key={cue.globalIndex}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 11,
+                    color: cue.globalIndex === activeCue?.globalIndex ? ORANGE : 'rgba(244,247,255,.5)',
+                  }}
+                >
+                  <span>#{String(cue.globalIndex + 1).padStart(2, '0')}</span>
+                  <span>F{String(cue.startFrame).padStart(4, '0')}–F{String(cue.endFrame).padStart(4, '0')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
+
+  if (scene.id === 'payoff') {
+    return (
+      <Panel
+        style={{
+          position: 'absolute',
+          zIndex: 13,
+          right: 56,
+          top: 38,
+          width: 668,
+          height: 256,
+          borderRadius: 12,
+          padding: '20px 26px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          data-scene-telemetry="payoff"
+          data-active-cue={activeCue?.globalIndex ?? -1}
+          style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}
+        >
+          <Micro accent>{scene.code} // COMPILER TELEMETRY</Micro>
+          <span style={{fontFamily: 'monospace', fontSize: 12, color: ORANGE}}>
+            ABS F{String(globalFrame).padStart(4, '0')} · {Math.round(energy * 100)}% RMS
+          </span>
+        </div>
+        <div style={{display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'center'}}>
+          <div style={{padding: '12px 14px', border: '1px solid rgba(244,247,255,.14)', background: 'rgba(0,0,0,.28)'}}>
+            <Micro>STREAMING TOKEN</Micro>
+            <div style={{marginTop: 6, fontFamily: 'monospace', fontSize: 22, fontWeight: 900, color: activeCue ? WHITE : MUTED}}>
+              <span style={{color: ORANGE}}>$ </span>
+              <span data-current-token="true">{activeCue?.text ?? '—'}</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 290 48" style={{width: '100%', height: 54}}>
+            <path d={`M0 42 L${wavePoints || '0,42'}`} fill="none" stroke={ORANGE} strokeWidth="2.2" />
+          </svg>
+        </div>
+        <div style={{display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 11, color: MUTED}}>
+          <span>SCENE TOKENS: {sceneWordDone}/{sceneWordTotal}</span>
+          <span>QUEUE LOCK: {activeCue ? 'ACTIVE' : 'PAUSE'}</span>
+        </div>
+      </Panel>
+    );
+  }
+
+  // Outro minimalist framing telemetry
+  return (
+    <div
+      data-scene-telemetry="outro"
+      data-active-cue={activeCue?.globalIndex ?? -1}
+      style={{position: 'absolute', inset: 0, zIndex: 13, pointerEvents: 'none'}}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 84,
+          right: 84,
+          top: 42,
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontFamily: 'monospace',
+          fontSize: 11,
+          letterSpacing: 2.6,
+          color: MUTED,
+        }}
+      >
+        <span style={{color: ORANGE}}>{scene.code}</span>
+        <span>FINAL SEQUENCE · F{String(globalFrame).padStart(4, '0')}</span>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: 84,
+          right: 84,
+          bottom: 44,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: 14,
+          borderTop: '1px solid rgba(244,247,255,.14)',
+          fontFamily: 'monospace',
+          fontSize: 13,
+          color: WHITE,
+        }}
+      >
+        <span>
+          ACTIVE: <span data-current-token="true" style={{color: activeCue ? ORANGE : MUTED}}>{activeCue?.text ?? '—'}</span>
+        </span>
+        <span style={{color: MUTED}}>RMS {Math.round(energy * 100)}%</span>
+      </div>
+    </div>
+  );
 };
