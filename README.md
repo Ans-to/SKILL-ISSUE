@@ -32,4 +32,4 @@ A local Chromium/Chrome installation is required. If Remotion cannot find the br
 npm run render -- --browser-executable=/path/to/chromium
 ```
 
-The MP4 is written to `out/Nokia-Documentary.mp4`; generated media stays out of Git and is published separately as a GitHub Release asset.
+The MP4 renders to `out/Nokia-Documentary.mp4` and the published copy is tracked at `deliverables/Nokia-Documentary.mp4` for direct GitHub download.
