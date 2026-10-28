@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Render MP4 in GitHub Actions
-        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p
+        run: npx remotion render src/index.ts NokiaDocumentary out/nokia-documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle
       - name: Upload downloadable MP4 artifact
         uses: actions/upload-artifact@v4
         with:
