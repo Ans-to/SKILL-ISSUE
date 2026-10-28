@@ -2,11 +2,12 @@
   "name": "nokia-documentary-remotion",
   "version": "1.0.0",
   "private": true,
-  "description": "Cinematic Remotion short documentary: The Empire of Timber & Tech",
+  "description": "Word-synchronized kinetic Remotion documentary about Nokia",
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",
-    "render": "remotion render src/index.ts NokiaDocumentary out/Nokia-Documentary.mp4 --codec=h264 --crf=18 --concurrency=100% --gl=angle"
+    "verify:sync": "python3 scripts/verify-word-cues.py",
+    "render": "remotion render src/index.ts NokiaDocumentary out/Nokia-Documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
   },
   "dependencies": {
     "@react-three/drei": "9.122.0",

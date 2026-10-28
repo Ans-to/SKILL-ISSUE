@@ -5,7 +5,6 @@ from __future__ import annotations
 import array
 import json
 import math
-import statistics
 import subprocess
 import tempfile
 import wave
@@ -13,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO_DIR = ROOT / "public" / "audio"
-OUTPUT = ROOT / "src" / "story" / "audio-envelope.json"
+OUTPUT = ROOT / "src" / "kinetic" / "audio-envelope.json"
 FFMPEG = ROOT / "node_modules" / "@remotion" / "compositor-linux-x64-gnu" / "ffmpeg"
 FPS = 30
 PLAYBACK_RATE = 1.0

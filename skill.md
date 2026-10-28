@@ -1,31 +1,29 @@
-# UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES — v7.0
+# KINETIC DOCUMENTARY ENGINE & DELIVERY STANDARD — v8.0
 
-## 1. High-Retention Cinematic Visual Standards
-- **Zero Boring Layouts:** Avoid flat slides, static icons, and predictable corporate templates. Every sequence should feel like a high-end documentary essay, designed for visual momentum and narrative clarity.
-- **Macro-to-Micro Spatial Orchestration:** Use continuous, smooth camera motion to move between geographic context, places, materials, and intimate objects. Preserve a fixed lens unless a lens change is narratively motivated; prefer true camera dolly and object-space motion.
-- **Kinetic Data & Spring Physics:** UI entrances, callouts, and typographic reveals use Remotion `spring()` physics (`damping: 12`, `stiffness: 100`) or other continuous, deterministic easing. Avoid abrupt linear state changes.
-- **Obsidian Cinematic Foundations:** Use deep obsidian foundations (`#0b0f19`), restrained neon accents, layered lighting, dimensional shadows, and sophisticated glassmorphism with readable contrast.
+## 1. Exact Narration Lock
+- Treat the supplied narration as the source of truth. Every visible word, headline, number, and on-screen label derived from the script must match the spoken words and appear only while that word or phrase is being spoken.
+- Use word-level timestamps from forced alignment or equivalent audio analysis. Preserve punctuation and transcript spelling; verify the alignment against the audio before rendering. Never use a conceptual paraphrase, generic chapter title, or future-word preview as a substitute for the active spoken words.
+- Kinetic emphasis may anticipate a word only within its own aligned onset (a few frames at most); typography, graph events, and visual motifs must resolve on that word's actual duration. Respect pauses—do not advance text through silence.
+- Keep the full narration at natural playback speed unless the user explicitly authorizes a change. Build a deterministic word-cue map so every render is frame-accurate and reproducible.
 
-## 2. Studio-Grade Objects, Materials & Lighting
-- **No Generic Placeholder Art:** Avoid unfinished primitives, flat ovals, repetitive iconography, or unmotivated geometry. Build assets from layered, detailed geometry, custom vector work, purposeful material choices, and scene-specific lighting.
-- **Sophisticated Editorial Illustration:** Keep proportions considered and materials tactile. Use custom silhouettes, bevels, fine linework, translucent layers, and controlled highlights rather than default primitive-only assemblies.
-- **Procedural Motion & Depth:** Add restrained micro-motion, atmospheric particles, contact shadows, ambient occlusion, and directional rim light where they support the story. Keep effects deterministic for frame-by-frame rendering.
+## 2. Procedural High-Velocity Motion System
+- Completely purge prior template/chapter engines, semantic-card layouts, stale captions, and previous scene motifs when a clean rebuild is requested. Do not patch an old template into a new brief.
+- Build a procedural kinetic engine: typography must scale dramatically with spring/eased motion, while live node graphs, edges, pulses, and signal paths update from the currently spoken word and the audio envelope.
+- Make every motion event accountable to the current word's timestamp and/or its measured audio energy. Avoid idle decoration, unsupported claims, narrative substitutions, and visuals that contradict what is being said.
+- Prefer generated geometry, vector linework, instanced nodes, and data-derived patterns over static slides, generic icon packs, and unrelated stock-like props. Keep motion deterministic under Remotion frame seeking.
 
-## 3. Cinematic Geographic & Spatial Engine
-- **Spatially Motivated Camera:** When geography matters, move smoothly from world to region to place and object. Clamp camera bounds, preserve a predictable aim, and do not warp perspective to fake a dolly.
-- **Geographic Visuals:** Use programmatic maps, globes, route geometry, coordinate nodes, and contextual data visualizations. Place all labels in the independent 2D editorial layer unless the narrative specifically requires spatial text.
-- **Clean 3D-to-2D Separation:** Keep the 3D world and the typography/HUD overlay in separate render layers. Overlay text must remain front-facing, legible, and independent of scene-camera rotations.
+## 3. Visual Language and Layer Separation
+- Use deep obsidian/near-black foundations with crisp electric-lime and white accents. Maintain excellent contrast and a disciplined editorial hierarchy; use glow as a precise signal, not a haze.
+- Keep kinetic titles, exact-word captions, labels, and HUD elements in an independent front-facing 2D layer. Keep the procedural 3D graphics in a separate render layer; never attach editorial text to 3D geometry or allow camera rotations to tilt text.
+- Maintain a fixed perspective lens and use a bounded, true Z-axis dolly where camera motion is needed. Do not fake camera movement with FOV changes.
+- Design the motion and graph grammar as one coherent engine, not a collection of disconnected chapter templates.
 
-## 4. Concept-First Narrative and Audio Momentum (v7.0)
-- **Do Not Treat the Script as a Rigid Timeline:** Do not assign one literal visual to every word or force every sentence into a fixed timestamp grid. First interpret the narrative, identify its central argument, emotional turns, places, entities, and visual metaphors.
-- **Programmatic Concept Extraction:** Parse the script/transcript into a compact set of semantic concepts and relationships (for example: origin → material → transformation → network → consequence). Use those concepts to select or synthesize visual motifs, motion-graphic structures, and typographic emphasis.
-- **Narrative-Led, Not Word-Led:** Visuals may anticipate, overlap, and resolve concepts across adjacent phrases. Preserve the argument and factual meaning while allowing an editorial rhythm; do not invent unsupported claims or literalize every noun.
-- **Audio-Momentum Mapping:** Use the supplied narration/music as the timing authority. Derive or author a deterministic audio-energy/envelope map and use it to modulate motion intensity, particle activity, camera acceleration, signal pulses, and typography. Let pauses breathe; reserve strong reveals and kinetic accents for emphasis, transitions, and cadence.
-- **Semantic Spring Reveals:** Trigger concept callouts and headline emphasis when the corresponding idea emerges in the audio. Use spring physics and eased overlaps rather than hard cuts or rigid per-caption animation resets.
-- **No Idle Decoration:** Every graphic, node, map, particle field, and callout must reinforce the current concept or emotional beat. Remove any visual system that becomes an unrelated persistent wallpaper.
+## 4. Audio-Driven Motion
+- Derive and store a deterministic frame-level audio-energy envelope from the supplied narration/music. Use energy and momentum to modulate scale, pulse amplitude, graph propagation, particle velocity, and camera acceleration.
+- Let speech pauses breathe. Preserve precise word boundaries while using high-velocity accents for stressed syllables, transitions, and cadence. Audio energy controls motion intensity; word timestamps control lexical visibility and event identity.
 
-## 5. Local Rendering & GitHub Delivery
-- **Local Final Render:** Final MP4 renders may and should be produced locally when requested. Use the maximum concurrency supported by the installed Remotion version (`--concurrency=100%` if that version does not accept the literal `max` value). Never run a render with an invalid CLI option.
-- **Verify Before Publishing:** Typecheck and inspect the composition, run the local final render, verify the MP4 is readable and has the intended duration/resolution/audio, and check the final file size before publishing.
-- **Publish the Deliverable to GitHub:** Push source changes only to the active Arena branch. Publish the final MP4 as a downloadable GitHub Release asset or an Actions artifact; do not add generated media to Git unless explicitly requested. Share a working download link after upload.
-- **Artifact Hygiene:** Keep scratch files and temporary render intermediates out of Git. Use the repository’s ignore rules and preserve reproducible render settings.
+## 5. Local Render, Verification, and GitHub Delivery
+- Render the final MP4 locally when requested, using the maximum concurrency supported by the installed Remotion version (`--concurrency=100%` where literal `max` is unsupported).
+- Before publishing, typecheck; inspect representative rendered frames; verify MP4 readability, 1920×1080/target format, duration, frame rate, and audio; and confirm the final file size.
+- Push source only to the active Arena branch. When the user explicitly requests that the finished MP4 be pushed directly to GitHub, add the final MP4 to the repository's deliverables area and push it to that same active branch; otherwise prefer a Release asset or Actions artifact and keep media out of Git.
+- Share a working direct-download link to the published MP4. Keep temporary models, aligner downloads, decoded audio, and render scratch files out of Git.
