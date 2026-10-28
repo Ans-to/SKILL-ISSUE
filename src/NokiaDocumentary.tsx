@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, Audio, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, Audio, Easing, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 
 const C = {bg: '#0b0f19', cyan: '#69e4f5', gold: '#e7b66e', ivory: '#f2eee7', muted: '#9aa9b7', green: '#7dc8a3'};
 const clamp = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};
@@ -14,7 +14,7 @@ const Grain: React.FC = () => <AbsoluteFill style={{pointerEvents: 'none', opaci
 
 const Caption: React.FC<{frame: number; fps: number; start: number; end: number; children: React.ReactNode}> = ({frame, fps, start, end, children}) => {
   const appear = springIn(frame, fps, start);
-  const opacity = interpolate(frame, [start, start + 5, end - 3, end], [0, 1, 1, 0], clamp);
+  const opacity = interpolate(frame, [start, start + 5, end - 3, end], [0, 1, 1, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
   return <div style={{position: 'absolute', bottom: 88, left: 0, right: 0, textAlign: 'center', opacity, transform: `translateY(${(1 - appear) * 20}px)`, fontFamily: 'Georgia, serif', fontSize: 35, fontWeight: 500, color: C.ivory, textShadow: '0 3px 22px #000', letterSpacing: '.15px'}}>{children}</div>;
 };
 
@@ -24,10 +24,13 @@ const Topline: React.FC<{frame: number; fps: number; label: string; index: strin
 };
 
 const WorldGlobe: React.FC<{frame: number}> = ({frame}) => {
-  const zoom = interpolate(frame, [0, 116, 180], [1, 1.18, 3.2], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const spin = interpolate(frame, [0, 180], [-9, 0], clamp);
-  const glow = interpolate(frame, [0, 150, 180], [.3, .6, .95], clamp);
-  return <div style={{position: 'absolute', width: 660, height: 660, left: 1000, top: 130, borderRadius: '50%', transform: `scale(${zoom}) rotate(${spin}deg)`, transformOrigin: '50% 50%', opacity: interpolate(frame, [145, 180], [1, 0], clamp), filter: `drop-shadow(0 0 ${35 * glow}px rgba(67,207,235,.27))`}}>
+  // Start wide, then drive directly along the Finland pin's Z-axis in the first two seconds.
+  const zoom = interpolate(frame, [0, 36, 62, 105], [1, 1.04, 2.7, 5.4], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const diveZ = interpolate(frame, [0, 60, 108], [0, 80, 780], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const spin = interpolate(frame, [0, 82], [-9, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const glow = interpolate(frame, [0, 52, 90], [.3, .65, .95], clamp);
+  const pinPulse = .5 + .5 * Math.sin(frame / 3.8);
+  return <div style={{position: 'absolute', width: 660, height: 660, left: 1000, top: 130, borderRadius: '50%', transform: `perspective(1200px) translate3d(0px,0px,${diveZ}px) scale(${zoom}) rotate(${spin}deg)`, transformOrigin: '50% 50%', opacity: interpolate(frame, [58, 100, 130], [1, .75, 0], clamp), filter: `drop-shadow(0 0 ${35 * glow}px rgba(67,207,235,.27))`}}>
     <svg viewBox="0 0 600 600" width="100%" height="100%">
       <defs><radialGradient id="earth"><stop stopColor="#1b3946" stopOpacity=".28"/><stop offset=".78" stopColor="#0b1520" stopOpacity=".55"/><stop offset="1" stopColor="#112330" stopOpacity=".92"/></radialGradient><clipPath id="globeClip"><circle cx="300" cy="300" r="274"/></clipPath></defs>
       <circle cx="300" cy="300" r="276" fill="url(#earth)" stroke="#6ddff0" strokeOpacity=".65" strokeWidth="1.6"/>
@@ -36,23 +39,23 @@ const WorldGlobe: React.FC<{frame: number}> = ({frame}) => {
         {[0,1,2,3,4,5].map(i=><ellipse key={'lng'+i} cx="300" cy="300" rx={28+i*43} ry="274" />)}
         <path d="M68 190l46-30 34 8 23-24 36 7 14 29-32 19-8 34-44 8-10 31-34-8-29-47z M260 220l31-25 41 14 23 43-17 36 22 22-11 45-27 24-33-22-8-55-29-38z M391 165l31-23 47 15 42 43-16 33-47-6-18 34-39-23-8-40z" stroke="#8cbdb7" strokeOpacity=".5" strokeWidth="2"/>
       </g>
-      <circle cx="364" cy="178" r="7" fill={C.gold}/><circle cx="364" cy="178" r="18" fill="none" stroke={C.gold} strokeOpacity=".55"/>
+      <circle cx="364" cy="178" r="7" fill={C.gold}/><circle cx="364" cy="178" r={18 + pinPulse * 15} fill="none" stroke={C.gold} strokeOpacity={.7 - pinPulse * .35}/><circle cx="364" cy="178" r="28" fill="#e7b66e" fillOpacity=".08"/>
       <path d="M364 178 Q330 230 290 302" fill="none" stroke={C.gold} strokeDasharray="4 9" strokeOpacity=".78"/>
     </svg>
   </div>;
 };
 
 const ForestMill: React.FC<{frame: number}> = ({frame}) => {
-  const reveal = smooth(frame, 110, 178);
+  const reveal = smooth(frame, 44, 105);
   const trees = Array.from({length: 22}, (_, i) => ({x: 185 + (i * 83) % 760, y: 258 + (i * 47) % 402, s: .68 + (i % 5) * .12, d: i * 2.7}));
-  const parallax = interpolate(frame, [96, 180], [160, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const parallax = interpolate(frame, [38, 106], [160, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const pulse = .74 + Math.sin(frame / 7) * .05;
-  return <div style={{position: 'absolute', inset: 0, opacity: reveal, transform: `translateY(${parallax}px) scale(${interpolate(frame, [110, 180], [.88, 1.18], clamp)})`, transformOrigin: '52% 53%'}}>
+  return <div style={{position: 'absolute', inset: 0, opacity: reveal, transform: `translateY(${parallax}px) scale(${interpolate(frame, [38, 106], [.88, 1.18], {...clamp, easing: Easing.inOut(Easing.cubic)})})`, transformOrigin: '52% 53%'}}>
     <svg viewBox="0 0 1920 1080" width="100%" height="100%" style={{position: 'absolute', inset: 0}}>
       <defs><linearGradient id="ground" x2="0" y2="1"><stop stopColor="#233b39"/><stop offset="1" stopColor="#101b22"/></linearGradient><linearGradient id="millwall"><stop stopColor="#b97745"/><stop offset="1" stopColor="#4a3328"/></linearGradient><filter id="millglow"><feGaussianBlur stdDeviation="16"/></filter></defs>
       <path d="M0 590 Q250 500 440 588 T890 566 T1390 590 T1920 520V1080H0Z" fill="url(#ground)"/>
       <path d="M0 746 Q420 615 760 740 T1420 690 T1920 650" fill="none" stroke="#8cae9f" strokeOpacity=".14" strokeWidth="2"/>
-      {trees.map((t,i)=><g key={i} transform={`translate(${t.x},${t.y}) scale(${t.s})`} opacity={.5+(i%4)*.1}><path d="M0 75v70" stroke="#403a2b" strokeWidth="11"/><path d="M0 -35l-50 86h30l-40 67h120L20 51h30z" fill={i%3===0?'#294a42':'#1c3734'} stroke="#719786" strokeOpacity=".2"/></g>)}
+      {trees.map((t,i)=><g key={i} transform={`translate(${t.x},${t.y}) scale(${t.s})`} opacity={.5+(i%4)*.1}><path d="M0 75v70" stroke="#403a2b" strokeWidth="11"/><path d="M0 -35l-50 86h30l-40 67h120L20 51h30z" fill={i%3===0?'#294a42':'#1c3734'} stroke="#719786" strokeOpacity=".2"/><path d="M0 -35l-17 30 16-5 16 6z M-22 3l-25 42 25-8 22 9z M23 52l-22-6-21 8" fill="none" stroke="#c7e0dd" strokeOpacity=".7" strokeWidth="5" strokeLinejoin="round"/></g>)}
       {/* Mill yard and sawmill: geometric, built environment rather than an icon */}
       <g transform="translate(824 474)">
         <ellipse cx="165" cy="270" rx="346" ry="72" fill="#6de6ef" opacity=".14" filter="url(#millglow)"/>
@@ -74,22 +77,28 @@ const ForestMill: React.FC<{frame: number}> = ({frame}) => {
       <circle cx="1324" cy="530" r="5" fill="#e8bf7f"/><path d="M1324 530h144v-86" fill="none" stroke="#e8bf7f" strokeOpacity=".55" strokeDasharray="3 7"/>
     </svg>
     <Glass style={{position: 'absolute', top: 315, right: 220, padding: '21px 27px', minWidth: 190, opacity: springIn(frame, 30, 130), transform: `translateY(${(1-springIn(frame,30,130))*26}px)`}}>
-      <div style={{font: '11px Arial', letterSpacing: 2.5, color: C.cyan}}>MATERIAL / 01</div><div style={{font: '26px Georgia', color: C.ivory, marginTop: 8}}>Paper</div><div style={{font: '12px Arial', color: C.muted, marginTop: 7}}>Pulp · water · timber</div>
+      <div style={{font: '11px Arial', letterSpacing: 2.5, color: C.cyan}}>MATERIAL / 01</div><div style={{font: '26px Georgia', color: C.ivory, marginTop: 8}}>Paper</div>
+      <svg viewBox="0 0 186 45" width="186" height="45" style={{display:'block',marginTop:8}}><path d="M3 34L20 15l17 18 19-25 21 21 19-17 22 18 18-14 21 13 26-15" fill="none" stroke="#79e7ed" strokeWidth="1.4" strokeDasharray="220" strokeDashoffset={interpolate(frame,[130,158],[220,0],clamp)}/><path d="M3 39H182M21 7v34m37-27v27m42-20v20m42-25v25m38-33v33" stroke="#7ab5c0" strokeOpacity=".34" strokeWidth=".8"/><text x="5" y="10" fill="#9bb9c0" fontSize="6" letterSpacing="1.3">FIBRE / PULP SCHEMATIC</text></svg>
+      <div style={{font: '12px Arial', color: C.muted, marginTop: 4}}>Pulp · water · timber</div>
     </Glass>
   </div>;
 };
 
 const GridScene: React.FC<{frame: number}> = ({frame}) => {
   const f = frame - 180;
-  const opacity = interpolate(frame, [160, 190, 430, 470], [0, 1, 1, 0], clamp);
-  const pan = interpolate(f, [0, 270], [120, -135], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const scale = interpolate(f, [0, 270], [.92, 1.1], clamp);
-  const boots = springIn(f,30, 40);
-  const cables = springIn(f,30, 106);
-  const power = springIn(f,30, 178);
+  const opacity = interpolate(frame, [160, 190, 430, 470], [0, 1, 1, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const panKick = springIn(f,30,0);
+  const pan = interpolate(panKick,[0,1],[120,0],clamp) + interpolate(f, [0, 270], [0, -135], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const scale = interpolate(f, [0, 270], [.92, 1.1], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const morphProgress = smooth(frame,450,470); // 00:15 — the industrial grid folds upward into the digital map
+  const compressY = interpolate(morphProgress,[0,1],[1,.58]);
+  const morphUp = interpolate(morphProgress,[0,1],[0,-150]);
+  const boots = springIn(f,30, 60); // 00:08 — the narrated rubber-boots beat
+  const cables = springIn(f,30, 120); // 00:10 — copper conductors ignite on “cables”
+  const power = springIn(f,30, 165);
   const glow = .75 + .25*Math.sin(f/5);
   return <AbsoluteFill style={{opacity, overflow: 'hidden', background: 'radial-gradient(ellipse at 47% 62%, #1b3139 0%, #0b0f19 70%)'}}>
-    <div style={{position: 'absolute', inset: -200, transform: `translate(${pan}px, 50px) scale(${scale})`, transformOrigin: '50% 55%'}}>
+    <div style={{position: 'absolute', inset: -200, transform: `translate(${pan}px, ${50+morphUp}px) scale(${scale},${compressY})`, transformOrigin: '50% 55%'}}>
       <svg viewBox="0 0 1920 1080" width="100%" height="100%">
         <defs><linearGradient id="copper" x2="1"><stop stopColor="#af714d"/><stop offset=".48" stopColor="#f2bd73"/><stop offset="1" stopColor="#55d9ee"/></linearGradient><filter id="lineGlow"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><radialGradient id="spot"><stop stopColor="#a1efeb" stopOpacity=".14"/><stop offset="1" stopColor="#a1efeb" stopOpacity="0"/></radialGradient></defs>
         <ellipse cx="970" cy="560" rx="650" ry="420" fill="url(#spot)"/>
@@ -106,9 +115,9 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
         </g>
         {/* Cable paths thread through the frame and pulse along their length */}
         <g fill="none" stroke="url(#copper)" filter="url(#lineGlow)" opacity={cables} strokeWidth="4">
-          <path d="M890 714C1050 760 1050 433 1255 495S1470 685 1630 410" strokeDasharray="900" strokeDashoffset={interpolate(f,[100,190],[900,0],clamp)}/>
-          <path d="M890 727C1070 775 1085 465 1276 520S1498 710 1650 438" strokeWidth="2" opacity=".72" strokeDasharray="900" strokeDashoffset={interpolate(f,[100,190],[900,0],clamp)}/>
-          <path d="M890 740C1100 800 1120 495 1295 545S1515 735 1673 466" strokeWidth="1.5" opacity=".48" strokeDasharray="900" strokeDashoffset={interpolate(f,[100,190],[900,0],clamp)}/>
+          <path d="M890 714C1050 760 1050 433 1255 495S1470 685 1630 410" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
+          <path d="M890 727C1070 775 1085 465 1276 520S1498 710 1650 438" strokeWidth="2" opacity=".72" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
+          <path d="M890 740C1100 800 1120 495 1295 545S1515 735 1673 466" strokeWidth="1.5" opacity=".48" strokeDasharray="900" strokeDashoffset={interpolate(f,[120,198],[900,0],clamp)}/>
         </g>
         {[0,1,2,3].map(i=><circle key={i} cx={1040+i*165+Math.sin(f/12+i)*9} cy={663-i*46+Math.cos(f/11+i)*9} r={5+i%2*2} fill={i%2?C.cyan:C.gold} opacity={cables} filter="url(#lineGlow)"/>)}
         {/* Grid transformer and luminous electricity arc */}
@@ -125,7 +134,11 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
       <div style={{font: '11px Arial', color: C.cyan, letterSpacing: 2.4}}>THE PIVOT · FINLAND</div><div style={{font: '25px Georgia', color: C.ivory, marginTop: 8}}>Beyond the forest</div>
       <div style={{height: 1, background: 'rgba(130,210,222,.24)', margin: '15px 0 12px'}}/><div style={{font: '13px Arial', color: C.muted, lineHeight: 1.8}}>Rubber goods <span style={{color: C.gold}}>→</span> cable networks <span style={{color: C.cyan}}>→</span> electrification</div>
     </Glass>
-    <Glass style={{position: 'absolute', bottom: 173, right: 125, padding: '17px 22px', opacity: springIn(f,30,174), transform: `translateY(${(1-springIn(f,30,174))*18}px)`}}><div style={{font: '11px Arial', color: C.muted, letterSpacing: 2}}>A NATION IN MOTION</div><div style={{font: '22px Georgia', color: C.ivory, marginTop: 7}}>Powering modern Finland</div></Glass>
+    <Glass style={{position: 'absolute', bottom: 153, right: 110, width: 312, padding: '16px 19px', opacity: springIn(f,30,210), transform: `translateY(${(1-springIn(f,30,210))*22}px)`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}><span style={{font:'10px Arial',color:C.cyan,letterSpacing:2}}>INDUSTRIAL OUTPUT</span><span style={{font:'10px Arial',color:C.muted}}>FINLAND · 1920s</span></div>
+      <div style={{font:'21px Georgia',color:C.ivory,marginTop:6}}>A nation electrified</div>
+      <svg viewBox="0 0 280 66" width="100%" height="66" style={{marginTop:9,overflow:'visible'}}><path d="M0 58H280" fill="none" stroke="#63818a" strokeOpacity=".4"/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3" fill="none" stroke="#69e4f5" strokeWidth="2.5" strokeDasharray="210" strokeDashoffset={interpolate(f,[210,246],[210,0],clamp)} style={{filter:'drop-shadow(0 0 5px #69e4f5)'}}/><path d="M4 51 C31 49 36 44 55 46 S81 34 99 39 S129 36 147 26 S177 34 196 21 S230 17 249 9 S270 12 279 3 L279 62 L4 62Z" fill="#69e4f5" fillOpacity=".08"/></svg>
+    </Glass>
     <Caption frame={frame} fps={30} start={180} end={247}>Decades before cell phones, Nokia evolved into an industrial powerhouse—</Caption>
     <Caption frame={frame} fps={30} start={247} end={318}>manufacturing rubber boots, cables,</Caption>
     <Caption frame={frame} fps={30} start={318} end={444}>and electricity for a rapidly modernizing nation.</Caption>
@@ -134,14 +147,19 @@ const GridScene: React.FC<{frame: number}> = ({frame}) => {
 
 const GlobalNetwork: React.FC<{frame:number}> = ({frame}) => {
   const p = frame - 450;
-  const net = smooth(p, 8, 142);
-  const phone = springIn(p,30, 152);
-  const pullback = interpolate(p, [0, 105, 250, 420], [1.23, .87, .93, .91], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const rotate = interpolate(p,[0,150,420],[6,0,-3],{...clamp,easing:Easing.inOut(Easing.cubic)});
-  const targets = [{x:760,y:335},{x:1180,y:288},{x:1340,y:470},{x:1120,y:645},{x:680,y:590},{x:920,y:435},{x:1480,y:625}];
-  return <AbsoluteFill style={{opacity: interpolate(frame,[430,460],[0,1],clamp), overflow: 'hidden', background: 'radial-gradient(ellipse at 50% 44%, #17303d 0%, #0b0f19 68%)'}}>
+  const net = smooth(p, 108, 148);
+  const phone = springIn(p,30, 230);
+  const pullback = interpolate(p, [0, 90, 210, 420], [1.23, 1.23, .87, .91], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const rotate = interpolate(p,[0,205,420],[6,0,-3],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  const origin = {x:960, y:350};
+  const targets = [
+    {x:866,y:390,label:'LONDON'}, {x:666,y:410,label:'NEW YORK'}, {x:1360,y:395,label:'TOKYO'},
+    {x:1285,y:580,label:'SINGAPORE'}, {x:780,y:580,label:'SÃO PAULO'}, {x:1090,y:455,label:'DUBAI'}
+  ];
+  const mapOpacity = interpolate(p,[0,220,275,420],[1,1,.22,.12],{...clamp,easing:Easing.inOut(Easing.cubic)});
+  return <AbsoluteFill style={{opacity: interpolate(frame,[430,460],[0,1],{...clamp,easing:Easing.inOut(Easing.cubic)}), overflow: 'hidden', background: 'radial-gradient(ellipse at 50% 44%, #17303d 0%, #0b0f19 68%)'}}>
     <Topline frame={p} fps={30} label="The connected world" index="03"/>
-    <div style={{position:'absolute', inset:0, transform:`scale(${pullback}) rotate(${rotate}deg)`, transformOrigin:'50% 46%'}}>
+    <div style={{position:'absolute', inset:0, opacity:mapOpacity, transform:`scale(${pullback}) rotate(${rotate}deg)`, transformOrigin:'50% 46%'}}>
       <svg viewBox="0 0 1920 1080" width="100%" height="100%">
         <defs><radialGradient id="earth2"><stop stopColor="#1c3946"/><stop offset=".82" stopColor="#10212b"/><stop offset="1" stopColor="#09121b"/></radialGradient><filter id="netGlow"><feGaussianBlur stdDeviation="11" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="earthClip"><ellipse cx="960" cy="486" rx="440" ry="335"/></clipPath></defs>
         <ellipse cx="960" cy="486" rx="440" ry="335" fill="url(#earth2)" stroke="#70dbe8" strokeOpacity=".45" strokeWidth="2"/>
@@ -151,22 +169,36 @@ const GlobalNetwork: React.FC<{frame:number}> = ({frame}) => {
           <path d="M570 400l70-90 80 26 45-62 90 27 42 82-48 58-72 16-8 74-81 43-60-61-88-21z M920 258l82-48 103 47 18 72-56 52-65-22-27 54-69-28-18-71z M1090 450l116-78 119 54 53 100-87 60-46 107-98-51-26-98z" stroke="#a4c6b2" strokeOpacity=".43" strokeWidth="3"/>
         </g>
         {/* City routes fire outward from Finland in timed waves */}
-        {targets.map((t,i)=>{const delay=i*12; const q=smooth(p,24+delay,87+delay); const x=960+(t.x-960)*q; const y=422+(t.y-422)*q; const cy=Math.min(220,t.y-422<0?-75:95); return <g key={i} opacity={net}><path d={`M960 422 Q${(960+t.x)/2} ${422+cy} ${x} ${y}`} fill="none" stroke={i%2?C.cyan:C.gold} strokeOpacity=".66" strokeWidth="1.6" strokeDasharray="5 8"/><circle cx={x} cy={y} r={3.5+(i%3)} fill={i%2?C.cyan:C.gold} filter="url(#netGlow)"/><circle cx={x} cy={y} r="14" fill="none" stroke={i%2?C.cyan:C.gold} strokeOpacity={.38+Math.sin(p/5+i)*.15}/></g>})}
-        <circle cx="960" cy="422" r="8" fill="#f4ca84" filter="url(#netGlow)"/><circle cx="960" cy="422" r="24" fill="none" stroke="#f4ca84" strokeOpacity=".55"/>
-        <text x="980" y="412" fill="#f3d094" fontSize="13" fontFamily="Arial" letterSpacing="3" opacity={net}>FINLAND · SIGNAL ORIGIN</text>
-        {/* Radar rings form the transition into the phone schematic */}
-        {[1,2,3,4].map((r)=><circle key={r} cx="960" cy="422" r={40+r*29+((p*2)%30)} fill="none" stroke="#6bdde9" strokeOpacity={Math.max(0,.2-(p%30)/180)} strokeWidth="1"/>)}
+        {targets.map((t,i)=>{
+          const delay=i*8;
+          const q=smooth(p,108+delay,148+delay);
+          const x=origin.x+(t.x-origin.x)*q;
+          const y=origin.y+(t.y-origin.y)*q;
+          const cy=t.y-origin.y<0?-75:95;
+          const labelOpacity=net*smooth(p,150+delay,165+delay);
+          return <g key={t.label}>
+            <path d={`M${origin.x} ${origin.y} Q${(origin.x+t.x)/2} ${origin.y+cy} ${x} ${y}`} fill="none" stroke={i%2?C.cyan:C.gold} strokeOpacity={.66*net} strokeWidth="1.6" strokeDasharray="5 8"/>
+            <circle cx={x} cy={y} r={3.5+(i%3)} fill={i%2?C.cyan:C.gold} filter="url(#netGlow)" opacity={net}/>
+            <circle cx={x} cy={y} r={14+Math.sin(p/5+i)*3} fill="none" stroke={i%2?C.cyan:C.gold} strokeOpacity={.38+Math.sin(p/5+i)*.15} opacity={net}/>
+            <text x={t.x+14} y={t.y-12} fill="#d3e4e2" fontSize="11" fontFamily="Arial" letterSpacing="2" opacity={labelOpacity}>{t.label}</text>
+          </g>;
+        })}
+        <circle cx={origin.x} cy={origin.y} r="8" fill="#f4ca84" filter="url(#netGlow)"/><circle cx={origin.x} cy={origin.y} r={24+Math.sin(p/4)*7} fill="none" stroke="#f4ca84" strokeOpacity=".55"/>
+        <text x={origin.x+20} y={origin.y-10} fill="#f3d094" fontSize="13" fontFamily="Arial" letterSpacing="3" opacity={net}>FINLAND · SIGNAL ORIGIN</text>
+        {/* High-frequency radar rings bridge the global network into the phone schematic */}
+        {[1,2,3,4].map((r)=><circle key={r} cx={origin.x} cy={origin.y} r={40+r*29+((p*2)%30)} fill="none" stroke="#6bdde9" strokeOpacity={Math.max(0,.2-(p%30)/180)} strokeWidth="1"/>)}
       </svg>
     </div>
     {/* Device resolves from wireframe into a luminous precision object */}
-    <div style={{position:'absolute', left: '50%', top: 484, width: 244, height: 404, marginLeft: -122, opacity: interpolate(p,[92,160,205,420],[0,1,1,0],clamp), transform:`translateY(${(1-phone)*80}px) scale(${.74+phone*.26}) rotate(${interpolate(p,[120,240],[8,0],clamp)}deg)`, filter:'drop-shadow(0 0 30px rgba(79,222,239,.24))'}}>
+    <div style={{position:'absolute', left: '50%', top: 330, width: 244, height: 404, marginLeft: -122, opacity: Math.max(0,Math.min(1,phone)), transform:`translateY(${(1-phone)*80}px) scale(${.74+phone*.26}) rotate(${interpolate(p,[220,270],[8,0],clamp)}deg)`, filter:'drop-shadow(0 0 30px rgba(79,222,239,.24))'}}>
       <svg viewBox="0 0 244 404" width="100%" height="100%">
         <defs><linearGradient id="phone" x2="1" y2="1"><stop stopColor="#a8eef0"/><stop offset=".5" stopColor="#1d5260"/><stop offset="1" stopColor="#c3925d"/></linearGradient><linearGradient id="screen" x2="0" y2="1"><stop stopColor="#193540"/><stop offset="1" stopColor="#08121b"/></linearGradient></defs>
         <rect x="14" y="7" width="216" height="390" rx="29" fill="#09141e" stroke="url(#phone)" strokeWidth="3"/>
         <rect x="25" y="25" width="194" height="350" rx="20" fill="url(#screen)" stroke="#8ae2e7" strokeOpacity=".55"/>
         <path d="M87 16h70" stroke="#95aeb0" strokeWidth="3" strokeLinecap="round"/>
         <circle cx="122" cy="199" r="76" fill="none" stroke="#5adbe8" strokeOpacity=".22"/><circle cx="122" cy="199" r="55" fill="none" stroke="#5adbe8" strokeOpacity=".36"/><circle cx="122" cy="199" r="28" fill="none" stroke="#e9bc7d" strokeOpacity=".8"/>
-        <path d="M122 199L184 153A77 77 0 0 1 169 244Z" fill="#6de8ed" opacity=".22"/><path d="M122 199L181 157" stroke="#9cf4ec" strokeWidth="2"/>
+        <path d="M122 199L184 153A77 77 0 0 1 169 244Z" fill="#6de8ed" opacity=".22" transform={`rotate(${(p*7)%360} 122 199)`}/><path d="M122 199L181 157" stroke="#9cf4ec" strokeWidth="2" transform={`rotate(${(p*7)%360} 122 199)`}/>
+        <path d="M51 103h40m62 0h40M51 296h40m62 0h40" stroke="#62dbe3" strokeOpacity=".33" strokeDasharray="3 7"/>
         {[0,1,2,3,4,5].map(i=><circle key={i} cx={122+Math.cos(i*Math.PI/3)*56} cy={199+Math.sin(i*Math.PI/3)*56} r="3" fill={i%2?C.cyan:C.gold}/>)}
         <path d="M58 286h128m-105 16h82m-100 16h119" stroke="#5baeb7" strokeOpacity=".48" strokeWidth="2"/>
         <text x="122" y="357" textAnchor="middle" fill="#c8dedb" fontSize="10" fontFamily="Arial" letterSpacing="2">MOBILE · CONNECTED</text>
