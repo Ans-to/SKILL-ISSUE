@@ -29,3 +29,10 @@
 - **Mandatory Cloud Rendering:** Local rendering is prohibited. All final production builds must execute via GitHub Actions workflows (`.github/workflows/render.yml`).
 - **Artifact Delivery:** The cloud runner must compile the high-definition MP4 and provide an automated direct download link upon completion.
 -
+### 7. MANDATORY CAMERA & LAYER ARCHITECTURE (ANTI-GLITCH PROTOCOL)
+- **Absolute Ban on Z-Axis Rotational Intersections:** Never rotate the primary world container or globe on the X or Y axis while a HUD card or text layer is active. This causes backward text flipping and clipping.
+- **Fixed Camera Math Formula:** All Z-axis movements must use a locked camera perspective where only `camera.position.z` changes linearly or via spring, while all HTML/SVG overlay cards remain on a static 2D screen-space overlay layer (`position: absolute; z-index: 10`) unaffected by 3D world rotations.
+- **Strict Separation of Planes:** 
+  - Layer 1 (Background): Obsidian `#0b0f19` with radial vignette.
+  - Layer 2 (3D World/Globe): React Three Fiber canvas with zero overlapping text.
+  - Layer 3 (HUD & Typography): Pure 2D DOM overlay positioned via flexbox/grid, entering with Remotion `spring()`. Never embed raw HTML/text directly inside 3D rotating meshes.
