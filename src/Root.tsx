@@ -1,11 +1,11 @@
 import React from 'react';
 import {Composition} from 'remotion';
-import {NokiaRebuilt} from './NokiaRebuilt';
+import {NokiaEditorialFilm} from './NokiaEditorialFilm';
 
 export const RemotionRoot: React.FC = () => (
   <Composition
     id="NokiaDocumentary"
-    component={NokiaRebuilt}
+    component={NokiaEditorialFilm}
     durationInFrames={900}
     fps={30}
     width={1920}
