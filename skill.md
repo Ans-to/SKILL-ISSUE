@@ -1,14 +1,16 @@
-## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES (v4)
+## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES (v5)
 
 ### 1. True 3D Spatial Camera & Macro-to-Micro Orchestration
 - **Zero Flat 2D Slides:** Absolute ban on flat fades, static panels, and boring PowerPoint-style layouts. 
 - **Physical Z-Axis Camera Travels:** The camera must utilize true 3D spatial movement (via React Three Fiber or Remotion 3D layers). When transitioning from a global view to a country or city, the camera must physically fly forward along the Z-axis (`camera.position.z`), diving smoothly from macro coordinates down into micro details.
-- **Dynamic Shape Morphing:** Elements must not pop or cut into existence. When transitioning between concepts (e.g., Globe -> Industrial Mill -> Mobile Device), shapes must organically scale, rotate, and morph into one another.
+- **Strict Camera Clamping & No-Warp Logic:** Never rotate or tilt world planes awkwardly. Use controlled forward Z-translation combined with smooth opacity cross-fades and clean scaling for incoming HUD cards so text never flips backward or clips through geometry.
+- **Dynamic Shape Morphing:** Elements must not pop or cut into existence. When transitioning between concepts (Globe -> Industrial Mill -> Mobile Device), shapes must organically scale, rotate, and morph into one another.
 
-### 2. High-End Cinematic Aesthetics, Neon Glow & Bloom
-- **Obsidian Foundation & Neon Bloom:** Anchor every frame in a deep obsidian dark-mode background (`#0b0f19`) paired with high-contrast, glowing neon vector paths (`#00f3ff`, `#ffb700`, etc.).
-- **Atmospheric Glow & Shadows:** All UI cards, vector lines, and nodes must feature multi-layer box shadows and glowing filters (`filter: drop-shadow(0 0 12px rgba(0, 243, 255, 0.7))`) so they pop off the background with a high-end Netflix/Polymatter sheen.
+### 2. High-End Cinematic Aesthetics, Neon Glow & Optics
+- **Obsidian Foundation & Vignette:** Anchor every frame in a deep obsidian dark-mode background (`#0b0f19`) layered with a subtle radial corner vignette and atmospheric background depth falloff.
+- **Neon Bloom & Atmospheric Shadows:** All UI cards, vector lines, and nodes must feature multi-layer box shadows and glowing filters (`filter: drop-shadow(0 0 12px rgba(0, 243, 255, 0.7))`) so they pop off the background.
 - **Kinetic Spring Physics:** Linear CSS transitions are banned. All motion, camera easing, and UI entrances must use Remotion's `spring()` physics (`damping: 12`, `stiffness: 100`).
+- **Crisp Vector & Sub-Pixel Rendering:** Force high-definition anti-aliasing and sub-pixel rendering on all SVG paths and text layers to completely eliminate jagged lines or soft pixelation.
 
 ### 3. Sophisticated Vector Art & Zero Cartoons
 - **Eradicate Childish Clip-Art:** Ban flat, disjointed, or cartoonish avatars with floating detached limbs. 
@@ -16,7 +18,7 @@
 - **Procedural Micro-Motion (`Math.sin()`):** Elements must feature continuous subtle motion (e.g., procedural breathing/pulsing loops using `Math.sin()`) integrated into the scene's lighting environment so elements never sit idle.
 
 ### 4. Cinematic Narration & High-Retention Pacing
-- **Anti-Textbook Voice & Tone:** The agent must analyze the script context and dynamically determine the ideal voice profile (e.g., deep, authoritative, measured pacing with deliberate gravitas—akin to top-tier documentary essays like Johnny Harris or Polymatter) to maximize viewer retention.
+- **Anti-Textbook Voice & Tone:** The agent must analyze script context and dynamically determine the ideal professional voice profile (deep, authoritative, measured pacing with deliberate gravitas—akin to top-tier documentary essays like Johnny Harris or Polymatter) to maximize viewer retention.
 - **Psychological Hook & Rhythm:** Eliminate dry chronological listing of facts. Sentences must be structured with narrative tension, deliberate micro-pauses for visual beats, and punchy cadence changes that prevent viewer fatigue.
 
 ### 5. The Law of Literal Visual Synchronization (Voiceover Binding)
