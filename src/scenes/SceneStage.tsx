@@ -12,9 +12,9 @@ import {
 export {SceneContainer} from '../SceneContainer';
 
 /**
- * Right-column interior stage wrapper inside <SceneContainer> (760x1920).
- * Keeps background, Three.js WebGL depth, and 2D vector/kinetic typography isolated
- * and enforces hard-cut clearing before each <Sequence> unmounts.
+ * Full-bleed 1080x1920 stage wrapper inside <SceneContainer>.
+ * Separates background, Three.js WebGL depth, and 2D vector/kinetic typography
+ * while enforcing clean hard-cut clears before each <Sequence> unmounts.
  */
 export const SceneStage: React.FC<{
   scene: SceneSpec;
@@ -56,7 +56,7 @@ export const SceneStage: React.FC<{
 };
 
 /**
- * Scene-isolated Three.js WebGL canvas sized strictly to the 760x1920 right column.
+ * Full-canvas 1080x1920 scene-isolated Three.js WebGL camera rig.
  */
 export const SceneThreeCanvas: React.FC<{
   localFrame: number;
@@ -65,16 +65,16 @@ export const SceneThreeCanvas: React.FC<{
   fov?: number;
   opacity?: number;
   children: React.ReactNode;
-}> = ({localFrame, energy, baseZ = 14.4, fov = 44, opacity = 0.56, children}) => (
+}> = ({localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.58, children}) => (
   <ThreeCanvas
     width={STAGE_WIDTH}
     height={STAGE_HEIGHT}
     dpr={1}
     camera={{
       position: [
-        Math.sin(localFrame * 0.014) * 0.14,
-        Math.cos(localFrame * 0.011) * 0.1,
-        baseZ - energy * 0.36,
+        Math.sin(localFrame * 0.014) * 0.16,
+        Math.cos(localFrame * 0.011) * 0.12,
+        baseZ - energy * 0.38,
       ],
       fov,
       near: 0.1,

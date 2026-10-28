@@ -1,6 +1,8 @@
 import React from 'react';
+import {spring} from 'remotion';
 import {Micro, Panel} from './TelemetryHud';
 import {
+  FPS,
   MUTED,
   ORANGE,
   SCENE_MAP,
@@ -10,7 +12,7 @@ import {
 } from './engine/agentEngineModel';
 
 /**
- * Isolated Payoff timeline grid inside the 760x1920 right column of <SceneContainer>.
+ * Full-canvas (1080x1920) floating translucent Payoff timeline & compiler overlay.
  */
 export const TimelineGrid: React.FC<{
   localFrame: number;
@@ -18,6 +20,11 @@ export const TimelineGrid: React.FC<{
   energy: number;
 }> = ({localFrame, globalFrame, energy}) => {
   const scene = SCENE_MAP.payoff;
+  const enter = spring({
+    frame: localFrame,
+    fps: FPS,
+    config: {damping: 14, stiffness: 185},
+  });
   const activeCue =
     SCRIPT_CUES.find(
       (cue) =>
@@ -32,32 +39,33 @@ export const TimelineGrid: React.FC<{
   const framesCue = cueAfter('frames,', codeCue.globalIndex);
   const mp4Cue = cueAfter('MP4.', framesCue.globalIndex);
   const stages = [
-    {code: 'STAGE 01', cue: promptCue},
-    {code: 'STAGE 02', cue: codeCue},
-    {code: 'STAGE 03', cue: framesCue},
-    {code: 'STAGE 04', cue: mp4Cue},
+    {code: '01 // PROMPT', cue: promptCue},
+    {code: '02 // CODE', cue: codeCue},
+    {code: '03 // FRAMES', cue: framesCue},
+    {code: '04 // MP4', cue: mp4Cue},
   ];
-  const scroll = (localFrame * 9) % 210;
+  const scroll = (localFrame * 11) % 240;
 
   return (
     <Panel
       style={{
         position: 'absolute',
-        left: 36,
-        right: 36,
-        top: 328,
-        bottom: 48,
-        borderRadius: 14,
-        padding: '22px 24px',
+        left: 56,
+        right: 56,
+        top: 432,
+        bottom: 204,
+        borderRadius: 16,
+        padding: '24px 28px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: 18,
+        gap: 20,
+        transform: `translateY(${(1 - enter) * 28}px) scale(${0.97 + enter * 0.03})`,
       }}
     >
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Micro accent>SEQUENCE TIMELINE // RENDER GRAPH</Micro>
-        <Micro>L{String(localFrame).padStart(3, '0')} · F{String(globalFrame).padStart(4, '0')}</Micro>
+        <Micro accent>DETERMINISTIC RENDER GRAPH // FULL CANVAS</Micro>
+        <Micro>PLAYHEAD F{String(globalFrame).padStart(4, '0')}</Micro>
       </div>
 
       {/* Multi-track scrolling Sequence lanes */}
@@ -66,7 +74,7 @@ export const TimelineGrid: React.FC<{
           flex: 1,
           minHeight: 0,
           border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(5,8,15,.84)',
+          background: 'rgba(6,9,17,.66)',
           position: 'relative',
           overflow: 'hidden',
           padding: '16px 0',
@@ -79,23 +87,23 @@ export const TimelineGrid: React.FC<{
           <div
             key={lane}
             style={{
-              height: 62,
+              height: 64,
               position: 'relative',
               borderTop: '1px solid rgba(244,247,255,.07)',
               borderBottom: '1px solid rgba(244,247,255,.07)',
             }}
           >
-            {[0, 1, 2, 3, 4, 5].map((clip) => {
+            {[0, 1, 2, 3, 4, 5, 6].map((clip) => {
               const hot = (lane + clip) % 3 === 0;
               return (
                 <i
                   key={clip}
                   style={{
                     position: 'absolute',
-                    left: clip * 210 - scroll + (lane % 2) * 52,
-                    top: 9,
-                    width: 132 + ((lane + clip) % 3) * 34,
-                    height: 42,
+                    left: clip * 240 - scroll + (lane % 2) * 64,
+                    top: 10,
+                    width: 158 + ((lane + clip) % 3) * 42,
+                    height: 44,
                     border: `1px solid ${hot ? ORANGE : 'rgba(244,247,255,.2)'}`,
                     background: hot ? 'rgba(255,69,0,.22)' : 'rgba(244,247,255,.075)',
                   }}
@@ -112,39 +120,39 @@ export const TimelineGrid: React.FC<{
             bottom: 0,
             width: 3,
             background: ORANGE,
-            boxShadow: `0 0 22px ${ORANGE}`,
+            boxShadow: `0 0 24px ${ORANGE}`,
           }}
         />
       </div>
 
-      {/* AST + 2x2 Quantized Frame Strip */}
+      {/* Floating AST + 4 Quantized Frame Strip */}
       <div
         style={{
           border: `1px solid ${globalFrame >= codeCue.startFrame ? ORANGE : 'rgba(244,247,255,.15)'}`,
-          background: 'rgba(8,12,21,.9)',
-          padding: '18px 20px',
+          background: 'rgba(8,12,21,.68)',
+          padding: '20px 24px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 16,
         }}
       >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>AST // SEQUENCE COMPILER</Micro>
-          <span style={{fontFamily: 'monospace', fontSize: 11, color: MUTED}}>1080×1920 · 320PX | 1FR</span>
+          <span style={{fontFamily: 'monospace', fontSize: 12, color: MUTED}}>1080 × 1920 · 30 FPS</span>
         </div>
 
-        <div style={{fontFamily: 'monospace', fontSize: 14, lineHeight: 1.55}}>
+        <div style={{fontFamily: 'monospace', fontSize: 16, lineHeight: 1.55}}>
           <div style={{color: ORANGE}}>{'<Sequence from={1053} durationInFrames={347}>'}</div>
-          <div style={{paddingLeft: 18, color: WHITE}}>{'<PayoffScene />'}</div>
+          <div style={{paddingLeft: 22, color: WHITE}}>{'<PayoffScene canvas="1080x1920" />'}</div>
           <div style={{color: ORANGE}}>{'</Sequence>'}</div>
         </div>
 
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10}}>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14}}>
           {[0, 1, 2, 3].map((slot) => (
             <div
               key={slot}
               style={{
-                height: 82,
+                height: 92,
                 border: `1px solid ${globalFrame >= framesCue.startFrame ? ORANGE : 'rgba(244,247,255,.18)'}`,
                 background:
                   globalFrame >= mp4Cue.startFrame
@@ -153,7 +161,7 @@ export const TimelineGrid: React.FC<{
                 display: 'grid',
                 placeItems: 'center',
                 fontFamily: 'monospace',
-                fontSize: 12,
+                fontSize: 14,
                 color: WHITE,
               }}
             >
@@ -163,8 +171,8 @@ export const TimelineGrid: React.FC<{
         </div>
       </div>
 
-      {/* 2x2 Compiler Stage Lock Grid */}
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12}}>
+      {/* 4-Stage Pipeline Lock Strip */}
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12}}>
         {stages.map((stage) => {
           const isCurrent = activeCue?.globalIndex === stage.cue.globalIndex;
           const isPast = globalFrame >= stage.cue.endFrame;
@@ -172,22 +180,25 @@ export const TimelineGrid: React.FC<{
             <div
               key={stage.code}
               style={{
-                height: 62,
+                height: 76,
                 border: `1px solid ${isCurrent ? ORANGE : isPast ? 'rgba(244,247,255,.32)' : 'rgba(244,247,255,.14)'}`,
                 background: isCurrent
-                  ? 'rgba(255,69,0,.15)'
+                  ? 'rgba(255,69,0,.16)'
                   : isPast
-                    ? 'rgba(244,247,255,.04)'
-                    : 'rgba(8,11,19,.8)',
-                padding: '0 18px',
+                    ? 'rgba(244,247,255,.045)'
+                    : 'rgba(8,11,19,.55)',
+                padding: '10px 14px',
+                boxSizing: 'border-box',
                 display: 'flex',
-                alignItems: 'center',
+                flexDirection: 'column',
                 justifyContent: 'space-between',
                 fontFamily: 'monospace',
               }}
             >
-              <Micro accent={isCurrent || isPast}>{stage.code}</Micro>
-              <span style={{fontSize: 17, fontWeight: 900, color: isCurrent || isPast ? WHITE : MUTED}}>
+              <Micro accent={isCurrent || isPast} style={{fontSize: 10, letterSpacing: 1.6}}>
+                {stage.code}
+              </Micro>
+              <span style={{fontSize: 18, fontWeight: 900, color: isCurrent || isPast ? WHITE : MUTED}}>
                 {isCurrent ? stage.cue.text : isPast ? 'LOCKED' : '—'}
               </span>
             </div>

@@ -25,23 +25,23 @@ const OutroBackground: React.FC<{buildPhase: boolean; energy: number}> = ({build
       style={{
         position: 'absolute',
         inset: 0,
-        background: `radial-gradient(circle at 50% 50%, rgba(255,69,0,${(buildPhase ? 0.11 : 0.055) + energy * 0.1}), transparent 44%), radial-gradient(ellipse at 50% 50%, transparent 26%, rgba(0,0,0,.92) 92%)`,
+        background: `radial-gradient(circle at 50% 48%, rgba(255,69,0,${(buildPhase ? 0.12 : 0.06) + energy * 0.1}), transparent 44%), radial-gradient(ellipse at 50% 48%, transparent 28%, rgba(0,0,0,.92) 92%)`,
       }}
     />
     <svg
-      viewBox="0 0 760 1920"
+      viewBox="0 0 1080 1920"
       preserveAspectRatio="none"
       style={{position: 'absolute', inset: 0, width: '100%', height: '100%'}}
     >
-      <line x1="48" y1="960" x2="180" y2="960" stroke={WHITE} strokeOpacity=".16" />
-      <line x1="580" y1="960" x2="712" y2="960" stroke={WHITE} strokeOpacity=".16" />
+      <line x1="64" y1="920" x2="260" y2="920" stroke={WHITE} strokeOpacity=".16" />
+      <line x1="820" y1="920" x2="1016" y2="920" stroke={WHITE} strokeOpacity=".16" />
       <circle
-        cx="380"
-        cy="960"
-        r={buildPhase ? 268 : 224}
+        cx="540"
+        cy="920"
+        r={buildPhase ? 375 : 315}
         fill="none"
         stroke={buildPhase ? ORANGE : WHITE}
-        strokeOpacity={buildPhase ? 0.3 : 0.13}
+        strokeOpacity={buildPhase ? 0.32 : 0.14}
       />
     </svg>
   </div>
@@ -54,20 +54,20 @@ const OutroThreeLayer: React.FC<{localFrame: number; buildPhase: boolean; energy
 }) => {
   const spin = localFrame * 0.016;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={14.2} opacity={0.42}>
-      <group position={[0, 0, 0]} rotation={[0.2, spin, 0.06]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44}>
+      <group position={[0, 0.15, 0]} rotation={[0.2, spin, 0.06]}>
         <mesh>
-          <octahedronGeometry args={[buildPhase ? 1.55 : 1.28, 0]} />
+          <octahedronGeometry args={[buildPhase ? 2.1 : 1.72, 0]} />
           <meshBasicMaterial
             color={buildPhase ? ORANGE : WHITE}
             wireframe
             transparent
-            opacity={0.32 + energy * 0.25}
+            opacity={0.34 + energy * 0.25}
           />
         </mesh>
         <mesh rotation={[Math.PI / 2, 0, -spin]}>
-          <torusGeometry args={[1.82, 0.012, 8, 96]} />
-          <meshBasicMaterial color={ORANGE} transparent opacity={0.28 + energy * 0.2} />
+          <torusGeometry args={[2.72, 0.013, 8, 96]} />
+          <meshBasicMaterial color={ORANGE} transparent opacity={0.3 + energy * 0.2} />
         </mesh>
       </group>
     </SceneThreeCanvas>
@@ -80,7 +80,6 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
   const activeCue = findSceneCue(scene, localFrame);
   const energy = energyAt(globalFrame);
   const buildPhase = globalFrame >= SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame;
-
   const toysCue = cueAfter('toys.', scene.firstWordIndex);
 
   return (

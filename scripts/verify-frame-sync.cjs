@@ -26,7 +26,7 @@ for (const extension of ['.ts', '.tsx']) {
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
-const {TelemetryHud, AtmosphericOverlays} = require('../src/TelemetryHud.tsx');
+const {TelemetryHud, AtmosphericOverlays, getHudLifecycle} = require('../src/TelemetryHud.tsx');
 const {KineticEngine, SceneSemanticGraph} = require('../src/KineticEngine.tsx');
 const {SFX_PATHS, getSceneWordAudioCues, getSceneActiveAudioFrames} = require('../src/SceneAudio.tsx');
 
@@ -77,13 +77,15 @@ const sceneContainerSource = fs.readFileSync(
 );
 assert.ok(/export const SceneContainer\b/.test(sceneContainerSource), 'SceneContainer export missing');
 assert.ok(
-  sceneContainerSource.includes("gridTemplateColumns: '320px 1fr'"),
-  "SceneContainer must enforce gridTemplateColumns: '320px 1fr'",
+  !sceneContainerSource.includes('320px') && !sceneContainerSource.includes('gridTemplateColumns'),
+  'SceneContainer must be full-canvas 1080x1920 with zero fixed 320px sidebar grid',
 );
 assert.ok(
   sceneContainerSource.includes('<TelemetryHud />'),
-  'SceneContainer left column must mount <TelemetryHud />',
+  'SceneContainer must mount floating <TelemetryHud /> overlays',
 );
+assert.equal(model.STAGE_WIDTH, 1080, 'STAGE_WIDTH must use 100% of 1080px canvas');
+assert.equal(model.STAGE_HEIGHT, 1920, 'STAGE_HEIGHT must use 100% of 1920px canvas');
 
 for (const sceneFile of [
   'src/scenes/HookScene.tsx',
@@ -100,11 +102,20 @@ for (const sceneFile of [
   assert.ok(!src.includes('<TelemetryHud'), `${sceneFile} must not duplicate <TelemetryHud> inside right column`);
 }
 
-// Verify 1:1 millisecond/frame synchronization between WORD_START_FRAMES and embedded SFX triggers.
+// Verify 1:1 millisecond/frame synchronization between WORD_START_FRAMES and embedded SFX triggers,
+// plus dynamic floating HUD entry/exit lifecycle per scene transition.
 let mappedAudioWordCount = 0;
 for (const scene of SCENE_SEQUENCES) {
   const audioCues = getSceneWordAudioCues(scene);
   const activeAudioFrames = getSceneActiveAudioFrames(scene);
+  const hudStart = getHudLifecycle(scene, 0);
+  const hudMid = getHudLifecycle(scene, 24);
+  const hudPreCut = getHudLifecycle(scene, activeAudioFrames - 1);
+  const hudCleared = getHudLifecycle(scene, activeAudioFrames);
+  assert.ok(hudStart < hudMid, `HUD must animate in on ${scene.id} entry`);
+  assert.ok(hudMid > 0.95, `HUD must be visible mid-scene in ${scene.id}`);
+  assert.ok(hudPreCut < 0.25, `HUD must retract/fade before ${scene.id} transition cut`);
+  assert.equal(hudCleared, 0, `HUD must clear to zero opacity on ${scene.id} unmount window`);
   assert.equal(audioCues.length, scene.lastWordIndex - scene.firstWordIndex + 1);
   for (const audioCue of audioCues) {
     assert.equal(audioCue.startFrame, WORD_START_FRAMES[audioCue.globalIndex]);

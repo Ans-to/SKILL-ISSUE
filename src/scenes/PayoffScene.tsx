@@ -24,17 +24,17 @@ const PayoffBackground: React.FC<{localFrame: number; energy: number}> = ({local
       style={{
         position: 'absolute',
         inset: 0,
-        background: `radial-gradient(ellipse at 50% 60%, rgba(255,69,0,${0.06 + energy * 0.1}), transparent 52%)`,
+        background: `radial-gradient(ellipse at 50% 58%, rgba(255,69,0,${0.06 + energy * 0.11}), transparent 54%)`,
       }}
     />
     <div
       style={{
         position: 'absolute',
         inset: 0,
-        opacity: 0.14,
+        opacity: 0.13,
         backgroundImage: 'linear-gradient(90deg, rgba(244,247,255,.26) 1px, transparent 1px)',
-        backgroundSize: '48px 100%',
-        transform: `translateX(${-(localFrame * 3) % 48}px)`,
+        backgroundSize: '54px 100%',
+        transform: `translateX(${-(localFrame * 3) % 54}px)`,
       }}
     />
   </div>
@@ -43,14 +43,14 @@ const PayoffBackground: React.FC<{localFrame: number; energy: number}> = ({local
 const PayoffThreeLayer: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => {
   const travel = (localFrame * 0.06) % 1.8;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={14.4} opacity={0.36}>
-      <group position={[0, -0.5, 0]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.38}>
+      <group position={[0, -0.35, 0]}>
         {[0, 1, 2, 3, 4].map((idx) => {
           const z = -idx * 1.8 + travel;
           const accent = idx % 2 === 0;
           return (
             <mesh key={idx} position={[0, 0, z]}>
-              <boxGeometry args={[1.85, 3.8, 0.02]} />
+              <boxGeometry args={[2.75, 4.5, 0.02]} />
               <meshBasicMaterial
                 color={accent ? ORANGE : WHITE}
                 wireframe

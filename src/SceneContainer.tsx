@@ -2,26 +2,27 @@ import React from 'react';
 import {AbsoluteFill} from 'remotion';
 import {TelemetryHud} from './TelemetryHud';
 
-// INTERIOR COMPONENT LAYOUT OVERRIDE:
-// Every scene component (HookScene, TwistScene, ShiftScene, etc.) explicitly inherits
-// this root layout container to prevent visual jumping across Sequence cuts.
+/**
+ * Full-bleed 1080x1920 cinematic scene container (zero fixed sidebar).
+ * Gives 100% of the 1080x1920 canvas to kinetic typography, 3D depth, and
+ * scene-animated floating HUD / tactical lower-third overlays.
+ */
 export const SceneContainer: React.FC<{children: React.ReactNode}> = ({children}) => (
   <AbsoluteFill
     style={{
-      display: 'grid',
-      gridTemplateColumns: '320px 1fr',
+      position: 'relative',
       backgroundColor: '#0b0f19',
       width: 1080,
       height: 1920,
       overflow: 'hidden',
     }}
   >
-    {/* Left Column: Persistent Telemetry HUD */}
-    <TelemetryHud />
-
-    {/* Right Column: Fluid Kinetic Typography & Engine Canvas */}
-    <div style={{position: 'relative', width: '100%', height: '100%'}}>
+    {/* Full 1080x1920 Stage: Background, 3D WebGL, Wireframes & Kinetic Typography */}
+    <div style={{position: 'absolute', inset: 0, width: '100%', height: '100%'}}>
       {children}
     </div>
+
+    {/* Dynamic Floating HUD & Tactical Lower-Third Overlays (animates in/out per scene) */}
+    <TelemetryHud />
   </AbsoluteFill>
 );

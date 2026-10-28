@@ -25,7 +25,7 @@ const TwistBackground: React.FC<{broken: boolean; energy: number}> = ({broken, e
         position: 'absolute',
         inset: 0,
         background: broken
-          ? `radial-gradient(circle at 50% 42%, rgba(255,69,0,${0.13 + energy * 0.14}), transparent 56%)`
+          ? `radial-gradient(circle at 50% 42%, rgba(255,69,0,${0.14 + energy * 0.14}), transparent 56%)`
           : 'radial-gradient(ellipse at 50% 40%, rgba(244,247,255,.045), transparent 58%)',
       }}
     />
@@ -33,9 +33,9 @@ const TwistBackground: React.FC<{broken: boolean; energy: number}> = ({broken, e
       style={{
         position: 'absolute',
         inset: 0,
-        opacity: 0.16,
+        opacity: 0.14,
         backgroundImage:
-          'repeating-linear-gradient(45deg, rgba(244,247,255,.12) 0, rgba(244,247,255,.12) 1px, transparent 1px, transparent 48px), repeating-linear-gradient(-45deg, rgba(255,69,0,.1) 0, rgba(255,69,0,.1) 1px, transparent 1px, transparent 48px)',
+          'repeating-linear-gradient(45deg, rgba(244,247,255,.12) 0, rgba(244,247,255,.12) 1px, transparent 1px, transparent 54px), repeating-linear-gradient(-45deg, rgba(255,69,0,.1) 0, rgba(255,69,0,.1) 1px, transparent 1px, transparent 54px)',
       }}
     />
   </div>
@@ -47,22 +47,22 @@ const TwistThreeLayer: React.FC<{localFrame: number; broken: boolean; slash: num
   slash,
   energy,
 }) => {
-  const split = broken ? slash * 0.85 : 0;
+  const split = broken ? slash * 1.15 : 0;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={14.5} opacity={0.38}>
-      <group position={[0, 0.35, 0]} rotation={[0.08, Math.sin(localFrame * 0.018) * 0.14, broken ? -0.14 * slash : 0]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
+      <group position={[0, 0.5, 0]} rotation={[0.08, Math.sin(localFrame * 0.018) * 0.14, broken ? -0.14 * slash : 0]}>
         {[-1, 0, 1].map((idx) => (
           <mesh
             key={idx}
-            position={[idx * (0.28 + split * 0.32), idx * (1.25 + split * 0.5), -Math.abs(idx) * 0.7]}
+            position={[idx * (0.45 + split * 0.5), idx * (1.2 + split * 0.5), -Math.abs(idx) * 0.7]}
             rotation={[0, idx * 0.12, broken ? idx * 0.22 * slash : 0]}
           >
-            <boxGeometry args={[1.95, 1.15, 0.04]} />
+            <boxGeometry args={[2.85, 1.35, 0.04]} />
             <meshBasicMaterial
               color={broken ? ORANGE : WHITE}
               wireframe
               transparent
-              opacity={broken ? 0.34 : 0.16 + energy * 0.12}
+              opacity={broken ? 0.36 : 0.18 + energy * 0.12}
             />
           </mesh>
         ))}
@@ -90,7 +90,6 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
     fps: FPS,
     config: {damping: 14, stiffness: 190},
   });
-
   const realLocalFrame = WORD_START_FRAMES[realCue.globalIndex] - scene.from;
   const breakLocalFrame = WORD_START_FRAMES[breakCue.globalIndex] - scene.from;
 
@@ -113,23 +112,23 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
 
-            {/* Right-Column SaaS Boilerplate Dashboard */}
+            {/* Full-Canvas Floating Translucent SaaS Wireframe */}
             <div
               style={{
                 position: 'absolute',
-                left: 36,
-                right: 36,
-                top: 48,
-                height: 1448,
-                transform: `translateY(${(1 - reveal) * 20}px) scale(${0.97 + reveal * 0.03})`,
+                left: 56,
+                right: 56,
+                top: 172,
+                height: 1080,
+                transform: `translateY(${(1 - reveal) * 24}px) scale(${0.97 + reveal * 0.03})`,
               }}
             >
               <Panel
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  borderRadius: 16,
-                  padding: '24px 26px',
+                  borderRadius: 18,
+                  padding: '28px 32px',
                   boxSizing: 'border-box',
                   borderColor: broken ? ORANGE : stressed ? 'rgba(255,69,0,.45)' : 'rgba(244,247,255,.16)',
                   display: 'flex',
@@ -138,24 +137,28 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                 }}
               >
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <Micro accent>DEMO SURFACE // BOILERPLATE</Micro>
-                  <Micro>{broken ? 'STATE: FRACTURED' : stressed ? 'STATE: STRESS' : 'STATE: MOCK'}</Micro>
+                  <Micro accent>DEMO SURFACE // SAAS BOILERPLATE</Micro>
+                  <Micro>{broken ? 'STATE: FRACTURED' : stressed ? 'STATE: STRESS LOAD' : 'STATE: POLISHED MOCK'}</Micro>
                 </div>
 
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16}}>
-                  {[0, 1].map((idx) => (
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18}}>
+                  {[
+                    {label: 'MOCK METRIC', ok: '2,408', err: 'ERR'},
+                    {label: 'UPTIME', ok: '99.4%', err: '0.0%'},
+                    {label: 'SCHEMA LOCK', ok: 'FAKE', err: 'NULL'},
+                  ].map((card) => (
                     <div
-                      key={idx}
+                      key={card.label}
                       style={{
                         border: '1px solid rgba(244,247,255,.12)',
                         background: 'rgba(244,247,255,.025)',
                         borderRadius: 12,
-                        padding: 20,
+                        padding: '18px 22px',
                       }}
                     >
-                      <Micro>{idx === 0 ? 'MOCK METRIC' : 'UPTIME'}</Micro>
-                      <div style={{fontSize: 46, fontWeight: 900, marginTop: 10, color: broken ? ORANGE : WHITE}}>
-                        {broken ? (idx === 0 ? 'ERR' : '0.0%') : idx === 0 ? '2,408' : '99.4%'}
+                      <Micro style={{fontSize: 10}}>{card.label}</Micro>
+                      <div style={{fontSize: 48, fontWeight: 900, marginTop: 8, color: broken ? ORANGE : WHITE}}>
+                        {broken ? card.err : card.ok}
                       </div>
                     </div>
                   ))}
@@ -166,22 +169,22 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                     border: '1px solid rgba(244,247,255,.12)',
                     background: 'rgba(244,247,255,.02)',
                     borderRadius: 12,
-                    padding: 22,
-                    height: 410,
+                    padding: '22px 24px',
+                    height: 330,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                   }}
                 >
                   <Micro>WEEKLY THROUGHPUT</Micro>
-                  <div style={{height: 325, display: 'flex', alignItems: 'flex-end', gap: 10}}>
-                    {[42, 74, 52, 91, 61, 96, 68, 82, 46, 78, 58, 92].map((height, index) => (
+                  <div style={{height: 255, display: 'flex', alignItems: 'flex-end', gap: 14}}>
+                    {[42, 74, 52, 91, 61, 96, 68, 82, 46, 78, 58, 92, 66, 84].map((height, index) => (
                       <i
                         key={index}
                         style={{
                           flex: 1,
                           height: broken ? `${Math.max(12, (height * 0.35) % 40)}%` : `${height}%`,
-                          background: index % 4 === 1 ? 'rgba(255,69,0,.5)' : 'rgba(244,247,255,.2)',
+                          background: index % 4 === 1 ? 'rgba(255,69,0,.52)' : 'rgba(244,247,255,.2)',
                           borderRadius: '4px 4px 0 0',
                         }}
                       />
@@ -194,17 +197,17 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                     border: '1px solid rgba(244,247,255,.12)',
                     background: 'rgba(244,247,255,.02)',
                     borderRadius: 12,
-                    padding: 22,
-                    height: 380,
+                    padding: '22px 24px',
+                    flex: 1,
                   }}
                 >
                   <Micro>SYNTHETIC CURVE</Micro>
-                  <svg viewBox="0 0 620 290" style={{width: '100%', height: 315, marginTop: 12}}>
+                  <svg viewBox="0 0 880 240" style={{width: '100%', height: 265, marginTop: 12}}>
                     <path
                       d={
                         broken
-                          ? 'M0 220 L126 205 L196 48 L280 264 L390 88 L502 256 L620 238'
-                          : 'M0 220 C90 200 110 80 190 144 S300 236 376 108 S500 176 620 42'
+                          ? 'M0 190 L180 175 L275 38 L390 222 L540 68 L700 214 L880 198'
+                          : 'M0 190 C120 170 150 68 260 120 S420 205 520 88 S700 150 880 34'
                       }
                       fill="none"
                       stroke={broken ? ORANGE : 'rgba(244,247,255,.55)'}
@@ -213,39 +216,20 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                   </svg>
                 </div>
 
-                <div
-                  style={{
-                    border: '1px solid rgba(244,247,255,.12)',
-                    background: 'rgba(244,247,255,.02)',
-                    borderRadius: 12,
-                    padding: 22,
-                    flex: 1,
-                  }}
-                >
-                  <Micro>STATIC COMPONENT SLOTS</Micro>
-                  {[0, 1, 2, 3].map((row) => (
-                    <div key={row} style={{height: 30, marginTop: 16, display: 'flex', alignItems: 'center', gap: 12}}>
-                      <i style={{width: 18, height: 18, borderRadius: 4, background: 'rgba(255,69,0,.36)'}} />
-                      <i style={{width: `${42 + row * 11}%`, height: 8, background: 'rgba(244,247,255,.18)', borderRadius: 6}} />
-                      <i style={{marginLeft: 'auto', width: 54, height: 8, background: 'rgba(244,247,255,.1)', borderRadius: 6}} />
-                    </div>
-                  ))}
-                </div>
-
                 <svg
-                  viewBox="0 0 688 1448"
+                  viewBox="0 0 968 1080"
                   preserveAspectRatio="none"
                   style={{position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none'}}
                 >
                   <path
-                    d="M32 1400L656 48"
+                    d="M36 1044L932 36"
                     fill="none"
                     stroke={ORANGE}
-                    strokeWidth={6 + energy * 3}
+                    strokeWidth={7 + energy * 3}
                     strokeLinecap="round"
-                    strokeDasharray="1620"
-                    strokeDashoffset={broken ? (1 - slash) * 1620 : 1620}
-                    style={{filter: `drop-shadow(0 0 18px ${ORANGE})`}}
+                    strokeDasharray="1520"
+                    strokeDashoffset={broken ? (1 - slash) * 1520 : 1520}
+                    style={{filter: `drop-shadow(0 0 22px ${ORANGE})`}}
                   />
                 </svg>
                 {broken && (
@@ -255,11 +239,11 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
                       inset: 0,
                       display: 'grid',
                       placeItems: 'center',
-                      fontSize: 220,
-                      color: 'rgba(255,69,0,.84)',
+                      fontSize: 260,
+                      color: 'rgba(255,69,0,.86)',
                       fontWeight: 300,
                       transform: `rotate(-14deg) scale(${0.8 + slash * 0.2})`,
-                      textShadow: '0 0 46px rgba(255,69,0,.48)',
+                      textShadow: '0 0 52px rgba(255,69,0,.5)',
                     }}
                   >
                     ×

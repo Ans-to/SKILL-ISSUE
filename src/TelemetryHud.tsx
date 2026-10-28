@@ -1,18 +1,17 @@
 import React, {useContext} from 'react';
-import {Internals, useCurrentFrame} from 'remotion';
+import {Internals, spring, useCurrentFrame} from 'remotion';
 import {
   DURATION_FRAMES,
   FPS,
-  HUD_WIDTH,
   MUTED,
   ORANGE,
   OUTRO_CUT_FRAME,
-  SCENE_SEQUENCES,
   WHITE,
   clamp,
   energyAt,
   envelope,
   findSceneCue,
+  isSceneCleared,
   sceneForFrame,
   sceneSpokenCues,
   type SceneKey,
@@ -28,8 +27,8 @@ export const Micro: React.FC<{
   <span
     style={{
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 11,
-      letterSpacing: 2.2,
+      fontSize: 12,
+      letterSpacing: 2.5,
       textTransform: 'uppercase',
       color: accent ? ORANGE : MUTED,
       fontWeight: 700,
@@ -48,8 +47,9 @@ export const Panel: React.FC<{
   <div
     style={{
       border: `1px solid ${accent ? ORANGE : 'rgba(244,247,255,.16)'}`,
-      background: 'rgba(9,13,23,.84)',
-      boxShadow: accent ? '0 0 36px rgba(255,69,0,.18)' : '0 24px 64px rgba(0,0,0,.5)',
+      background: 'rgba(11,15,25,.58)',
+      backdropFilter: 'blur(10px)',
+      boxShadow: accent ? '0 0 40px rgba(255,69,0,.18)' : '0 24px 68px rgba(0,0,0,.46)',
       ...style,
     }}
   >
@@ -62,12 +62,12 @@ type Constellation = {
   edges: ReadonlyArray<readonly [number, number]>;
 };
 
-// Six distinct 760x1920 right-column constellations — one per isolated <Sequence>.
+// Six full-canvas 1080x1920 constellations — animating in and out per isolated <Sequence>.
 const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   hook: {
     nodes: [
-      [78, 120], [260, 96], [510, 132], [684, 180], [620, 480], [390, 560], [124, 520],
-      [96, 980], [310, 1080], [590, 1020], [676, 1380], [470, 1520], [230, 1490], [98, 1780],
+      [110, 210], [340, 175], [690, 205], [960, 250], [890, 610], [560, 680], [180, 640],
+      [130, 1080], [430, 1180], [830, 1120], [950, 1440], [660, 1560], [320, 1520], [140, 1690],
     ],
     edges: [
       [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0],
@@ -76,8 +76,8 @@ const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   },
   twist: {
     nodes: [
-      [72, 130], [370, 108], [678, 142], [150, 480], [580, 460], [380, 820], [92, 960],
-      [668, 960], [210, 1290], [540, 1310], [380, 1560], [104, 1790], [380, 1810], [662, 1780],
+      [105, 220], [520, 185], [965, 235], [220, 560], [830, 540], [540, 880], [135, 1020],
+      [945, 1020], [295, 1310], [775, 1330], [540, 1540], [150, 1690], [540, 1710], [935, 1680],
     ],
     edges: [
       [0, 1], [1, 2], [0, 3], [2, 4], [3, 5], [4, 5], [5, 6], [5, 7],
@@ -86,8 +86,8 @@ const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   },
   shift: {
     nodes: [
-      [82, 118], [260, 118], [500, 118], [678, 118], [130, 470], [340, 470], [610, 470],
-      [130, 1044], [380, 1044], [630, 1044], [140, 1460], [380, 1460], [620, 1460], [380, 1810],
+      [120, 210], [380, 210], [700, 210], [960, 210], [185, 580], [490, 580], [875, 580],
+      [185, 960], [540, 960], [895, 960], [200, 1380], [540, 1380], [880, 1380], [540, 1690],
     ],
     edges: [
       [0, 4], [1, 5], [2, 6], [3, 6], [4, 7], [5, 8], [6, 9],
@@ -96,8 +96,8 @@ const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   },
   mechanism: {
     nodes: [
-      [110, 130], [380, 110], [650, 130], [110, 560], [380, 560], [650, 560], [110, 1020],
-      [380, 1020], [650, 1020], [110, 1480], [380, 1480], [650, 1480], [230, 1810], [530, 1810],
+      [155, 220], [540, 195], [925, 220], [155, 640], [540, 640], [925, 640], [155, 1060],
+      [540, 1060], [925, 1060], [155, 1460], [540, 1460], [925, 1460], [330, 1690], [750, 1690],
     ],
     edges: [
       [0, 1], [1, 2], [3, 4], [4, 5], [6, 7], [7, 8], [9, 10], [10, 11],
@@ -106,8 +106,8 @@ const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   },
   payoff: {
     nodes: [
-      [74, 140], [230, 220], [430, 160], [666, 240], [120, 620], [340, 580], [590, 640],
-      [96, 1060], [380, 1020], [650, 1080], [140, 1480], [430, 1440], [660, 1520], [380, 1810],
+      [105, 230], [330, 310], [610, 245], [945, 320], [175, 690], [490, 650], [840, 710],
+      [140, 1100], [540, 1060], [925, 1120], [200, 1460], [610, 1420], [935, 1490], [540, 1690],
     ],
     edges: [
       [0, 1], [1, 2], [2, 3], [0, 4], [2, 5], [3, 6], [4, 5], [5, 6],
@@ -116,8 +116,8 @@ const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
   },
   outro: {
     nodes: [
-      [380, 220], [570, 360], [676, 650], [688, 960], [660, 1290], [548, 1560], [380, 1700],
-      [212, 1560], [100, 1290], [72, 960], [84, 650], [190, 360], [380, 640], [380, 1280],
+      [540, 290], [810, 440], [945, 700], [965, 960], [930, 1240], [780, 1490], [540, 1630],
+      [300, 1490], [150, 1240], [115, 960], [135, 700], [270, 440], [540, 660], [540, 1260],
     ],
     edges: [
       [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 0],
@@ -133,6 +133,21 @@ export type TelemetryHudProps = {
   activeCue: ScriptCue | null;
 };
 
+export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number => {
+  if (isSceneCleared(scene, localFrame)) return 0;
+  const activeFrames =
+    scene.id === 'outro'
+      ? Math.max(1, OUTRO_CUT_FRAME - scene.from)
+      : Math.max(1, scene.durationInFrames - scene.clearFrames);
+  const enter = spring({
+    frame: Math.max(0, localFrame),
+    fps: FPS,
+    config: {damping: 14, stiffness: 190},
+  });
+  const exit = clamp((activeFrames - 1 - localFrame) / 9, 0, 1);
+  return clamp(enter * exit, 0, 1);
+};
+
 export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   scene,
   localFrame,
@@ -143,20 +158,22 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   const activeCueId = activeCue?.globalIndex ?? -1;
   const hotNode = activeCueId >= 0 ? activeCueId % graph.nodes.length : -1;
   const secondaryNode = activeCueId >= 0 ? (activeCueId * 5 + 3) % graph.nodes.length : -1;
+  const reveal = getHudLifecycle(scene, localFrame);
 
   return (
     <svg
       data-scene-graph={scene.id}
       data-active-cue={activeCueId}
       data-hot-node={hotNode}
-      viewBox="0 0 760 1920"
+      viewBox="0 0 1080 1920"
       preserveAspectRatio="none"
       style={{
         position: 'absolute',
         inset: 0,
         width: '100%',
         height: '100%',
-        opacity: 0.3 + energy * 0.42,
+        opacity: reveal * (0.28 + energy * 0.42),
+        transform: `scale(${0.965 + reveal * 0.035})`,
         pointerEvents: 'none',
       }}
       aria-hidden="true"
@@ -166,7 +183,7 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
         const [x2, y2] = graph.nodes[b];
         const hot = a === hotNode || b === hotNode;
         const warm = a === secondaryNode || b === secondaryNode;
-        const shift = Math.sin(localFrame * 0.04 + index) * 4;
+        const shift = Math.sin(localFrame * 0.04 + index) * 4.5;
         return (
           <line
             key={index}
@@ -176,28 +193,28 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
             y2={y2 + shift * 0.5}
             stroke={hot || warm ? ORANGE : WHITE}
             strokeOpacity={hot ? 0.58 : warm ? 0.28 : 0.09}
-            strokeWidth={hot ? 1.8 : 1}
+            strokeWidth={hot ? 1.9 : 1}
           />
         );
       })}
       {graph.nodes.map(([x, y], index) => {
         const hot = index === hotNode;
         const warm = index === secondaryNode;
-        const dx = Math.sin(localFrame * 0.04 + index) * 4;
-        const dy = -Math.cos(localFrame * 0.035 + index) * 3;
+        const dx = Math.sin(localFrame * 0.04 + index) * 4.5;
+        const dy = -Math.cos(localFrame * 0.035 + index) * 3.5;
         return (
           <g key={index} transform={`translate(${x + dx} ${y + dy})`}>
             {hot && (
               <circle
-                r={16 + energy * 10}
+                r={18 + energy * 11}
                 fill="none"
                 stroke={ORANGE}
-                strokeOpacity={0.5}
-                strokeWidth={1.3}
+                strokeOpacity={0.52}
+                strokeWidth={1.4}
               />
             )}
             <circle
-              r={hot ? 6 + energy * 3.5 : warm ? 4 : 2.6}
+              r={hot ? 6.5 + energy * 3.5 : warm ? 4.2 : 2.8}
               fill={hot || warm ? ORANGE : WHITE}
               fillOpacity={hot ? 0.95 : warm ? 0.65 : 0.26}
             />
@@ -208,12 +225,11 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   );
 };
 
-const tokenFontSize = (text: string): number => {
-  if (text.length <= 8) return 26;
-  if (text.length <= 11) return 22;
-  return 18;
-};
-
+/**
+ * Dynamic, semi-transparent floating HUD chips & tactical lower-third overlays.
+ * Zero fixed sidebar — uses 100% of the 1080x1920 canvas and animates in/out
+ * smoothly on every scene transition.
+ */
 const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   scene,
   localFrame,
@@ -221,127 +237,210 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   activeCue,
 }) => {
   const globalFrame = scene.from + localFrame;
-  const cutToBlack = scene.id === 'outro' && globalFrame >= OUTRO_CUT_FRAME;
   const activeCueId = activeCue?.globalIndex ?? -1;
+  const reveal = getHudLifecycle(scene, localFrame);
   const spokenInScene = sceneSpokenCues(scene, localFrame);
-  const recentTokens = spokenInScene.slice(-7);
-  const sceneWordTotal = scene.lastWordIndex - scene.firstWordIndex + 1;
-  const sceneWordDone = spokenInScene.length;
+  const recentTokens = spokenInScene.slice(-3);
   const progress = clamp((localFrame + 1) / Math.max(1, scene.durationInFrames), 0, 1);
 
-  const waveBars = Array.from({length: 22}, (_, idx) => {
-    const sampleFrame = clamp(globalFrame - 21 + idx, 0, DURATION_FRAMES - 1);
+  const waveBars = Array.from({length: 16}, (_, idx) => {
+    const sampleFrame = clamp(globalFrame - 15 + idx, 0, DURATION_FRAMES - 1);
     return envelope[sampleFrame] ?? 0;
   });
 
+  const sfxTag =
+    activeCue && globalFrame - activeCue.startFrame < 3
+      ? 'SFX:CLICK+HUM'
+      : localFrame < 14
+        ? 'SFX:WHOOSH'
+        : 'SFX:HUM 0.15';
+
   return (
-    <aside
+    <div
       data-scene-telemetry={scene.id}
       data-active-cue={activeCueId}
       style={{
-        width: HUD_WIDTH,
-        height: 1920,
-        boxSizing: 'border-box',
-        padding: '42px 22px 44px',
-        background: 'linear-gradient(180deg, rgba(13,19,33,.96), rgba(8,12,21,.98))',
-        borderRight: '1px solid rgba(244,247,255,.15)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
         fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif',
         color: WHITE,
-        overflow: 'hidden',
-        opacity: cutToBlack ? 0 : 1,
-        position: 'relative',
+        opacity: reveal,
       }}
     >
-      {/* Top Safety-Orange Lock Rail */}
+      {/* Floating Top-Left Tactical Scene Reticle Chip */}
       <div
         style={{
           position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-          height: 4,
-          background: ORANGE,
-          boxShadow: `0 0 18px ${ORANGE}`,
-        }}
-      />
-
-      {/* Block 1: Persistent Engine Identity */}
-      <div
-        style={{
+          left: 56,
+          top: 52,
+          padding: '12px 18px',
+          background: 'rgba(11,15,25,.48)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(244,247,255,.14)',
+          borderLeft: `3px solid ${ORANGE}`,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          paddingBottom: 16,
-          borderBottom: '1px solid rgba(244,247,255,.12)',
+          alignItems: 'center',
+          gap: 14,
+          transform: `translate3d(${(1 - reveal) * -28}px, ${(1 - reveal) * -22}px, 0)`,
         }}
       >
-        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 99,
-                background: ORANGE,
-                boxShadow: `0 0 12px ${ORANGE}`,
-              }}
-            />
-            <Micro accent style={{letterSpacing: 1.8}}>HUD // ENGINE</Micro>
-          </div>
-          <Micro style={{fontSize: 10, letterSpacing: 1.5}}>30 FPS</Micro>
-        </div>
-        <div style={{fontSize: 20, fontWeight: 900, letterSpacing: -0.4, color: WHITE}}>
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 99,
+            background: ORANGE,
+            boxShadow: `0 0 12px ${ORANGE}`,
+          }}
+        />
+        <span style={{fontFamily: 'monospace', fontSize: 13, fontWeight: 800, letterSpacing: 2, color: ORANGE}}>
           {scene.code}
-        </div>
-        <Micro style={{fontSize: 10, letterSpacing: 1.5}}>
+        </span>
+        <span style={{color: 'rgba(244,247,255,.22)'}}>|</span>
+        <Micro style={{fontSize: 11, letterSpacing: 2}}>
           {scene.subtitle.split('//')[0].trim()}
         </Micro>
       </div>
 
-      {/* Block 2: Quantized Frame Counter */}
+      {/* Floating Top-Right Frame & Timecode Chip */}
       <div
         style={{
-          border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(244,247,255,.02)',
-          padding: '14px 14px 12px',
+          position: 'absolute',
+          right: 56,
+          top: 52,
+          padding: '12px 18px',
+          background: 'rgba(11,15,25,.48)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(244,247,255,.14)',
+          borderRight: `3px solid ${WHITE}`,
           display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
+          alignItems: 'center',
+          gap: 14,
+          fontVariantNumeric: 'tabular-nums',
+          transform: `translate3d(${(1 - reveal) * 28}px, ${(1 - reveal) * -22}px, 0)`,
         }}
       >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Micro style={{fontSize: 10, letterSpacing: 1.6}}>SEQ / ABS</Micro>
-          <Micro accent style={{fontSize: 10, letterSpacing: 1.4}}>
-            {(globalFrame / FPS).toFixed(2)}S
-          </Micro>
+        <span style={{fontFamily: 'monospace', fontSize: 14, fontWeight: 800, color: WHITE, letterSpacing: 1.2}}>
+          L{String(localFrame).padStart(3, '0')} · F{String(globalFrame).padStart(4, '0')}
+        </span>
+        <span style={{color: 'rgba(244,247,255,.22)'}}>·</span>
+        <span style={{fontFamily: 'monospace', fontSize: 12, color: ORANGE, fontWeight: 700}}>
+          {(globalFrame / FPS).toFixed(2)}S
+        </span>
+      </div>
+
+      {/* Dynamic Tactical Lower-Third Overlay (animates up on entry, retracts down before cut) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 56,
+          right: 56,
+          bottom: 54,
+          height: 118,
+          boxSizing: 'border-box',
+          padding: '16px 26px',
+          background: 'rgba(11,15,25,.52)',
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${activeCue ? 'rgba(255,69,0,.38)' : 'rgba(244,247,255,.13)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 24,
+          overflow: 'hidden',
+          transform: `translate3d(0, ${(1 - reveal) * 42}px, 0) scale(${0.97 + reveal * 0.03})`,
+        }}
+      >
+        {/* Corner Reticle Ticks */}
+        <span style={{position: 'absolute', left: 0, top: 0, width: 14, height: 2, background: ORANGE}} />
+        <span style={{position: 'absolute', left: 0, top: 0, width: 2, height: 14, background: ORANGE}} />
+        <span style={{position: 'absolute', right: 0, top: 0, width: 14, height: 2, background: ORANGE}} />
+        <span style={{position: 'absolute', right: 0, top: 0, width: 2, height: 14, background: ORANGE}} />
+
+        {/* Left: Live Token Readout + Recent Scene Breadcrumbs */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: 1}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
+            <Micro accent style={{fontSize: 10, letterSpacing: 2}}>TELEMETRY // TOKEN</Micro>
+            <div style={{display: 'flex', gap: 6, overflow: 'hidden'}}>
+              {recentTokens.map((cue) => {
+                const current = cue.globalIndex === activeCueId;
+                return (
+                  <span
+                    key={cue.globalIndex}
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      padding: '2px 7px',
+                      border: `1px solid ${current ? ORANGE : 'rgba(244,247,255,.14)'}`,
+                      background: current ? 'rgba(255,69,0,.16)' : 'rgba(244,247,255,.04)',
+                      color: current ? WHITE : MUTED,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    #{String(cue.globalIndex + 1).padStart(2, '0')}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{display: 'flex', alignItems: 'baseline', gap: 10, whiteSpace: 'nowrap', overflow: 'hidden'}}>
+            <span style={{color: ORANGE, fontFamily: 'monospace', fontSize: 22, fontWeight: 900}}>&gt;</span>
+            <span
+              data-current-token="true"
+              style={{
+                fontSize: 28,
+                fontWeight: 900,
+                letterSpacing: -0.6,
+                color: activeCue ? WHITE : MUTED,
+              }}
+            >
+              {activeCue ? activeCue.text : '—'}
+            </span>
+            <span style={{fontFamily: 'monospace', fontSize: 12, color: MUTED, marginLeft: 6}}>
+              {activeCue
+                ? `F${String(activeCue.startFrame).padStart(4, '0')}→F${String(activeCue.endFrame).padStart(4, '0')}`
+                : 'SYNC HOLD'}
+            </span>
+          </div>
         </div>
-        <div style={{display: 'flex', alignItems: 'baseline', gap: 8}}>
-          <span
-            style={{
-              fontSize: 42,
-              fontWeight: 900,
-              letterSpacing: -1.6,
-              lineHeight: 1,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {String(localFrame).padStart(3, '0')}
-          </span>
-          <span
-            style={{
-              fontFamily: 'monospace',
-              fontSize: 14,
-              color: MUTED,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            / F{String(globalFrame).padStart(4, '0')}
-          </span>
+
+        {/* Right: Floating Micro-Spectrum + Spatial SFX Status */}
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+            <span style={{fontFamily: 'monospace', fontSize: 10, color: ORANGE, letterSpacing: 1.5}}>
+              {sfxTag}
+            </span>
+            <Micro style={{fontSize: 10, letterSpacing: 1.6}}>RMS {Math.round(energy * 100)}%</Micro>
+          </div>
+          <div style={{width: 176, height: 38, display: 'flex', alignItems: 'flex-end', gap: 4}}>
+            {waveBars.map((val, idx) => {
+              const isNow = idx === waveBars.length - 1;
+              return (
+                <i
+                  key={idx}
+                  style={{
+                    flex: 1,
+                    height: `${Math.max(14, Math.round(val * 100))}%`,
+                    background: isNow ? ORANGE : val > 0.55 ? 'rgba(255,69,0,.66)' : 'rgba(244,247,255,.26)',
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
-        <div style={{height: 4, background: 'rgba(244,247,255,.1)', position: 'relative'}}>
+
+        {/* Bottom Scene Progress Hairline */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 2,
+            background: 'rgba(244,247,255,.08)',
+          }}
+        >
           <div
             style={{
               width: `${progress * 100}%`,
@@ -352,221 +451,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           />
         </div>
       </div>
-
-      {/* Block 3: Persistent 6-Sequence Partition Map */}
-      <div
-        style={{
-          border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(244,247,255,.018)',
-          padding: '12px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 7,
-        }}
-      >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2}}>
-          <Micro style={{fontSize: 10, letterSpacing: 1.6}}>SEQUENCE MAP</Micro>
-          <Micro style={{fontSize: 10, letterSpacing: 1.2}}>6 BEATS</Micro>
-        </div>
-        {SCENE_SEQUENCES.map((item) => {
-          const current = item.id === scene.id;
-          const past = item.index < scene.index;
-          return (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '6px 8px',
-                border: `1px solid ${current ? ORANGE : 'rgba(244,247,255,.08)'}`,
-                background: current ? 'rgba(255,69,0,.13)' : 'transparent',
-                fontFamily: 'monospace',
-                fontSize: 11,
-              }}
-            >
-              <span style={{color: current ? ORANGE : past ? WHITE : MUTED, fontWeight: 800}}>
-                0{item.index + 1} {item.name}
-              </span>
-              <span style={{color: current ? WHITE : MUTED, fontSize: 10, fontVariantNumeric: 'tabular-nums'}}>
-                {String(item.from).padStart(4, '0')}–{String(item.endFrame).padStart(4, '0')}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Block 4: Live Active Word Lock */}
-      <div
-        style={{
-          height: 128,
-          boxSizing: 'border-box',
-          border: `1px solid ${activeCue ? 'rgba(255,69,0,.62)' : 'rgba(244,247,255,.14)'}`,
-          background: activeCue ? 'rgba(255,69,0,.09)' : 'rgba(244,247,255,.02)',
-          padding: '12px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Micro accent style={{fontSize: 10, letterSpacing: 1.5}}>ACTIVE TOKEN</Micro>
-          <span style={{fontFamily: 'monospace', fontSize: 10, color: MUTED}}>
-            {String(sceneWordDone).padStart(2, '0')}/{String(sceneWordTotal).padStart(2, '0')}
-          </span>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-          }}
-        >
-          <span style={{color: ORANGE, fontFamily: 'monospace', fontSize: 18, fontWeight: 900}}>&gt;</span>
-          <span
-            data-current-token="true"
-            style={{
-              fontSize: activeCue ? tokenFontSize(activeCue.text) : 22,
-              fontWeight: 900,
-              letterSpacing: -0.6,
-              color: activeCue ? WHITE : MUTED,
-            }}
-          >
-            {activeCue ? activeCue.text : '—'}
-          </span>
-        </div>
-        <div style={{fontFamily: 'monospace', fontSize: 10, color: MUTED}}>
-          {activeCue
-            ? `G${String(activeCue.globalIndex + 1).padStart(2, '0')}/91 · F${String(activeCue.startFrame).padStart(4, '0')}→F${String(activeCue.endFrame).padStart(4, '0')}`
-            : 'PAUSE // SILENCE HOLD'}
-        </div>
-      </div>
-
-      {/* Block 5: Audio RMS Waveform */}
-      <div
-        style={{
-          height: 158,
-          boxSizing: 'border-box',
-          border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(244,247,255,.02)',
-          padding: '12px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Micro style={{fontSize: 10, letterSpacing: 1.5}}>RMS {Math.round(energy * 100)}%</Micro>
-          <Micro accent style={{fontSize: 10, letterSpacing: 1.4}}>WAV LOCK</Micro>
-        </div>
-        <div style={{height: 92, display: 'flex', alignItems: 'flex-end', gap: 4}}>
-          {waveBars.map((val, idx) => {
-            const isNow = idx === waveBars.length - 1;
-            return (
-              <i
-                key={idx}
-                style={{
-                  flex: 1,
-                  height: `${Math.max(10, Math.round(val * 100))}%`,
-                  background: isNow ? ORANGE : val > 0.55 ? 'rgba(255,69,0,.62)' : 'rgba(244,247,255,.24)',
-                }}
-              />
-            );
-          })}
-        </div>
-        <div style={{fontFamily: 'monospace', fontSize: 10, color: activeCue && globalFrame - activeCue.startFrame < 3 ? ORANGE : MUTED}}>
-          {activeCue && globalFrame - activeCue.startFrame < 3
-            ? 'SFX // CLICK · HUM 0.15'
-            : localFrame < 14
-              ? 'SFX // WHOOSH · HUM 0.15'
-              : 'SFX // HUM 0.15 · fdd626ed'}
-        </div>
-      </div>
-
-      {/* Block 6: Scene-Isolated Token Log */}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(244,247,255,.016)',
-          padding: '14px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Micro style={{fontSize: 10, letterSpacing: 1.5}}>SEQ TOKEN LOG</Micro>
-          <Micro accent style={{fontSize: 10, letterSpacing: 1.3}}>ISOLATED</Micro>
-        </div>
-
-        <div style={{display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, overflow: 'hidden'}}>
-          {recentTokens.length === 0 ? (
-            <div style={{fontFamily: 'monospace', fontSize: 11, color: MUTED, paddingTop: 6}}>
-              SEQ_INIT // ZERO CARRYOVER
-            </div>
-          ) : (
-            recentTokens.map((cue) => {
-              const isCurrent = cue.globalIndex === activeCueId;
-              return (
-                <div
-                  key={cue.globalIndex}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    padding: '7px 9px',
-                    border: `1px solid ${isCurrent ? ORANGE : 'rgba(244,247,255,.1)'}`,
-                    background: isCurrent ? 'rgba(255,69,0,.14)' : 'rgba(244,247,255,.02)',
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <span style={{color: isCurrent ? ORANGE : MUTED, flexShrink: 0}}>
-                    #{String(cue.globalIndex + 1).padStart(2, '0')}
-                  </span>
-                  <span
-                    style={{
-                      color: WHITE,
-                      fontWeight: isCurrent ? 800 : 600,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {cue.text}
-                  </span>
-                  <span style={{color: MUTED, fontSize: 10, flexShrink: 0}}>
-                    F{String(cue.startFrame).padStart(4, '0')}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Footer Architecture Stamp */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: 10,
-          borderTop: '1px solid rgba(244,247,255,.12)',
-        }}
-      >
-        <Micro style={{fontSize: 10, letterSpacing: 1.4}}>1080×1920</Micro>
-        <Micro accent style={{fontSize: 10, letterSpacing: 1.4}}>320PX | 1FR</Micro>
-      </div>
-    </aside>
+    </div>
   );
 };
 
