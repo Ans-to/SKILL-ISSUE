@@ -20,11 +20,13 @@ export type ScriptCue = RawWord & {globalIndex: number; startFrame: number; endF
 
 const track = (wordCueData.tracks as RawTrack[])[0];
 export const MOTION_ENGINE_DURATION_FRAMES = DURATION_FRAMES;
+export const timestamps = track.words.map((word) => ({start: word.start, end: word.end}));
 export const SCRIPT_CUES: ScriptCue[] = track.words.map((word, globalIndex) => ({
   ...word,
   globalIndex,
-  startFrame: word.start * FPS,
-  endFrame: word.end * FPS,
+  // A 30 fps composition resolves millisecond transcript timestamps to the nearest frame.
+  startFrame: Math.round(timestamps[globalIndex].start * FPS),
+  endFrame: Math.round(timestamps[globalIndex].end * FPS),
 }));
 const envelope = audioEnvelope.energy as number[];
 const clamp = (value: number, low: number, high: number): number => Math.max(low, Math.min(high, value));
@@ -63,6 +65,14 @@ const SECTION_STARTS = sectionIndices.map((index) => SCRIPT_CUES[index]?.startFr
 const OUTRO_BUILD_INDEX = cueIndexFor('Build', sectionIndices[5]);
 const OUTRO_CUT_FRAME = cueAfter('toys.').endFrame + 3;
 const findCue = (frame: number): ScriptCue | null => SCRIPT_CUES.find((cue) => frame >= cue.startFrame && frame < cue.endFrame) ?? null;
+const lastStartedCue = (frame: number): ScriptCue | null => {
+  let result: ScriptCue | null = null;
+  for (const cue of SCRIPT_CUES) {
+    if (cue.startFrame > frame) break;
+    result = cue;
+  }
+  return result;
+};
 const energyAt = (frame: number): number => envelope[Math.max(0, Math.min(envelope.length - 1, Math.round(frame)))] ?? 0;
 const currentSection = (frame: number): number => {
   let section = 0;
@@ -70,20 +80,34 @@ const currentSection = (frame: number): number => {
   return section;
 };
 
-/** Exact active narration word; no cue is exposed until its spoken onset. */
-export const KineticText: React.FC<{cue: ScriptCue; section: number}> = ({cue, section}) => {
-  const frame = useCurrentFrame() - cue.startFrame;
+/** Millisecond-aligned single-word slam in the center/right 70% zone. */
+export const KineticText: React.FC<{cue: ScriptCue; section: number; frame: number}> = ({cue, section, frame}) => {
   const {fps} = useVideoConfig();
-  const reveal = spring({frame, fps, config: {damping: 12, stiffness: 120}});
+  const elapsed = frame - cue.startFrame;
+  const reveal = spring({frame: elapsed, fps, config: {damping: 12, stiffness: 120}});
+  const exitStart = cue.endFrame;
+  const dissolve = clamp((frame - exitStart) / 4, 0, 1);
+  const previous = SCRIPT_CUES[cue.globalIndex - 1];
+  const echoAge = frame - cue.startFrame;
+  const showEcho = Boolean(previous && cue.startFrame - previous.endFrame <= 12 && echoAge >= 0 && echoAge < 4);
   const hook = section === 0;
   const color = hook ? WHITE : cue.globalIndex % 5 === 0 ? ORANGE : WHITE;
-  return <div aria-hidden="true" style={{
-    position: 'absolute', zIndex: 12, left: hook ? '50%' : 92, top: hook ? '48%' : '76%',
-    transform: `translate(${hook ? '-50%' : '0'}, -50%) translateY(${(1 - reveal) * 28}px) scale(${(0.78 + reveal * 0.22) * (hook ? 1.48 : 1)})`,
-    transformOrigin: hook ? 'center center' : 'left center', opacity: 0.82 + clamp(reveal, 0, 1) * 0.18,
-    fontSize: 96, fontWeight: 900, letterSpacing: -2, lineHeight: .98, whiteSpace: 'nowrap', color,
-    textShadow: `0 0 26px rgba(255,69,0,.28), 5px 0 0 rgba(255,69,0,.35)`, fontFamily: 'Arial, Helvetica, sans-serif',
-  }}>{cue.text}</div>;
+  const shared: React.CSSProperties = {
+    position: 'absolute', left: '31%', right: '3%', top: hook ? '47%' : '67%',
+    transform: 'translateY(-50%)', transformOrigin: 'left center',
+    fontWeight: 950, letterSpacing: -3, lineHeight: .9, whiteSpace: 'nowrap',
+    fontFamily: 'Arial, Helvetica, sans-serif',
+  };
+  return <>
+    {showEcho && previous && <div aria-hidden="true" style={{...shared, zIndex: 11, fontSize: 62, color: ORANGE, opacity: .18 * (1 - echoAge / 4), transform: `translate(${32 + echoAge * 12}px, calc(-50% + 18px)) scale(${.82 - echoAge * .035})`, filter: `blur(${1.5 + echoAge * .8}px)`}}>{previous.text}</div>}
+    <div aria-hidden="true" style={{
+      ...shared, zIndex: 12, color,
+      transform: `translateY(-50%) translateY(${(1 - reveal) * 20}px) scale(${(.72 + reveal * .48) * (1 - dissolve * .24)})`,
+      opacity: clamp(.98 - dissolve, 0, 1), filter: `blur(${dissolve * 3}px)`,
+      fontSize: hook ? 116 : 96,
+      textShadow: `0 0 28px rgba(255,69,0,.3), 6px 0 0 rgba(255,69,0,.28)`,
+    }}>{cue.text}</div>
+  </>;
 };
 
 /** Background, isolated Three.js depth, and front-facing 2D text composite independently. */
@@ -137,13 +161,62 @@ const ShockVector: React.FC<{frame: number; energy: number}> = ({frame, energy})
 const Panel: React.FC<{children: React.ReactNode; style?: React.CSSProperties}> = ({children, style}) => <div style={{background: 'linear-gradient(145deg, rgba(18,24,38,.96), rgba(8,11,19,.9))', border: '1px solid rgba(244,247,255,.13)', boxShadow: '0 24px 90px rgba(0,0,0,.4)', backdropFilter: 'blur(12px)', ...style}}>{children}</div>;
 const Micro: React.FC<{children: React.ReactNode; accent?: boolean}> = ({children, accent = false}) => <span style={{fontSize: 10, fontWeight: 900, letterSpacing: 2.4, color: accent ? ORANGE : 'rgba(244,247,255,.52)', textTransform: 'uppercase'}}>{children}</span>;
 
+const TelemetryRail: React.FC<{frame: number; section: number; energy: number; activeCue: ScriptCue | null}> = ({frame, section, energy, activeCue}) => {
+  if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
+  const latest = lastStartedCue(frame);
+  const history = SCRIPT_CUES.filter((cue) => cue.startFrame <= frame).slice(-8);
+  const sectionName = ['HOOK', 'TWIST', 'SHIFT', 'MECHANISM', 'PAYOFF', 'OUTRO'][section];
+  const samples = envelope.slice(Math.max(0, Math.floor(frame) - 34), Math.floor(frame) + 1);
+  const points = samples.map((value, index) => `${index * 10},${58 - value * 42}`).join(' ');
+  const cueNumber = latest ? String(latest.globalIndex + 1).padStart(2, '0') : '00';
+  return <div style={{position: 'absolute', zIndex: 12, left: '2%', top: 92, bottom: 96, width: '26vw', minWidth: 360, maxWidth: 480, pointerEvents: 'none'}}>
+    <Panel style={{height: '100%', borderRadius: 14, padding: 18, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 15, overflow: 'hidden', background: 'linear-gradient(155deg, rgba(15,21,34,.96), rgba(6,9,16,.94))', borderColor: 'rgba(244,247,255,.2)'}}>
+      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid rgba(244,247,255,.12)'}}><Micro accent>AGENT / LIVE</Micro><span style={{fontFamily: 'monospace', fontSize: 11, color: activeCue ? ORANGE : MUTED}}>● {activeCue ? 'LOCKED' : 'HOLD'}</span></div>
+      <div style={{display: 'flex', alignItems: 'end', justifyContent: 'space-between'}}><div><Micro>FRAME COUNTER</Micro><div style={{fontFamily: 'monospace', fontSize: 42, lineHeight: 1, fontWeight: 800, letterSpacing: -2, color: WHITE}}>{String(Math.floor(frame)).padStart(4, '0')}</div></div><div style={{textAlign: 'right'}}><Micro>SCENE</Micro><div style={{fontSize: 13, fontWeight: 900, letterSpacing: 2, color: ORANGE}}>{sectionName}</div></div></div>
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8}}>{[
+        ['WORD CUE', `${cueNumber} / ${String(SCRIPT_CUES.length).padStart(2, '0')}`],
+        ['AUDIO RMS', `${Math.round(energy * 100)}%`],
+        ['FRAME RATE', '30 FPS'],
+        ['SYNC STATE', activeCue ? 'REALTIME' : 'BREATH'],
+      ].map(([label, value], index) => <div key={label} style={{padding: '9px 10px', border: '1px solid rgba(244,247,255,.12)', background: index === 0 ? 'rgba(255,69,0,.075)' : 'rgba(244,247,255,.025)'}}><Micro accent={index === 0}>{label}</Micro><div style={{marginTop: 5, fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: WHITE}}>{value}</div></div>)}</div>
+      <div style={{border: '1px solid rgba(244,247,255,.12)', background: 'rgba(244,247,255,.025)', padding: '10px 11px'}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 7}}><Micro>TRANSIENT / ENVELOPE</Micro><Micro accent>30 × 30</Micro></div><svg viewBox="0 0 340 70" preserveAspectRatio="none" style={{display: 'block', width: '100%', height: 66}}><path d={`M0 59 L${points || '0,58'}`} fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M0 60H340" stroke={WHITE} strokeOpacity=".17" strokeDasharray="3 7"/></svg></div>
+      <div style={{display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, border: '1px solid rgba(244,247,255,.12)', background: 'rgba(0,0,0,.2)', padding: 11, fontFamily: 'monospace'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', paddingBottom: 9, borderBottom: '1px solid rgba(244,247,255,.1)'}}><Micro accent>TERMINAL / STREAM</Micro><Micro>NO BUFFER</Micro></div>
+        <div style={{paddingTop: 9, color: ORANGE, fontSize: 12, whiteSpace: 'nowrap'}}>$ engine --sync --frame {String(Math.floor(frame)).padStart(4, '0')}</div>
+        <div style={{paddingTop: 8, color: 'rgba(244,247,255,.43)', fontSize: 10, letterSpacing: 1.2}}>OUTPUT / SPOKEN TOKENS</div>
+        <div style={{display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden', paddingTop: 7}}>{history.slice(-6).map((cue, index) => <div key={cue.globalIndex} style={{display: 'flex', gap: 8, alignItems: 'center', color: cue.globalIndex === latest?.globalIndex ? WHITE : 'rgba(244,247,255,.46)', fontSize: 13}}><span style={{color: cue.globalIndex === latest?.globalIndex ? ORANGE : 'rgba(244,247,255,.24)'}}>&gt;</span><span>{cue.text}</span><span style={{marginLeft: 'auto', fontSize: 9, color: 'rgba(244,247,255,.26)'}}>{cue.start.toFixed(2)}</span></div>)}</div>
+        <div style={{display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 10, borderTop: '1px solid rgba(244,247,255,.1)'}}><Micro>SEQUENCE {String(section + 1).padStart(2, '0')} / 06</Micro><Micro accent>{latest ? 'WORD-LOCKED' : 'ARMED'}</Micro></div>
+      </div>
+    </Panel>
+  </div>;
+};
+
+const AtmosphericOverlays: React.FC<{frame: number; section: number; energy: number}> = ({frame, section, energy}) => {
+  if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
+  const trackX = 30 + ((frame * .07) % 38);
+  const graphNodes = [[610,290],[820,180],[1035,350],[1240,220],[1490,340],[1780,225],[700,620],[960,760],[1195,590],[1440,760],[1660,610],[1840,850],[620,885],[1040,900]];
+  const graphEdges = [[0,1],[0,6],[1,2],[1,3],[2,3],[2,7],[3,4],[3,8],[4,5],[4,8],[4,9],[5,10],[6,7],[6,12],[7,8],[7,12],[8,9],[8,13],[9,10],[9,13],[10,11],[11,13]];
+  const hotNode = (lastStartedCue(frame)?.globalIndex ?? 0) % graphNodes.length;
+  return <svg aria-hidden="true" viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none', opacity: .52}}>
+    <path d="M552 92V982" stroke={WHITE} strokeOpacity=".17" strokeWidth="1" strokeDasharray="2 10"/>
+    <path d="M585 140H1850M585 940H1850" stroke={WHITE} strokeOpacity=".08" strokeWidth="1"/>
+    <path d={`M${trackX * 19.2} 110V948`} stroke={ORANGE} strokeOpacity=".16" strokeWidth="1" strokeDasharray="2 18"/>
+    <g>{graphEdges.map(([a,b],index) => <line key={`graph-edge-${index}`} x1={graphNodes[a][0]} y1={graphNodes[a][1]} x2={graphNodes[b][0]} y2={graphNodes[b][1]} stroke={index % 5 === frame % 5 ? ORANGE : WHITE} strokeOpacity={index % 5 === frame % 5 ? .25 + energy * .2 : .09} strokeWidth="1"/>)}
+    {graphNodes.map(([x,y],index) => <g key={`graph-node-${index}`} transform={`translate(${x} ${y + Math.sin(frame * .025 + index) * 3})`}><circle r={index === hotNode ? 9 + energy * 3 : 4 + energy * 1.5} fill={index === hotNode ? ORANGE : WHITE} fillOpacity={index === hotNode ? .62 : .22}/><circle r={index === hotNode ? 18 : 10} fill="none" stroke={index === hotNode ? ORANGE : WHITE} strokeOpacity={index === hotNode ? .22 : .08}/></g>)}</g>
+    {[ [585,140], [1845,140], [585,940], [1845,940], [552,540] ].map(([x,y],i) => <g key={i} transform={`translate(${x} ${y})`} stroke={i === 4 ? ORANGE : WHITE} strokeOpacity={i === 4 ? .48 : .26} strokeWidth="1"><path d="M-12 0H12M0-12V12"/><circle r="4" fill="none"/></g>)}
+    <text x="570" y="120" fill={WHITE} fillOpacity=".35" fontSize="10" letterSpacing="3">X / 0300</text>
+    <text x="1815" y="965" fill={ORANGE} fillOpacity=".55" fontSize="10" letterSpacing="3">TRACE / {String(Math.floor(frame)).padStart(4, '0')}</text>
+    <path d="M560 360h14m-14 90h8m-8 90h14m-14 90h8m-8 90h14" stroke={WHITE} strokeOpacity=".36"/>
+  </svg>;
+};
+
 const DashboardSlash: React.FC<{frame: number; energy: number}> = ({frame, energy}) => {
   const start = SECTION_STARTS[1];
   const breakCue = cueAfter('break.', sectionIndices[1]);
   const broken = frame >= breakCue.startFrame;
   const slash = spring({frame: Math.max(0, frame - breakCue.startFrame), fps: FPS, config: {damping: 13, stiffness: 135}});
   const progress = clamp((frame - start) / Math.max(1, SECTION_STARTS[2] - start), 0, 1);
-  return <div style={{position: 'absolute', left: 125, right: 125, top: 150, bottom: 150, transform: `translateY(${(1 - progress) * 25}px) scale(${.98 + progress * .02})`}}>
+  return <div style={{position: 'absolute', left: '30%', right: '2%', top: 132, bottom: 125, transform: `translateY(${(1 - progress) * 25}px) scale(${.98 + progress * .02})`}}>
     <Panel style={{position: 'absolute', inset: 0, borderRadius: 18, padding: 32, opacity: .82}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><Micro accent>OVERVIEW</Micro><Micro>WORKSPACE / 01</Micro></div>
       <div style={{display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 22, marginTop: 26, height: '80%'}}>
@@ -168,7 +241,7 @@ const AgentShiftScene: React.FC<{frame: number; energy: number}> = ({frame, ener
   const chatWords = SCRIPT_CUES.filter((cue) => cue.globalIndex >= chatStart && cue.startFrame <= frame && cue.globalIndex < terminalStart).slice(-7);
   const terminalWords = SCRIPT_CUES.filter((cue) => cue.globalIndex >= terminalStart && cue.startFrame <= frame).slice(-13);
   const progress = clamp((frame - SECTION_STARTS[2]) / Math.max(1, SECTION_STARTS[3] - SECTION_STARTS[2]), 0, 1);
-  return <div style={{position: 'absolute', inset: '145px 90px 150px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20}}>
+  return <div style={{position: 'absolute', inset: '130px 2% 135px 30%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16}}>
     <Panel style={{position: 'relative', borderRadius: 16, padding: 28, transform: `translateX(${(1 - progress) * -55}px)`}}>
       <div style={{display: 'flex', justifyContent: 'space-between'}}><Micro accent>CHAT / INPUT</Micro><Micro>01</Micro></div>
       <div style={{position: 'absolute', left: 28, right: 28, top: 95, bottom: 100, display: 'grid', placeItems: 'center'}}><div style={{maxWidth: 620, fontSize: 52, lineHeight: 1.2, fontWeight: 850, letterSpacing: -2, color: WHITE}}>{chatWords.map((cue) => <span key={cue.globalIndex} style={{marginRight: 14}}>{cue.text}</span>)}<span style={{color: ORANGE}}>{frame >= SCRIPT_CUES[chatStart + 2].startFrame ? '' : '▌'}</span></div></div>
@@ -197,21 +270,24 @@ const MechanicsScene: React.FC<{frame: number; energy: number}> = ({frame, energ
   const sameInputs = cueIndexFor('Same inputs.', sectionStart);
   const sameFrames = cueIndexFor('Same frames.', sectionStart);
   const progress = clamp((frame - SECTION_STARTS[3]) / Math.max(1, SECTION_STARTS[4] - SECTION_STARTS[3]), 0, 1);
-  return <div style={{position: 'absolute', inset: '145px 90px 150px', overflow: 'hidden'}}>
+  return <div style={{position: 'absolute', inset: '130px 2% 135px 30%', overflow: 'hidden'}}>
     <div style={{position: 'absolute', inset: 0, opacity: .18, backgroundImage: 'linear-gradient(rgba(244,247,255,.24) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.24) 1px, transparent 1px)', backgroundSize: '54px 54px', transform: `perspective(900px) rotateX(8deg) scale(1.12)`}}/>
     <div style={{position: 'absolute', left: 25, right: 25, top: 30, display: 'flex', justifyContent: 'space-between'}}><Micro accent>SYSTEM / LIVE</Micro><Micro>DETERMINISTIC / 01</Micro></div>
     <div style={{position: 'absolute', inset: '95px 10px 130px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28}}>
-      {words.map((item) => {
+      {words.map((item, index) => {
         const cue = SCRIPT_CUES[item.cue];
-        const visible = frame >= cue.startFrame;
-        const scale = spring({frame: Math.max(0, frame - cue.startFrame), fps: FPS, config: {damping: 11, stiffness: 145}});
-        return <div key={item.label} style={{width: '32%', height: 260, display: 'grid', placeItems: 'center', border: `1px solid ${visible ? (item.accent ? ORANGE : 'rgba(244,247,255,.44)') : 'rgba(244,247,255,.04)'}`, background: visible ? (item.accent ? 'rgba(255,69,0,.1)' : 'rgba(244,247,255,.035)') : 'transparent', boxShadow: visible && item.accent ? `0 0 ${35 + energy * 30}px rgba(255,69,0,.16)` : 'none', opacity: visible ? 1 : .06, transform: `scale(${visible ? .72 + scale * .28 : .92}) rotate(${visible ? (item.accent ? -2 : 1) : 0}deg)`, color: item.accent ? ORANGE : WHITE, fontSize: 66, fontWeight: 950, letterSpacing: -3}}>{item.label}</div>;
+        const nextCue = words[index + 1] ? SCRIPT_CUES[words[index + 1].cue] : null;
+        const disappearAt = Math.min(cue.endFrame + 12, nextCue?.startFrame ?? cue.endFrame + 12);
+        const fade = clamp((frame - (disappearAt - 6)) / 6, 0, 1);
+        const visible = frame >= cue.startFrame && frame < disappearAt;
+        const scale = spring({frame: Math.max(0, frame - cue.startFrame), fps: FPS, config: {damping: 12, stiffness: 120}});
+        return <div key={item.label} style={{width: '32%', height: 260, display: 'grid', placeItems: 'center', border: `1px solid ${visible ? (item.accent ? ORANGE : 'rgba(244,247,255,.44)') : 'rgba(244,247,255,.04)'}`, background: visible ? (item.accent ? 'rgba(255,69,0,.1)' : 'rgba(244,247,255,.035)') : 'transparent', boxShadow: visible && item.accent ? `0 0 ${35 + energy * 30}px rgba(255,69,0,.16)` : 'none', opacity: visible ? 1 - fade : 0, transform: `scale(${visible ? .72 + scale * .28 - fade * .12 : .92}) rotate(${visible ? (item.accent ? -2 : 1) : 0}deg)`, color: item.accent ? ORANGE : WHITE, fontSize: 66, fontWeight: 950, letterSpacing: -3}}>{item.label}</div>;
       })}
     </div>
-    <div style={{position: 'absolute', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', gap: 22}}>{detailWords.map(({word, cue}) => {const visible = frame >= SCRIPT_CUES[cue].startFrame; return <span key={word} style={{opacity: visible ? 1 : 0, transform: `translateY(${visible ? 0 : 12}px)`, transition: 'none', padding: '10px 16px', border: '1px solid rgba(244,247,255,.16)', color: WHITE, background: 'rgba(244,247,255,.025)', fontFamily: 'monospace', fontSize: 15, letterSpacing: 1.4}}>{word.replace('—', '')}</span>;})}</div>
+    <div style={{position: 'absolute', left: 0, right: 0, bottom: 92, display: 'flex', justifyContent: 'center', gap: 22}}>{detailWords.map(({word, cue}) => {const timed = SCRIPT_CUES[cue]; const visible = frame >= timed.startFrame && frame < timed.endFrame + 6; const fade = clamp((frame - (timed.endFrame - 2)) / 8, 0, 1); return <span key={word} style={{opacity: visible ? 1 - fade : 0, transform: `translateY(${visible ? fade * 9 : 12}px)`, padding: '10px 16px', border: '1px solid rgba(244,247,255,.16)', color: WHITE, background: 'rgba(244,247,255,.025)', fontFamily: 'monospace', fontSize: 15, letterSpacing: 1.4}}>{word.replace('—', '')}</span>;})}</div>
     <div style={{position: 'absolute', left: '50%', bottom: 2, transform: 'translateX(-50%)', display: 'flex', gap: 18, alignItems: 'center'}}>
-      {frame >= SCRIPT_CUES[sameInputs].startFrame && <div style={{padding: '12px 22px', color: WHITE, border: '1px solid rgba(244,247,255,.28)', fontWeight: 900, letterSpacing: 2}}>SAME INPUTS</div>}
-      {frame >= SCRIPT_CUES[sameFrames].startFrame && <><span style={{color: ORANGE, fontSize: 25}}>→</span><div style={{padding: '12px 22px', color: ORANGE, border: `1px solid ${ORANGE}`, fontWeight: 900, letterSpacing: 2, boxShadow: `0 0 22px rgba(255,69,0,.13)`}}>SAME FRAMES</div></>}
+      {frame >= SCRIPT_CUES[sameInputs].startFrame && frame < SCRIPT_CUES[sameFrames].startFrame + 4 && <div style={{opacity: 1 - clamp((frame - (SCRIPT_CUES[sameFrames].startFrame - 3)) / 7, 0, 1), padding: '12px 22px', color: WHITE, border: '1px solid rgba(244,247,255,.28)', fontWeight: 900, letterSpacing: 2}}>SAME INPUTS</div>}
+      {frame >= SCRIPT_CUES[sameFrames].startFrame && frame < SCRIPT_CUES[cueIndexFor('No template roulette.', sectionStart)].startFrame && <><span style={{color: ORANGE, fontSize: 25}}>→</span><div style={{opacity: 1 - clamp((frame - (SCRIPT_CUES[sameFrames + 1].endFrame)) / 9, 0, 1), padding: '12px 22px', color: ORANGE, border: `1px solid ${ORANGE}`, fontWeight: 900, letterSpacing: 2, boxShadow: `0 0 22px rgba(255,69,0,.13)`}}>SAME FRAMES</div></>}
     </div>
     <div style={{position: 'absolute', inset: '50% auto auto 0', width: `${progress * 100}%`, height: 1, background: `linear-gradient(90deg, transparent, rgba(255,69,0,${.2 + energy * .6}), transparent)`}}/>
   </div>;
@@ -236,7 +312,7 @@ const CompilerPipeline: React.FC<{frame: number; energy: number}> = ({frame, ene
   const framesVisible = frame >= SCRIPT_CUES[framesIndex].startFrame;
   const mp4Visible = frame >= SCRIPT_CUES[mp4Index].startFrame;
   const scroll = elapsed * 21;
-  return <div style={{position: 'absolute', inset: '130px 85px 145px', overflow: 'hidden'}}>
+  return <div style={{position: 'absolute', inset: '125px 2% 130px 30%', overflow: 'hidden'}}>
     <Panel style={{position: 'absolute', inset: 0, borderRadius: 18, padding: 26, opacity: .78}}>
       <div style={{display: 'flex', justifyContent: 'space-between'}}><Micro accent>TIMELINE / RENDER QUEUE</Micro><Micro>FRAME {String(Math.floor(frame)).padStart(4, '0')}</Micro></div>
       <div style={{position: 'absolute', left: 24, right: 24, top: 74, bottom: 28, overflow: 'hidden', opacity: codeVisible ? .2 : .7}}>
@@ -267,23 +343,24 @@ const OutroPunch: React.FC<{frame: number; energy: number}> = ({frame, energy}) 
   const started = frame >= buildCue.startFrame;
   const reveal = spring({frame: Math.max(0, frame - buildCue.startFrame), fps: FPS, config: {damping: 10, stiffness: 155}});
   const scale = .72 + reveal * .4 + Math.min(.24, Math.max(0, frame - buildCue.startFrame) / (FPS * 4));
-  return <div style={{position: 'absolute', inset: 0, display: 'grid', placeItems: 'center'}}>
-    {!started && <svg viewBox="0 0 420 120" style={{position: 'absolute', top: '25%', left: '50%', width: 310, transform: `translateX(-50%) scale(${.8 + Math.sin(frame * .06) * .04})`, opacity: .38}}><path d="M18 85L104 34L190 85L104 111Z M104 34V72 M190 85V111 M104 72L18 120 M104 72L190 120" fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M230 38H400M230 62H360M230 86H390" stroke={WHITE} strokeOpacity=".3" strokeWidth="3"/></svg>}
-    {started && <div style={{textAlign: 'center', transform: `scale(${scale})`, fontSize: 124, lineHeight: .9, fontWeight: 950, letterSpacing: -8, textTransform: 'uppercase', textShadow: `0 0 ${20 + energy * 35}px rgba(255,69,0,.27)`}}>{words.map((cue, index) => <span key={cue.globalIndex} style={{color: index === 2 ? ORANGE : WHITE, marginRight: 24}}>{cue.text.replace(/[—-]$/, '')}</span>)}</div>}
+  return <div style={{position: 'absolute', inset: '0 2% 0 29.5%', display: 'grid', placeItems: 'center'}}>
+    {!started && <svg viewBox="0 0 420 120" style={{position: 'absolute', top: '20%', left: '50%', width: 680, transform: `translateX(-50%) scale(${.82 + Math.sin(frame * .06) * .035})`, opacity: .34}}><path d="M18 85L104 34L190 85L104 111Z M104 34V72 M190 85V111 M104 72L18 120 M104 72L190 120" fill="none" stroke={ORANGE} strokeWidth="2"/><path d="M230 38H400M230 62H360M230 86H390" stroke={WHITE} strokeOpacity=".3" strokeWidth="3"/></svg>}
+    {started && <div style={{textAlign: 'center', transform: `scale(${scale})`, fontSize: 96, lineHeight: .9, fontWeight: 950, letterSpacing: -8, textTransform: 'uppercase', textShadow: `0 0 ${20 + energy * 35}px rgba(255,69,0,.27)`}}>{words.map((cue, index) => <span key={cue.globalIndex} style={{color: index === 2 ? ORANGE : WHITE, marginRight: 24}}>{cue.text.replace(/[—-]$/, '')}</span>)}</div>}
   </div>;
 };
 
 const HUD: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => {
   if (section === 5 && frame >= OUTRO_CUT_FRAME) return null;
   const progress = frame / (DURATION_FRAMES - 1);
+  const displayCue = lastStartedCue(frame);
   const labels = ['01 / HOOK', '02 / TWIST', '03 / SHIFT', '04 / MECHANISM', '05 / PAYOFF', '06 / OUTRO'];
-  return <div style={{position: 'absolute', inset: 0, zIndex: 11, color: WHITE, pointerEvents: 'none', fontFamily: 'Arial, Helvetica, sans-serif'}}>
-    <header style={{position: 'absolute', left: 72, right: 72, top: 34, display: 'flex', justifyContent: 'space-between', color: 'rgba(244,247,255,.72)', fontSize: 10, fontWeight: 900, letterSpacing: 3.1}}><span>LIVE / MOTION RUNTIME</span><span style={{display: 'flex', alignItems: 'center', gap: 12}}><i style={{width: 6, height: 6, borderRadius: '50%', background: activeCue ? ORANGE : MUTED, boxShadow: activeCue ? `0 0 12px ${ORANGE}` : 'none'}}/>{labels[section]} &nbsp;·&nbsp; {(frame / FPS).toFixed(2)} SEC</span></header>
-    {section === 1 && frame >= cueAfter('break.', sectionIndices[1]).endFrame && <SemanticFlow frame={frame} energy={energy}/>}
+  return <div style={{position: 'absolute', inset: 0, zIndex: 13, color: WHITE, pointerEvents: 'none', fontFamily: 'Arial, Helvetica, sans-serif'}}>
+    <header style={{position: 'absolute', left: '31%', right: '3%', top: 34, display: 'flex', justifyContent: 'space-between', color: 'rgba(244,247,255,.72)', fontSize: 10, fontWeight: 900, letterSpacing: 3.1}}><span>LIVE / MOTION RUNTIME</span><span style={{display: 'flex', alignItems: 'center', gap: 12}}><i style={{width: 6, height: 6, borderRadius: '50%', background: activeCue ? ORANGE : MUTED, boxShadow: activeCue ? `0 0 12px ${ORANGE}` : 'none'}}/>{labels[section]} &nbsp;·&nbsp; {(frame / FPS).toFixed(2)} SEC</span></header>
+    {(section === 0 || section === 3 || (section === 1 && frame >= cueAfter('break.', sectionIndices[1]).endFrame)) && <SemanticFlow frame={frame} energy={energy}/>}
 
-    {activeCue && (section < 5 || frame < SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame) && <KineticText key={activeCue.globalIndex} cue={activeCue} section={section}/>}
+    {displayCue && (section < 5 || frame < SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame) && <KineticText key={displayCue.globalIndex} cue={displayCue} section={section} frame={frame}/>}
     {section === 0 && <ShockVector frame={frame} energy={energy}/>}
-    <div style={{position: 'absolute', left: 72, right: 72, bottom: 40}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 9, color: 'rgba(244,247,255,.44)', fontSize: 9, fontWeight: 900, letterSpacing: 2.2}}><span>{activeCue ? `WORD / ${String(activeCue.globalIndex + 1).padStart(2, '0')}` : 'BREATH / CUT'}</span><span>{Math.round(energy * 100)}% AUDIO</span></div><div style={{height: 2, background: 'rgba(244,247,255,.14)', position: 'relative'}}><div style={{position: 'absolute', inset: '0 auto 0 0', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${WHITE}, ${ORANGE})`, boxShadow: `0 0 ${6 + energy * 12}px ${ORANGE}`}}/><i style={{position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 6 + energy * 4, height: 6 + energy * 4, borderRadius: '50%', background: ORANGE, transform: 'translate(-50%,-50%)'}}/></div></div>
+    <div style={{position: 'absolute', left: 72, right: 72, bottom: 40}}><div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 9, color: 'rgba(244,247,255,.44)', fontSize: 9, fontWeight: 900, letterSpacing: 2.2}}><span>{displayCue ? `WORD / ${String(displayCue.globalIndex + 1).padStart(2, '0')}` : 'BREATH / CUT'}</span><span>{Math.round(energy * 100)}% AUDIO</span></div><div style={{height: 2, background: 'rgba(244,247,255,.14)', position: 'relative'}}><div style={{position: 'absolute', inset: '0 auto 0 0', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${WHITE}, ${ORANGE})`, boxShadow: `0 0 ${6 + energy * 12}px ${ORANGE}`}}/><i style={{position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 6 + energy * 4, height: 6 + energy * 4, borderRadius: '50%', background: ORANGE, transform: 'translate(-50%,-50%)'}}/></div></div>
   </div>;
 };
 
@@ -309,7 +386,7 @@ const ThreeVisuals: React.FC<{frame: number; section: number; activeCue: ScriptC
   </group>;
 };
 
-const ThreeLayer: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => <ThreeCanvas width={1920} height={1080} dpr={1} camera={{position: [0, 0, 13], fov: 38, near: .1, far: 60}} gl={{antialias: true, alpha: true, powerPreference: 'high-performance'}} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: section === 5 ? 0 : .44}}><CameraRig frame={frame} energy={energy} section={section}/><ambientLight intensity={.7}/><pointLight position={[0, 2, 5]} color={ORANGE} intensity={.8 + energy}/><ThreeVisuals frame={frame} section={section} activeCue={activeCue} energy={energy}/></ThreeCanvas>;
+const ThreeLayer: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => <ThreeCanvas width={1920} height={1080} dpr={1} camera={{position: [0, 0, 13], fov: 38, near: .1, far: 60}} gl={{antialias: true, alpha: true, powerPreference: 'high-performance'}} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: section === 5 ? (frame < OUTRO_CUT_FRAME ? .2 : 0) : .44}}><CameraRig frame={frame} energy={energy} section={section}/><ambientLight intensity={.7}/><pointLight position={[0, 2, 5]} color={ORANGE} intensity={.8 + energy}/><ThreeVisuals frame={frame} section={section} activeCue={activeCue} energy={energy}/></ThreeCanvas>;
 
 const StoryVisuals: React.FC<{frame: number; section: number; energy: number}> = ({frame, section, energy}) => {
   if (section === 0) return null;
@@ -320,7 +397,17 @@ const StoryVisuals: React.FC<{frame: number; section: number; energy: number}> =
   return <OutroPunch frame={frame} energy={energy}/>;
 };
 
-const TypographyLayer: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => <div style={{position: 'absolute', inset: 0, zIndex: 10, color: WHITE, fontFamily: 'Arial, Helvetica, sans-serif'}}><StoryVisuals frame={frame} section={section} energy={energy}/><HUD frame={frame} section={section} activeCue={activeCue} energy={energy}/></div>;
+const TypographyLayer: React.FC<{frame: number; section: number; activeCue: ScriptCue | null; energy: number}> = ({frame, section, activeCue, energy}) => {
+  const cutToBlack = section === 5 && frame >= OUTRO_CUT_FRAME;
+  return <div style={{position: 'absolute', inset: 0, zIndex: 10, color: WHITE, fontFamily: 'Arial, Helvetica, sans-serif'}}>
+    <StoryVisuals frame={frame} section={section} energy={energy}/>
+    {!cutToBlack && <>
+      <AtmosphericOverlays frame={frame} section={section} energy={energy}/>
+      <TelemetryRail frame={frame} section={section} energy={energy} activeCue={activeCue}/>
+      <HUD frame={frame} section={section} activeCue={activeCue} energy={energy}/>
+    </>}
+  </div>;
+};
 
 export const MotionEngine: React.FC = () => {
   const frame = useCurrentFrame();
