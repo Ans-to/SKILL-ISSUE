@@ -1,16 +1,19 @@
-# Nokia MotionEngine
+# The Code That Replaced After Effects
 
-The Remotion timeline now renders exclusively through `src/engine/MotionEngine.tsx`. The engine contains three explicit layers: the obsidian background, procedural 3D word-cue graphics, and an isolated 2D kinetic-typography plane at z-index 10.
+A 60-second, word-synchronized Remotion explainer built around the submitted storyboard. The root timeline renders through `src/engine/MotionEngine.tsx`; all motion is deterministic and cue-driven, with the Three.js layer isolated behind the front-facing 2D typography.
 
-## Deterministic components
+## Visual sequence
 
-- **`KineticText`** — exact active narration word, with hardcoded Remotion spring (`damping: 12`, `stiffness: 120`), 96px/900-weight type, orange/white fills, and word-aligned onset.
-- **`CinematicStack`** — background layer 1, Three.js layer 2, and isolated front-facing 2D typography at z-index 10.
-- **`SemanticFlow`** — a live graph that grows from already-started script cues; future word nodes are not exposed early.
+- **Shock hook:** center-slamming words over a perspective grid and an audio-reactive orange vector streak.
+- **Core claim:** traditional timeline tracks are crossed out, then a cue-populated graph takes over.
+- **Reveal:** `THIS IS CLAUDE OPUS 5.5` and a prompt window that types only words already spoken.
+- **Mechanics:** live code cues on the left; a coordinate grid with morphing geometry and live coordinates on the right.
+- **Workflow:** spoken After Effects steps are struck through as they arrive, then the prompt-to-code-to-render-to-video path replaces them.
+- **Control and close:** a square morphs, changes color and easing, and returns to its starting state; `PRETTY INSANE` punches forward before the radial-black data-point close.
 
-The final render remains 1920×1080, 30 fps, with all narration at natural speed. Word-level cue data and the audio-energy envelope are stored in `src/engine/`.
+Palette: deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. Narration is aligned to **182 exact script word cues** with no future-word preview. The selected conversational voiceover was accelerated to fit the one-minute brief while retaining the complete supplied copy.
 
-## Preview, alignment, and render
+## Local checks and preview
 
 ```sh
 npm ci
@@ -19,7 +22,7 @@ npm run verify:sync
 npm run start
 ```
 
-Regenerate word cues after changing narration with a local faster-whisper model:
+Regenerate exact word timestamps from the local faster-whisper small model:
 
 ```sh
 python3 scripts/align-narration.py --model-dir /path/to/whisper-model
@@ -31,10 +34,10 @@ Regenerate the frame RMS envelope:
 python3 scripts/derive-audio-envelope.py
 ```
 
-Render locally at maximum supported Remotion concurrency:
+Render at the maximum supported Remotion concurrency:
 
 ```sh
 npm run render
 ```
 
-If needed, pass the local Chromium executable: `npm run render -- --browser-executable=/path/to/chromium`. Remotion 4.0.539 uses `--concurrency=100%` for its maximum; it does not accept the literal `max`. The MP4 is written to `out/Nokia-Documentary.mp4` and published in `deliverables/Nokia-Documentary.mp4`.
+Remotion 4.0.539 rejects the literal `--concurrency=max`; `--concurrency=100%` selects its maximum. If needed, provide a local browser with `npm run render -- --browser-executable=/path/to/chromium`. The 1920×1080, 30 fps MP4 is written to `out/The-Code-That-Replaced-After-Effects.mp4` and published under `deliverables/`.

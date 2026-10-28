@@ -4,7 +4,7 @@ import {MotionEngine, MOTION_ENGINE_DURATION_FRAMES} from './engine/MotionEngine
 
 export const RemotionRoot: React.FC = () => (
   <Composition
-    id="NokiaDocumentary"
+    id="TheCodeThatReplacedAfterEffects"
     component={MotionEngine}
     durationInFrames={MOTION_ENGINE_DURATION_FRAMES}
     fps={30}

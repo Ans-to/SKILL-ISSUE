@@ -1,13 +1,13 @@
 {
-  "name": "nokia-documentary-remotion",
+  "name": "after-effects-code-explainer",
   "version": "1.0.0",
   "private": true,
-  "description": "Deterministic word-synced Nokia documentary MotionEngine",
+  "description": "Word-synchronized procedural motion-graphics explainer: The Code That Replaced After Effects",
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify:sync": "python3 scripts/verify-word-cues.py",
-    "render": "remotion render src/index.ts NokiaDocumentary out/Nokia-Documentary.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
+    "render": "remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
   },
   "dependencies": {
     "@react-three/drei": "9.122.0",
