@@ -11,7 +11,7 @@ import {
   isSceneCleared,
   type SceneSpec,
   type ScriptCue,
-} from './agentEngineModel';
+} from '../engine/agentEngineModel';
 
 const BoundedCameraRig: React.FC<{
   localFrame: number;
@@ -35,7 +35,7 @@ export const SceneThreeCanvas: React.FC<{
   dollyRange?: number;
   offsetX?: number;
   children: React.ReactNode;
-}> = ({localFrame, energy, opacity = 0.46, baseZ = 12.8, dollyRange = 1.4, offsetX = 0, children}) => (
+}> = ({localFrame, energy, opacity = 0.44, baseZ = 12.8, dollyRange = 1.4, offsetX = 0, children}) => (
   <ThreeCanvas
     width={1920}
     height={1080}
@@ -52,19 +52,12 @@ export const SceneThreeCanvas: React.FC<{
       offsetX={offsetX}
     />
     <ambientLight intensity={0.72} />
-    <pointLight position={[0, 2.4, 5.5]} color={ORANGE} intensity={0.85 + energy * 1.1} />
-    <pointLight position={[-3, -2, 4]} color={WHITE} intensity={0.35} />
+    <pointLight position={[1.8, 2.4, 5.5]} color={ORANGE} intensity={0.85 + energy * 1.1} />
+    <pointLight position={[-2.5, -2, 4]} color={WHITE} intensity={0.35} />
     {children}
   </ThreeCanvas>
 );
 
-/**
- * Isolated per-Sequence 3-layer stage:
- * 1) Background grid state (zIndex 0)
- * 2) Procedural Three.js depth layer (zIndex 2, never carries text)
- * 3) Front-facing 2D kinetic typography, wireframes, and live telemetry (zIndex 10)
- * Clears completely to pure obsidian before the Sequence unmounts.
- */
 export const SceneStage: React.FC<{
   scene: SceneSpec;
   localFrame: number;

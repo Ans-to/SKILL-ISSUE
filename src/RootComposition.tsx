@@ -1,1 +1,1 @@
-export {EngineFirstExplainer, RemotionRoot} from './Root';
+export {EngineFirstExplainer, RemotionRoot, Root} from './Root';

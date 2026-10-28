@@ -1,8 +1,7 @@
 import React from 'react';
 import {spring, useCurrentFrame} from 'remotion';
-import {KineticText} from './KineticEngine';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-import {AtmosphericOverlays, Micro, Panel, TelemetryRail} from './TelemetryHud';
+import {KineticEngine} from '../KineticEngine';
+import {AtmosphericOverlays, Micro, Panel, TelemetryHud} from '../TelemetryHud';
 import {
   FPS,
   OBSIDIAN,
@@ -13,7 +12,8 @@ import {
   energyAt,
   findSceneCue,
   type SceneSpec,
-} from './agentEngineModel';
+} from '../engine/agentEngineModel';
+import {SceneStage, SceneThreeCanvas} from './SceneStage';
 
 const TwistBackground: React.FC<{broken: boolean; energy: number}> = ({broken, energy}) => (
   <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
@@ -22,8 +22,8 @@ const TwistBackground: React.FC<{broken: boolean; energy: number}> = ({broken, e
         position: 'absolute',
         inset: 0,
         background: broken
-          ? `radial-gradient(circle at 50% 42%, rgba(255,69,0,${0.12 + energy * 0.14}), transparent 56%)`
-          : 'radial-gradient(ellipse at 50% 35%, rgba(244,247,255,.045), transparent 58%)',
+          ? `radial-gradient(circle at 64% 42%, rgba(255,69,0,${0.12 + energy * 0.14}), transparent 54%)`
+          : 'radial-gradient(ellipse at 64% 36%, rgba(244,247,255,.045), transparent 56%)',
       }}
     />
     <div
@@ -44,17 +44,17 @@ const TwistThreeLayer: React.FC<{localFrame: number; broken: boolean; slash: num
   slash,
   energy,
 }) => {
-  const split = broken ? slash * 1.15 : 0;
+  const split = broken ? slash * 1.1 : 0;
   return (
     <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={12.6} opacity={0.38}>
-      <group rotation={[0.08, Math.sin(localFrame * 0.018) * 0.14, broken ? -0.14 * slash : 0]}>
+      <group position={[1.9, 0.25, 0]} rotation={[0.08, Math.sin(localFrame * 0.018) * 0.14, broken ? -0.14 * slash : 0]}>
         {[-1, 0, 1].map((idx) => (
           <mesh
             key={idx}
-            position={[idx * (1.8 + split * 0.7), idx * split * 0.45, -Math.abs(idx) * 0.8]}
+            position={[idx * (1.55 + split * 0.65), idx * split * 0.4, -Math.abs(idx) * 0.75]}
             rotation={[0, idx * 0.12, broken ? idx * 0.22 * slash : 0]}
           >
-            <boxGeometry args={[2.3, 1.45, 0.04]} />
+            <boxGeometry args={[2.05, 1.35, 0.04]} />
             <meshBasicMaterial
               color={broken ? ORANGE : WHITE}
               wireframe
@@ -68,7 +68,8 @@ const TwistThreeLayer: React.FC<{localFrame: number; broken: boolean; slash: num
   );
 };
 
-export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = ({scene, localFrame}) => {
+export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twist}) => {
+  const localFrame = useCurrentFrame();
   const globalFrame = scene.from + localFrame;
   const activeCue = findSceneCue(scene, localFrame);
   const energy = energyAt(globalFrame);
@@ -97,16 +98,16 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
       typography={
         <>
           <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
-          <TelemetryRail scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
+          <TelemetryHud scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
 
-          {/* Upper Stage: Isolated SaaS Template Wireframe */}
+          {/* Upper-Right Stage: Isolated SaaS Boilerplate Surface */}
           <div
             style={{
               position: 'absolute',
-              left: 88,
-              right: 88,
-              top: 112,
-              height: 598,
+              left: 468,
+              right: 48,
+              top: 40,
+              height: 738,
               transform: `translateY(${(1 - reveal) * 20}px) scale(${0.97 + reveal * 0.03})`,
             }}
           >
@@ -114,8 +115,8 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
               style={{
                 position: 'absolute',
                 inset: 0,
-                borderRadius: 16,
-                padding: '24px 30px',
+                borderRadius: 14,
+                padding: '24px 28px',
                 boxSizing: 'border-box',
                 borderColor: broken ? ORANGE : stressed ? 'rgba(255,69,0,.45)' : 'rgba(244,247,255,.16)',
               }}
@@ -128,10 +129,10 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1.25fr 0.95fr',
-                  gap: 22,
+                  gridTemplateColumns: '1.2fr 0.95fr',
+                  gap: 20,
                   marginTop: 20,
-                  height: 500,
+                  height: 640,
                 }}
               >
                 <div style={{display: 'grid', gridTemplateRows: '1.15fr 0.85fr', gap: 18}}>
@@ -147,7 +148,7 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
                     }}
                   >
                     <Micro>WEEKLY THROUGHPUT</Micro>
-                    <div style={{height: 175, display: 'flex', alignItems: 'flex-end', gap: 14}}>
+                    <div style={{height: 240, display: 'flex', alignItems: 'flex-end', gap: 12}}>
                       {[42, 74, 52, 91, 61, 96, 68, 82, 46, 78, 58, 92].map((height, index) => (
                         <i
                           key={index}
@@ -170,11 +171,11 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
                     }}
                   >
                     <Micro>STATIC COMPONENT SLOTS</Micro>
-                    {[0, 1, 2].map((row) => (
-                      <div key={row} style={{height: 30, marginTop: 14, display: 'flex', alignItems: 'center', gap: 14}}>
+                    {[0, 1, 2, 3].map((row) => (
+                      <div key={row} style={{height: 30, marginTop: 14, display: 'flex', alignItems: 'center', gap: 12}}>
                         <i style={{width: 18, height: 18, borderRadius: 4, background: 'rgba(255,69,0,.34)'}} />
-                        <i style={{width: `${46 + row * 13}%`, height: 7, background: 'rgba(244,247,255,.18)', borderRadius: 6}} />
-                        <i style={{marginLeft: 'auto', width: 64, height: 7, background: 'rgba(244,247,255,.1)', borderRadius: 6}} />
+                        <i style={{width: `${44 + row * 11}%`, height: 7, background: 'rgba(244,247,255,.18)', borderRadius: 6}} />
+                        <i style={{marginLeft: 'auto', width: 54, height: 7, background: 'rgba(244,247,255,.1)', borderRadius: 6}} />
                       </div>
                     ))}
                   </div>
@@ -193,7 +194,7 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
                         }}
                       >
                         <Micro>{idx === 0 ? 'MOCK METRIC' : 'UPTIME'}</Micro>
-                        <div style={{fontSize: 44, fontWeight: 900, marginTop: 12, color: broken ? ORANGE : WHITE}}>
+                        <div style={{fontSize: 40, fontWeight: 900, marginTop: 12, color: broken ? ORANGE : WHITE}}>
                           {broken ? (idx === 0 ? 'ERR' : '0.0%') : idx === 0 ? '2,408' : '99.4%'}
                         </div>
                       </div>
@@ -208,12 +209,12 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
                     }}
                   >
                     <Micro>SYNTHETIC CURVE</Micro>
-                    <svg viewBox="0 0 520 220" style={{width: '100%', height: 225, marginTop: 10}}>
+                    <svg viewBox="0 0 500 280" style={{width: '100%', height: 340, marginTop: 12}}>
                       <path
                         d={
                           broken
-                            ? 'M0 165 L120 155 L175 45 L240 195 L320 75 L410 190 L520 180'
-                            : 'M0 165 C75 150 90 72 155 110 S245 174 305 90 S410 142 520 34'
+                            ? 'M0 205 L110 195 L165 55 L230 245 L310 95 L400 240 L500 225'
+                            : 'M0 205 C75 190 90 92 155 140 S245 224 305 110 S400 172 500 44'
                         }
                         fill="none"
                         stroke={broken ? ORANGE : 'rgba(244,247,255,.55)'}
@@ -224,20 +225,19 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
                 </div>
               </div>
 
-              {/* Fracture slash locked to "break." */}
               <svg
-                viewBox="0 0 1744 598"
+                viewBox="0 0 1404 738"
                 preserveAspectRatio="none"
                 style={{position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none'}}
               >
                 <path
-                  d="M44 556L1700 42"
+                  d="M38 692L1366 46"
                   fill="none"
                   stroke={ORANGE}
                   strokeWidth={5 + energy * 2.5}
                   strokeLinecap="round"
-                  strokeDasharray="1950"
-                  strokeDashoffset={broken ? (1 - slash) * 1950 : 1950}
+                  strokeDasharray="1700"
+                  strokeDashoffset={broken ? (1 - slash) * 1700 : 1700}
                   style={{filter: `drop-shadow(0 0 16px ${ORANGE})`}}
                 />
               </svg>
@@ -261,15 +261,11 @@ export const SceneTwistView: React.FC<{scene: SceneSpec; localFrame: number}> = 
             </Panel>
           </div>
 
-          {/* Lower Stage: Fresh Non-Overlapping Kinetic Typography Deck */}
-          {activeCue && <KineticText key={activeCue.globalIndex} cue={activeCue} variant="twist" globalFrame={globalFrame} />}
+          {activeCue && (
+            <KineticEngine key={activeCue.globalIndex} cue={activeCue} variant="twist" globalFrame={globalFrame} />
+          )}
         </>
       }
     />
   );
-};
-
-export const SceneTwist: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twist}) => {
-  const localFrame = useCurrentFrame();
-  return <SceneTwistView scene={scene} localFrame={localFrame} />;
 };

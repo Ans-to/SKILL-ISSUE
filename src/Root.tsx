@@ -5,86 +5,76 @@ import {
   MOTION_ENGINE_DURATION_FRAMES,
 } from './engine/MotionEngine';
 import {DURATION_FRAMES, FPS, OBSIDIAN, SCENE_MAP} from './engine/agentEngineModel';
-import {SceneHook} from './engine/SceneHook';
-import {SceneTwist} from './engine/SceneTwist';
-import {SceneShift} from './engine/SceneShift';
-import {SceneMechanism} from './engine/SceneMechanism';
-import {ScenePayoff} from './engine/ScenePayoff';
-import {SceneOutro} from './engine/SceneOutro';
+import {HookScene} from './scenes/HookScene';
+import {TwistScene} from './scenes/TwistScene';
+import {ShiftScene} from './scenes/ShiftScene';
+import {MechanismScene} from './scenes/MechanismScene';
+import {PayoffScene} from './scenes/PayoffScene';
+import {OutroScene} from './scenes/OutroScene';
 
-/**
- * Decoupled multi-Sequence composition:
- * Each beat mounts only within its exact [from, from + durationInFrames) window,
- * clears cleanly before unmounting, and never leaks DOM, state, or 3D geometry across cuts.
- */
-export const EngineFirstExplainer: React.FC = () => (
+const EXPECTED_BEATS = [
+  [0, 153],
+  [153, 213],
+  [366, 279],
+  [645, 408],
+  [1053, 347],
+  [1400, 147],
+] as const;
+
+[
+  SCENE_MAP.hook,
+  SCENE_MAP.twist,
+  SCENE_MAP.shift,
+  SCENE_MAP.mechanism,
+  SCENE_MAP.payoff,
+  SCENE_MAP.outro,
+].forEach((scene, idx) => {
+  const [from, durationInFrames] = EXPECTED_BEATS[idx];
+  if (scene.from !== from || scene.durationInFrames !== durationInFrames) {
+    throw new Error(`Root Sequence bounds out of sync for ${scene.id}`);
+  }
+});
+
+export const Root: React.FC = () => (
   <AbsoluteFill style={{backgroundColor: OBSIDIAN, overflow: 'hidden'}}>
-    <Sequence
-      name="01-Hook"
-      from={SCENE_MAP.hook.from}
-      durationInFrames={SCENE_MAP.hook.durationInFrames}
-    >
-      <SceneHook scene={SCENE_MAP.hook} />
+    <Sequence durationInFrames={153} from={0} name="01-Hook">
+      <HookScene />
     </Sequence>
-
-    <Sequence
-      name="02-Twist"
-      from={SCENE_MAP.twist.from}
-      durationInFrames={SCENE_MAP.twist.durationInFrames}
-    >
-      <SceneTwist scene={SCENE_MAP.twist} />
+    <Sequence durationInFrames={213} from={153} name="02-Twist">
+      <TwistScene />
     </Sequence>
-
-    <Sequence
-      name="03-Shift"
-      from={SCENE_MAP.shift.from}
-      durationInFrames={SCENE_MAP.shift.durationInFrames}
-    >
-      <SceneShift scene={SCENE_MAP.shift} />
+    <Sequence durationInFrames={279} from={366} name="03-Shift">
+      <ShiftScene />
     </Sequence>
-
-    <Sequence
-      name="04-Mechanism"
-      from={SCENE_MAP.mechanism.from}
-      durationInFrames={SCENE_MAP.mechanism.durationInFrames}
-    >
-      <SceneMechanism scene={SCENE_MAP.mechanism} />
+    <Sequence durationInFrames={408} from={645} name="04-Mechanism">
+      <MechanismScene />
     </Sequence>
-
-    <Sequence
-      name="05-Payoff"
-      from={SCENE_MAP.payoff.from}
-      durationInFrames={SCENE_MAP.payoff.durationInFrames}
-    >
-      <ScenePayoff scene={SCENE_MAP.payoff} />
+    <Sequence durationInFrames={347} from={1053} name="05-Payoff">
+      <PayoffScene />
     </Sequence>
-
-    <Sequence
-      name="06-Outro"
-      from={SCENE_MAP.outro.from}
-      durationInFrames={SCENE_MAP.outro.durationInFrames}
-    >
-      <SceneOutro scene={SCENE_MAP.outro} />
+    <Sequence durationInFrames={147} from={1400} name="06-Outro">
+      <OutroScene />
     </Sequence>
-
     <Audio src={staticFile('agent-engine/voiceover.wav')} />
   </AbsoluteFill>
 );
 
+export const EngineFirstExplainer = Root;
+
 export const RemotionRoot: React.FC = () => (
   <>
     <Composition
-      id="TheCodeThatReplacedAfterEffects"
-      component={AfterEffectsMotion}
-      durationInFrames={MOTION_ENGINE_DURATION_FRAMES}
+      id="EngineFirstExplainer"
+      component={Root}
+      durationInFrames={DURATION_FRAMES}
       fps={FPS}
       width={1920}
       height={1080}
     />
     <Composition
-      id="EngineFirstExplainer"
-      component={EngineFirstExplainer}
-      durationInFrames={DURATION_FRAMES}
+      id="TheCodeThatReplacedAfterEffects"
+      component={AfterEffectsMotion}
+      durationInFrames={MOTION_ENGINE_DURATION_FRAMES}
       fps={FPS}
       width={1920}
       height={1080}

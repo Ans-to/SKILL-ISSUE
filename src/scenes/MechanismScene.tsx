@@ -1,8 +1,7 @@
 import React from 'react';
 import {spring, useCurrentFrame} from 'remotion';
-import {KineticText} from './KineticEngine';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-import {AtmosphericOverlays, Micro, TelemetryRail} from './TelemetryHud';
+import {KineticEngine} from '../KineticEngine';
+import {AtmosphericOverlays, Micro, TelemetryHud} from '../TelemetryHud';
 import {
   FPS,
   MUTED,
@@ -15,7 +14,8 @@ import {
   energyAt,
   findSceneCue,
   type SceneSpec,
-} from './agentEngineModel';
+} from '../engine/agentEngineModel';
+import {SceneStage, SceneThreeCanvas} from './SceneStage';
 
 const MechanismBackground: React.FC<{energy: number}> = ({energy}) => (
   <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
@@ -80,10 +80,8 @@ const PRIMITIVE_SVGS: ReadonlyArray<string> = [
   'M20 70 H116 V26 H228',
 ];
 
-export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}> = ({
-  scene,
-  localFrame,
-}) => {
+export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.mechanism}) => {
+  const localFrame = useCurrentFrame();
   const globalFrame = scene.from + localFrame;
   const activeCue = findSceneCue(scene, localFrame);
   const energy = energyAt(globalFrame);
@@ -124,9 +122,9 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
       typography={
         <>
           <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
-          <TelemetryRail scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
+          <TelemetryHud scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
           {activeCue && (
-            <KineticText
+            <KineticEngine
               key={activeCue.globalIndex}
               cue={activeCue}
               variant="mechanism"
@@ -134,14 +132,13 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
             />
           )}
 
-          {/* 6-Cell Deterministic Mathematical Primitive Matrix */}
           <div
             style={{
               position: 'absolute',
-              left: 476,
-              right: 56,
-              top: 276,
-              bottom: 132,
+              left: 468,
+              right: 48,
+              top: 266,
+              bottom: 128,
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
               gridTemplateRows: 'repeat(2, 1fr)',
@@ -175,7 +172,7 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     transform: `scale(${isCurrent ? 0.94 + pop * 0.06 : 1})`,
-                    boxShadow: isCurrent ? `0 0 32px rgba(255,69,0,.22)` : 'none',
+                    boxShadow: isCurrent ? '0 0 32px rgba(255,69,0,.22)' : 'none',
                   }}
                 >
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -194,7 +191,6 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
                     />
                   </svg>
 
-                  {/* Strictly no future-word preview and no lingering word after cue.endFrame */}
                   <div
                     style={{
                       fontFamily: 'monospace',
@@ -211,13 +207,12 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
             })}
           </div>
 
-          {/* Deterministic Proof Strip */}
           <div
             style={{
               position: 'absolute',
-              left: 476,
-              right: 56,
-              bottom: 44,
+              left: 468,
+              right: 48,
+              bottom: 40,
               height: 68,
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
@@ -252,9 +247,4 @@ export const SceneMechanismView: React.FC<{scene: SceneSpec; localFrame: number}
       }
     />
   );
-};
-
-export const SceneMechanism: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.mechanism}) => {
-  const localFrame = useCurrentFrame();
-  return <SceneMechanismView scene={scene} localFrame={localFrame} />;
 };

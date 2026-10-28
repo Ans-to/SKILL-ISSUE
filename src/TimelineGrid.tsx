@@ -10,7 +10,7 @@ import {
   WHITE,
   clamp,
   cueIndexFor,
-} from './agentEngineModel';
+} from './engine/agentEngineModel';
 
 export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; energy: number}> = ({
   localFrame,
@@ -41,35 +41,34 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
   const scroll = localFrame * 16;
 
   return (
-    <div style={{position: 'absolute', left: 56, right: 56, top: 320, bottom: 48, overflow: 'hidden'}}>
-      <Panel style={{position: 'absolute', inset: 0, borderRadius: 16, padding: '22px 28px', boxSizing: 'border-box'}}>
+    <div style={{position: 'absolute', left: 468, right: 48, top: 276, bottom: 40, overflow: 'hidden'}}>
+      <Panel style={{position: 'absolute', inset: 0, borderRadius: 14, padding: '22px 26px', boxSizing: 'border-box'}}>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>SEQUENCE TIMELINE // DETERMINISTIC RENDER GRAPH</Micro>
           <Micro>PLAYHEAD L{String(localFrame).padStart(3, '0')} · F{String(globalFrame).padStart(4, '0')}</Micro>
         </div>
 
-        {/* Scrolling 6-track <Sequence> block timeline */}
         <div
           style={{
             position: 'absolute',
-            left: 28,
-            right: codeReached ? 490 : 28,
-            top: 66,
-            bottom: 92,
+            left: 26,
+            right: codeReached ? 436 : 26,
+            top: 64,
+            bottom: 90,
             overflow: 'hidden',
             border: '1px solid rgba(244,247,255,.1)',
-            background: 'rgba(6,9,16,.65)',
+            background: 'rgba(6,9,16,.68)',
           }}
         >
           <div
             style={{
               position: 'absolute',
               inset: 12,
-              transform: `translateX(${-scroll % 540}px)`,
+              transform: `translateX(${-scroll % 520}px)`,
               display: 'grid',
               gridTemplateRows: 'repeat(6, 1fr)',
               gap: 9,
-              width: 2400,
+              width: 2200,
             }}
           >
             {[0, 1, 2, 3, 4, 5].map((row) => (
@@ -106,7 +105,7 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
               position: 'absolute',
               top: 0,
               bottom: 0,
-              left: `${18 + progress * 64}%`,
+              left: `${16 + progress * 68}%`,
               width: 2,
               background: ORANGE,
               boxShadow: `0 0 ${14 + energy * 18}px ${ORANGE}`,
@@ -114,22 +113,21 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
           />
         </div>
 
-        {/* Deterministic compiler block — snaps in on "code," without unspoken script previews */}
         {codeReached && (
           <div
             style={{
               position: 'absolute',
-              right: 28,
-              top: 66,
-              width: 440,
-              bottom: 92,
+              right: 26,
+              top: 64,
+              width: 392,
+              bottom: 90,
               border: `1px solid ${ORANGE}`,
               background: 'rgba(6,9,15,.96)',
               boxShadow: `0 0 ${24 + energy * 24}px rgba(255,69,0,.2)`,
-              padding: 20,
+              padding: 18,
               boxSizing: 'border-box',
               fontFamily: 'monospace',
-              fontSize: 15,
+              fontSize: 14,
               lineHeight: 1.65,
               display: 'flex',
               flexDirection: 'column',
@@ -142,17 +140,17 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
                 <span style={{color: MUTED, fontSize: 11}}>30 FPS</span>
               </div>
               <div style={{color: ORANGE}}>{'<Sequence from={f0} durationInFrames={df}>'}</div>
-              <div style={{paddingLeft: 18, color: WHITE}}>{'<SceneFrame tick={frame} />'}</div>
+              <div style={{paddingLeft: 16, color: WHITE}}>{'<PayoffScene />'}</div>
               <div style={{color: ORANGE}}>{'</Sequence>'}</div>
             </div>
 
             {framesReached && (
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8}}>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7}}>
                 {[0, 1, 2, 3].map((idx) => (
                   <div
                     key={idx}
                     style={{
-                      height: 52,
+                      height: 50,
                       border: `1px solid ${mp4Active ? ORANGE : 'rgba(244,247,255,.26)'}`,
                       background: `linear-gradient(${130 + idx * 14}deg, rgba(255,69,0,${0.14 + idx * 0.08}), rgba(244,247,255,.05))`,
                       display: 'grid',
@@ -169,17 +167,16 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
           </div>
         )}
 
-        {/* Bottom 4-step pipeline bar: spoken tokens light up ONLY during their active cue interval */}
         <div
           style={{
             position: 'absolute',
-            left: 28,
-            right: 28,
+            left: 26,
+            right: 26,
             bottom: 20,
-            height: 54,
+            height: 52,
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 14,
+            gap: 12,
           }}
         >
           {stages.map((stage) => {
@@ -204,14 +201,14 @@ export const TimelineGrid: React.FC<{localFrame: number; globalFrame: number; en
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0 16px',
+                  padding: '0 14px',
                   transform: `scale(${activeCue ? 0.94 + pop * 0.06 : 1})`,
                 }}
               >
                 <span style={{fontFamily: 'monospace', fontSize: 11, color: passed ? ORANGE : MUTED, letterSpacing: 2}}>
                   STAGE {stage.id}
                 </span>
-                <span style={{fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: WHITE}}>
+                <span style={{fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: WHITE}}>
                   {activeCue ? activeCue.text : passed ? 'LOCKED' : '—'}
                 </span>
               </div>

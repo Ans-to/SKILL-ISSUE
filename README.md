@@ -17,11 +17,11 @@ The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff45
 
 The telemetry, kinetic typography layout, background grid state, node constellation, and Three.js rig are isolated per `<Sequence>` so every beat unmounts cleanly before the next scene hard-cuts in—no elements, history, or geometry bleed across scene boundaries:
 
-- `src/Root.tsx` (re-exported by `src/RootComposition.tsx`) registers both compositions and decouples `EngineFirstExplainer` into six non-overlapping `<Sequence from={...} durationInFrames={...}>` blocks.
-- `src/engine/SceneHook.tsx`, `src/engine/SceneTwist.tsx`, `src/engine/SceneShift.tsx`, `src/engine/SceneMechanism.tsx`, `src/engine/ScenePayoff.tsx`, and `src/engine/SceneOutro.tsx` implement each isolated beat, backed by `src/engine/SceneStage.tsx`.
+- `src/Root.tsx` (re-exported by `src/RootComposition.tsx`) exports `Root` and `RemotionRoot`, registering the composition total frames (`1,547`) and assembling six non-overlapping `<Sequence durationInFrames={...} from={...}>` blocks.
+- `src/TelemetryHud.tsx` provides the reusable, scene-isolated left-zone telemetry HUD and scene-distinct node constellations.
+- `src/KineticEngine.tsx` handles `{damping: 10, stiffness: 180}` spring physics and word-by-word absolute-frame snapping across distinct right-stage layouts.
+- `src/scenes/HookScene.tsx`, `src/scenes/TwistScene.tsx`, `src/scenes/ShiftScene.tsx`, `src/scenes/MechanismScene.tsx`, `src/scenes/PayoffScene.tsx`, and `src/scenes/OutroScene.tsx` implement each isolated `<Sequence>` beat (`src/TimelineGrid.tsx` renders the Payoff timeline).
 - `src/engine/agentEngineModel.ts` owns cue lookup, non-overlapping `<Sequence>` boundaries, scene-scoped selectors, color, and audio-envelope data.
-- `src/engine/KineticEngine.tsx` owns per-scene kinetic typography variants and the scene-isolated spoken-word graph.
-- `src/engine/TelemetryHud.tsx` owns per-scene live telemetry and scene-distinct node constellations; `src/engine/TimelineGrid.tsx` owns the Payoff sequence timeline visualization.
 
 Render the new AI-agent film:
 

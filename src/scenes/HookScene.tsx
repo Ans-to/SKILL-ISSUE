@@ -1,8 +1,7 @@
 import React from 'react';
 import {spring, useCurrentFrame} from 'remotion';
-import {KineticText, SceneSemanticGraph} from './KineticEngine';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-import {AtmosphericOverlays, Micro, TelemetryRail} from './TelemetryHud';
+import {KineticEngine, SceneSemanticGraph} from '../KineticEngine';
+import {AtmosphericOverlays, Micro, TelemetryHud} from '../TelemetryHud';
 import {
   FPS,
   OBSIDIAN,
@@ -15,17 +14,18 @@ import {
   hashText,
   sceneSpokenCues,
   type SceneSpec,
-} from './agentEngineModel';
+} from '../engine/agentEngineModel';
+import {SceneStage, SceneThreeCanvas} from './SceneStage';
 
 const HookBackground: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => {
-  const sweepX = ((localFrame * 42) % 2400) - 240;
+  const sweepX = 460 + ((localFrame * 34) % 1560);
   return (
     <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(circle at 68% 48%, rgba(255,69,0,${0.05 + energy * 0.12}), transparent 44%), radial-gradient(circle at 20% 50%, rgba(244,247,255,.04), transparent 50%)`,
+          background: `radial-gradient(circle at 72% 48%, rgba(255,69,0,${0.05 + energy * 0.12}), transparent 44%)`,
         }}
       />
       <div
@@ -43,10 +43,10 @@ const HookBackground: React.FC<{localFrame: number; energy: number}> = ({localFr
         preserveAspectRatio="none"
         style={{position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.45 + energy * 0.35}}
       >
-        <circle cx="1320" cy="520" r="290" fill="none" stroke={WHITE} strokeOpacity=".1" strokeDasharray="4 12" />
-        <circle cx="1320" cy="520" r="190" fill="none" stroke={ORANGE} strokeOpacity=".18" />
-        <path d={`M${sweepX - 420} 520H${sweepX + 260}`} stroke={ORANGE} strokeWidth={2.2 + energy * 2.4} />
-        <circle cx={sweepX + 260} cy="520" r={5 + energy * 5} fill={ORANGE} />
+        <circle cx="1380" cy="520" r="280" fill="none" stroke={WHITE} strokeOpacity=".1" strokeDasharray="4 12" />
+        <circle cx="1380" cy="520" r="185" fill="none" stroke={ORANGE} strokeOpacity=".18" />
+        <path d={`M${Math.max(460, sweepX - 380)} 520H${sweepX + 180}`} stroke={ORANGE} strokeWidth={2.2 + energy * 2.4} />
+        <circle cx={sweepX + 180} cy="520" r={5 + energy * 5} fill={ORANGE} />
       </svg>
     </div>
   );
@@ -61,25 +61,25 @@ const HookThreeLayer: React.FC<{
   const spoken = sceneSpokenCues(scene, localFrame);
   const rot = localFrame * 0.012;
   return (
-    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.2} offsetX={-0.6}>
-      <group position={[2.2, 0.1, 0]} rotation={[0.16, rot, -0.05]}>
+    <SceneThreeCanvas localFrame={localFrame} energy={energy} baseZ={13.2}>
+      <group position={[2.3, 0.05, 0]} rotation={[0.16, rot, -0.05]}>
         <mesh rotation={[0.5, 0.2, rot]}>
-          <torusGeometry args={[2.8, 0.012, 8, 96]} />
+          <torusGeometry args={[2.65, 0.012, 8, 96]} />
           <meshBasicMaterial color={ORANGE} transparent opacity={0.28 + energy * 0.25} />
         </mesh>
         <mesh rotation={[-0.35, rot * 0.8, 0.3]}>
-          <torusGeometry args={[1.95, 0.009, 8, 72]} />
+          <torusGeometry args={[1.85, 0.009, 8, 72]} />
           <meshBasicMaterial color={WHITE} transparent opacity={0.18 + energy * 0.18} />
         </mesh>
         {spoken.map((cue, idx) => {
           const seed = hashText(`hook:${cue.globalIndex}`);
           const angle = idx * 0.72 + (seed % 100) * 0.01;
-          const radius = 1.15 + (idx % 3) * 0.55;
+          const radius = 1.1 + (idx % 3) * 0.52;
           const active = cue.globalIndex === activeCueId;
           return (
             <mesh
               key={cue.globalIndex}
-              position={[Math.cos(angle) * radius, Math.sin(angle * 1.3) * 0.9, Math.sin(angle) * 0.9]}
+              position={[Math.cos(angle) * radius, Math.sin(angle * 1.3) * 0.85, Math.sin(angle) * 0.85]}
             >
               <sphereGeometry args={[active ? 0.095 : 0.045, 12, 10]} />
               <meshBasicMaterial color={active ? ORANGE : WHITE} transparent opacity={active ? 0.95 : 0.32} />
@@ -91,7 +91,8 @@ const HookThreeLayer: React.FC<{
   );
 };
 
-export const SceneHookView: React.FC<{scene: SceneSpec; localFrame: number}> = ({scene, localFrame}) => {
+export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook}) => {
+  const localFrame = useCurrentFrame();
   const globalFrame = scene.from + localFrame;
   const activeCue = findSceneCue(scene, localFrame);
   const energy = energyAt(globalFrame);
@@ -120,25 +121,25 @@ export const SceneHookView: React.FC<{scene: SceneSpec; localFrame: number}> = (
       typography={
         <>
           <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
-          <TelemetryRail scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
+          <TelemetryHud scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
           <SceneSemanticGraph
             scene={scene}
             localFrame={localFrame}
             activeCue={activeCue}
             energy={energy}
-            style={{right: 104, top: 118}}
+            style={{right: 56, top: 64}}
           />
           {templateStamp && (
             <div
               style={{
                 position: 'absolute',
-                right: 104,
-                bottom: 52,
-                width: 440,
-                height: 150,
+                right: 56,
+                bottom: 44,
+                width: 430,
+                height: 146,
                 border: `1px dashed ${ORANGE}`,
                 background: 'rgba(255,69,0,.07)',
-                padding: 20,
+                padding: 18,
                 boxSizing: 'border-box',
                 transform: `scale(${0.88 + stampPop * 0.12})`,
                 display: 'flex',
@@ -152,7 +153,7 @@ export const SceneHookView: React.FC<{scene: SceneSpec; localFrame: number}> = (
                   <div
                     key={slot}
                     style={{
-                      height: 54,
+                      height: 52,
                       border: '1px solid rgba(244,247,255,.22)',
                       background: 'rgba(244,247,255,.04)',
                     }}
@@ -161,14 +162,11 @@ export const SceneHookView: React.FC<{scene: SceneSpec; localFrame: number}> = (
               </div>
             </div>
           )}
-          {activeCue && <KineticText key={activeCue.globalIndex} cue={activeCue} variant="hook" globalFrame={globalFrame} />}
+          {activeCue && (
+            <KineticEngine key={activeCue.globalIndex} cue={activeCue} variant="hook" globalFrame={globalFrame} />
+          )}
         </>
       }
     />
   );
-};
-
-export const SceneHook: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook}) => {
-  const localFrame = useCurrentFrame();
-  return <SceneHookView scene={scene} localFrame={localFrame} />;
 };
