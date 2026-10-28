@@ -16,6 +16,7 @@ import {useFrame, useThree} from '@react-three/fiber';
 import {
   BufferGeometry,
   CatmullRomCurve3,
+  Color,
   Float32BufferAttribute,
   PerspectiveCamera,
   Quaternion,
@@ -115,6 +116,47 @@ const makeCage = () => {
 const tube = (points: Vector3[], radius: number, segments = 64) =>
   new TubeGeometry(new CatmullRomCurve3(points), segments, radius, 8, false);
 
+type CoordinateRing = {core: TubeGeometry; halo: TubeGeometry};
+
+const makeCoordinateRings = (): CoordinateRing[] => {
+  const paths: Vector3[][] = [];
+  for (const latitude of [-55, -20, 0, 23.5, 61.46]) {
+    paths.push(Array.from({length: 97}, (_, index) => pointOnEarth(latitude, -180 + index * (360 / 96), 4.035)));
+  }
+  for (const longitude of [-90, -30, 30, 90, 150]) {
+    paths.push(Array.from({length: 89}, (_, index) => pointOnEarth(-88 + index * 2, longitude, 4.035)));
+  }
+  return paths.map((points) => ({
+    halo: tube(points, 0.034, 120),
+    core: tube(points, 0.012, 120),
+  }));
+};
+
+const makeVectorNodes = () => {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  let index = 0;
+  for (let latitude = -68; latitude <= 68; latitude += 17) {
+    for (let longitude = -180; longitude < 180; longitude += 17) {
+      if ((index * 7) % 5 === 0) {
+        index++;
+        continue;
+      }
+      const jitterLat = ((index * 13) % 7 - 3) * 0.8;
+      const jitterLon = ((index * 11) % 9 - 4) * 0.8;
+      const point = pointOnEarth(latitude + jitterLat, longitude + jitterLon, 4.052);
+      positions.push(...point.toArray());
+      const color = new Color(index % 13 === 0 ? COLORS.amber : COLORS.cyan);
+      colors.push(color.r, color.g, color.b);
+      index++;
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  return geometry;
+};
+
 const CameraSetup: React.FC = () => {
   const {camera} = useThree();
   useFrame(() => {
@@ -126,25 +168,12 @@ const CameraSetup: React.FC = () => {
   return null;
 };
 
-const LandBulge: React.FC<{latitude: number; longitude: number; scale: [number, number, number]; color: string}> = ({latitude, longitude, scale, color}) => {
-  const normal = useMemo(() => pointOnEarth(latitude, longitude, 1).normalize(), [latitude, longitude]);
-  const orientation = useMemo(
-    () => new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), normal),
-    [normal],
-  );
-  const position = useMemo(() => normal.clone().multiplyScalar(EARTH_RADIUS + 0.035), [normal]);
-  return (
-    <mesh position={position} quaternion={orientation} scale={scale}>
-      <sphereGeometry args={[1, 20, 14]} />
-      <meshStandardMaterial color={color} roughness={0.92} metalness={0.02} />
-    </mesh>
-  );
-};
-
 const Globe: React.FC<{frame: number}> = ({frame}) => {
   const grid = useMemo(makeGlobeGrid, []);
+  const coordinateRings = useMemo(makeCoordinateRings, []);
+  const nodeGeometry = useMemo(makeVectorNodes, []);
   const glow = 0.5 + 0.12 * Math.sin(frame / 9);
-  const scale = frame < 150 ? 1 : frame < 180 ? 1 - progress(frame, 150, 180) : frame < 450 ? 0 : frame < 480 ? springIn(frame, FPS, 450) : frame < 690 ? 1 : frame < 720 ? 1 - progress(frame, 690, 720) : 0;
+  const scale = frame < 48 ? 1 : frame < 78 ? 1 - progress(frame, 48, 78) : frame < 450 ? 0 : frame < 480 ? springIn(frame, FPS, 450) : frame < 690 ? 1 : frame < 720 ? 1 - progress(frame, 690, 720) : 0;
   const cities = useMemo(() => routeCities.map((city) => {
     const end = pointOnEarth(city.latitude, city.longitude, EARTH_RADIUS + 0.11);
     const curve = new CatmullRomCurve3([
@@ -162,14 +191,21 @@ const Globe: React.FC<{frame: number}> = ({frame}) => {
         <meshStandardMaterial color={COLORS.navy} roughness={0.78} metalness={0.18} />
       </mesh>
       <lineSegments geometry={grid}>
-        <lineBasicMaterial color={COLORS.cyan} transparent opacity={0.32} />
+        <lineBasicMaterial color="#3f9da9" transparent opacity={0.12} depthWrite={false} />
       </lineSegments>
-      <LandBulge latitude={52} longitude={15} scale={[1.45, 1.9, 0.08]} color="#547d72" />
-      <LandBulge latitude={39} longitude={-101} scale={[1.65, 1.5, 0.08]} color="#476e6a" />
-      <LandBulge latitude={-17} longitude={-61} scale={[0.95, 1.85, 0.08]} color="#547d72" />
-      <LandBulge latitude={5} longitude={22} scale={[0.85, 1.65, 0.08]} color="#55786b" />
-      <LandBulge latitude={44} longitude={92} scale={[1.8, 1.75, 0.08]} color="#547d72" />
-      <LandBulge latitude={-25} longitude={134} scale={[1.05, 0.82, 0.08]} color="#66897c" />
+      {coordinateRings.map(({core, halo}, index) => (
+        <group key={index}>
+          <mesh geometry={halo}>
+            <meshBasicMaterial color={COLORS.cyan} transparent opacity={0.09 + 0.025 * Math.sin(frame / 14 + index)} depthWrite={false} />
+          </mesh>
+          <mesh geometry={core}>
+            <meshBasicMaterial color={index === 4 ? COLORS.amber : COLORS.cyan} transparent opacity={0.54 + 0.08 * Math.sin(frame / 14 + index)} depthWrite={false} />
+          </mesh>
+        </group>
+      ))}
+      <points geometry={nodeGeometry}>
+        <pointsMaterial size={0.044} sizeAttenuation vertexColors transparent opacity={0.88} depthWrite={false} />
+      </points>
       <mesh position={FINLAND_POINT.toArray()}>
         <sphereGeometry args={[0.105 + glow * 0.025, 16, 12]} />
         <meshBasicMaterial color={COLORS.amber} />
@@ -240,8 +276,8 @@ const SnowParticles: React.FC<{frame: number}> = ({frame}) => (
 
 const MillDiorama: React.FC<{frame: number}> = ({frame}) => {
   const {fps} = useVideoConfig();
-  const enter = springIn(frame, fps, 138);
-  const leave = progress(frame, 235, 265);
+  const enter = springIn(frame, fps, 45);
+  const leave = progress(frame, 180, 210);
   const scale = enter * (1 - leave);
   const lamps = 0.8 + Math.sin(frame / 8) * 0.14;
   return (
@@ -294,7 +330,7 @@ const MillDiorama: React.FC<{frame: number}> = ({frame}) => {
 
 const IndustryStage: React.FC<{frame: number}> = ({frame}) => {
   const {fps} = useVideoConfig();
-  const enter = springIn(frame, fps, 198);
+  const enter = springIn(frame, fps, 180);
   const leave = progress(frame, 450, 480);
   const scale = enter * (1 - leave);
   const cage = useMemo(makeCage, []);
@@ -373,9 +409,9 @@ const IndustryStage: React.FC<{frame: number}> = ({frame}) => {
 
 const PhoneStage: React.FC<{frame: number}> = ({frame}) => {
   const {fps} = useVideoConfig();
-  const appear = springIn(frame, fps, 690);
+  const appear = springIn(frame, fps, 678);
   const pulse = 0.35 + 0.12 * Math.sin(frame / 8);
-  const sweep = ((frame - 690) * 5) % 360;
+  const sweep = (Math.max(0, frame - 678) * 5) % 360;
   const radarRay = useMemo(() => tube([
     new Vector3(0, 0, 0),
     new Vector3(0.3, 0.32, 0.02),
@@ -407,7 +443,7 @@ const PhoneStage: React.FC<{frame: number}> = ({frame}) => {
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <mesh key={index} position={[-0.72 + index * 0.29, -1.63, 0.37]}>
           <boxGeometry args={[0.16, 0.02, 0.015]} />
-          <meshBasicMaterial color={index < Math.floor(((frame - 690) / 12) % 6) ? COLORS.amber : COLORS.cyan} />
+          <meshBasicMaterial color={index < Math.floor(((frame - 678) / 12) % 6) ? COLORS.amber : COLORS.cyan} />
         </mesh>
       ))}
       <pointLight position={[0, 0.1, 1.2]} color={COLORS.cyan} intensity={3.6 + pulse * 4} distance={5} />
@@ -453,7 +489,7 @@ const chapterAt = (frame: number) => {
 
 /**
  * DOM-only editorial layer. It is a sibling above the WebGL canvas, not a 3D scene object.
- * The layer and its descendants use no perspective, rotate, or transform properties.
+ * The layer stays in CSS space; descendants use no perspective or 3D rotation (the caption uses a 2D scale only).
  */
 const EditorialOverlay: React.FC<{frame: number}> = ({frame}) => {
   const {fps} = useVideoConfig();
@@ -490,8 +526,8 @@ const EditorialOverlay: React.FC<{frame: number}> = ({frame}) => {
         <div style={{marginTop: 12, font: '500 34px/1.12 Georgia, serif', textShadow: '0 2px 18px rgba(0,0,0,.8)'}}>{chapter.title}</div>
         <div style={{marginTop: 10, color: '#b5c5c6', fontSize: 16, letterSpacing: 0.5}}>{chapter.detail}</div>
       </section>
-      <div style={{position: 'absolute', left: 120, right: 120, bottom: 96, minHeight: 116, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: captionOpacity}}>
-        <div style={{maxWidth: 1260, padding: '22px 34px', border: '1px solid rgba(112,233,242,.38)', borderRadius: 16, background: 'rgba(7,15,25,.72)', boxShadow: '0 12px 42px rgba(0,0,0,.4), 0 0 24px rgba(44,174,193,.12)', backdropFilter: 'blur(12px)', textAlign: 'center', font: '500 29px/1.35 Georgia, serif', textShadow: '0 1px 12px rgba(0,0,0,.65)'}}>
+      <div style={{position: 'absolute', left: 120, right: 120, bottom: 96, minHeight: 116, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{maxWidth: 1260, padding: '22px 34px', border: `1px solid rgba(112,233,242,${0.18 + 0.24 * captionOpacity})`, borderRadius: 16, background: `rgba(7,15,25,${0.48 + 0.24 * captionOpacity})`, boxShadow: `0 12px 42px rgba(0,0,0,${0.2 + 0.2 * captionOpacity}), 0 0 24px rgba(44,174,193,${0.04 + 0.12 * captionOpacity})`, backdropFilter: `blur(${4 + 10 * captionOpacity}px)`, WebkitBackdropFilter: `blur(${4 + 10 * captionOpacity}px)`, textAlign: 'center', font: '500 29px/1.35 Georgia, serif', textShadow: '0 1px 12px rgba(0,0,0,.65)', opacity: captionOpacity, transform: `scale(${0.94 + 0.06 * captionOpacity})`}}>
           {caption.text}
         </div>
       </div>
