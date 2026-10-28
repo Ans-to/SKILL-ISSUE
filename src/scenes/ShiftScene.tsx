@@ -1,6 +1,7 @@
 import React from 'react';
-import {spring, useCurrentFrame} from 'remotion';
+import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine} from '../KineticEngine';
+import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
@@ -10,6 +11,7 @@ import {
   SCENE_MAP,
   SCRIPT_CUES,
   WHITE,
+  WORD_START_FRAMES,
   cueIndexFor,
   energyAt,
   findSceneCue,
@@ -113,6 +115,18 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
 
   return (
     <SceneContainer>
+      <SceneAudioBed scene={scene} />
+      {[timingIdx, renderIdx, hardIdx].map((idx) => (
+        <Sequence
+          key={idx}
+          from={WORD_START_FRAMES[idx] - scene.from}
+          durationInFrames={8}
+          layout="none"
+          name={`shift-sys-lock-${idx}`}
+        >
+          <Audio src={staticFile(SFX_PATHS.clickAccent)} volume={0.28} />
+        </Sequence>
+      ))}
       <SceneStage
         scene={scene}
         localFrame={localFrame}

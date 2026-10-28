@@ -28,6 +28,7 @@ const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
 const {TelemetryHud, AtmosphericOverlays} = require('../src/TelemetryHud.tsx');
 const {KineticEngine, SceneSemanticGraph} = require('../src/KineticEngine.tsx');
+const {SFX_PATHS, getSceneWordAudioCues, getSceneActiveAudioFrames} = require('../src/SceneAudio.tsx');
 
 const {
   SCRIPT_CUES,
@@ -49,6 +50,7 @@ const {
 const requiredFiles = [
   'src/Root.tsx',
   'src/SceneContainer.tsx',
+  'src/SceneAudio.tsx',
   'src/TelemetryHud.tsx',
   'src/KineticEngine.tsx',
   'src/TimelineGrid.tsx',
@@ -61,6 +63,12 @@ const requiredFiles = [
 ];
 for (const rel of requiredFiles) {
   assert.ok(fs.existsSync(path.join(__dirname, '..', rel)), `Missing required modular file: ${rel}`);
+}
+
+for (const sfxRel of Object.values(SFX_PATHS)) {
+  const sfxFile = path.join(__dirname, '..', 'public', sfxRel);
+  assert.ok(fs.existsSync(sfxFile), `Missing required SFX asset: public/${sfxRel}`);
+  assert.ok(fs.statSync(sfxFile).size > 512, `Empty or invalid SFX asset: public/${sfxRel}`);
 }
 
 const sceneContainerSource = fs.readFileSync(
@@ -87,8 +95,28 @@ for (const sceneFile of [
 ]) {
   const src = fs.readFileSync(path.join(__dirname, '..', sceneFile), 'utf8');
   assert.ok(src.includes('<SceneContainer>'), `${sceneFile} must inherit <SceneContainer>`);
+  assert.ok(src.includes('<SceneAudioBed'), `${sceneFile} must embed <SceneAudioBed>`);
+  assert.ok(src.includes('<Audio '), `${sceneFile} must include Remotion <Audio> event triggers`);
   assert.ok(!src.includes('<TelemetryHud'), `${sceneFile} must not duplicate <TelemetryHud> inside right column`);
 }
+
+// Verify 1:1 millisecond/frame synchronization between WORD_START_FRAMES and embedded SFX triggers.
+let mappedAudioWordCount = 0;
+for (const scene of SCENE_SEQUENCES) {
+  const audioCues = getSceneWordAudioCues(scene);
+  const activeAudioFrames = getSceneActiveAudioFrames(scene);
+  assert.equal(audioCues.length, scene.lastWordIndex - scene.firstWordIndex + 1);
+  for (const audioCue of audioCues) {
+    assert.equal(audioCue.startFrame, WORD_START_FRAMES[audioCue.globalIndex]);
+    assert.equal(audioCue.localFrame, WORD_START_FRAMES[audioCue.globalIndex] - scene.from);
+    assert.ok(
+      audioCue.localFrame >= 0 && audioCue.localFrame < activeAudioFrames,
+      `SFX cue ${audioCue.globalIndex} falls outside active audio window in ${scene.id}`,
+    );
+    mappedAudioWordCount += 1;
+  }
+}
+assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
 
 const rootSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');
 assert.ok(/export const Root\b/.test(rootSource), 'src/Root.tsx must export Root');

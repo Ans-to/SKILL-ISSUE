@@ -477,8 +477,12 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
             );
           })}
         </div>
-        <div style={{fontFamily: 'monospace', fontSize: 10, color: MUTED}}>
-          SHA256 // fdd626ed8a3b
+        <div style={{fontFamily: 'monospace', fontSize: 10, color: activeCue && globalFrame - activeCue.startFrame < 3 ? ORANGE : MUTED}}>
+          {activeCue && globalFrame - activeCue.startFrame < 3
+            ? 'SFX // CLICK · HUM 0.15'
+            : localFrame < 14
+              ? 'SFX // WHOOSH · HUM 0.15'
+              : 'SFX // HUM 0.15 · fdd626ed'}
         </div>
       </div>
 

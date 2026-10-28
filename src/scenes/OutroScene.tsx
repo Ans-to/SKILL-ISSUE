@@ -1,6 +1,7 @@
 import React from 'react';
-import {useCurrentFrame} from 'remotion';
+import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine} from '../KineticEngine';
+import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays} from '../TelemetryHud';
 import {
@@ -10,6 +11,8 @@ import {
   SCENE_MAP,
   SCRIPT_CUES,
   WHITE,
+  WORD_START_FRAMES,
+  cueAfter,
   energyAt,
   findSceneCue,
   type SceneSpec,
@@ -78,8 +81,27 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
   const energy = energyAt(globalFrame);
   const buildPhase = globalFrame >= SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame;
 
+  const toysCue = cueAfter('toys.', scene.firstWordIndex);
+
   return (
     <SceneContainer>
+      <SceneAudioBed scene={scene} />
+      <Sequence
+        from={WORD_START_FRAMES[OUTRO_BUILD_INDEX] - scene.from}
+        durationInFrames={14}
+        layout="none"
+        name="outro-build-lock-sfx"
+      >
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.36} />
+      </Sequence>
+      <Sequence
+        from={WORD_START_FRAMES[toysCue.globalIndex] - scene.from}
+        durationInFrames={14}
+        layout="none"
+        name="outro-toys-final-sfx"
+      >
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.38} />
+      </Sequence>
       <SceneStage
         scene={scene}
         localFrame={localFrame}

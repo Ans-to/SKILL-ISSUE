@@ -1,6 +1,7 @@
 import React from 'react';
-import {spring, useCurrentFrame} from 'remotion';
+import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine, SceneSemanticGraph} from '../KineticEngine';
+import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
@@ -9,6 +10,7 @@ import {
   ORANGE,
   SCENE_MAP,
   WHITE,
+  WORD_START_FRAMES,
   cueAfter,
   energyAt,
   findSceneCue,
@@ -105,8 +107,14 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
     config: {damping: 10, stiffness: 180},
   });
 
+  const pastedLocalFrame = WORD_START_FRAMES[pastedCue.globalIndex] - scene.from;
+
   return (
     <SceneContainer>
+      <SceneAudioBed scene={scene} />
+      <Sequence from={pastedLocalFrame} durationInFrames={14} layout="none" name="hook-clone-stamp-sfx">
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.32} />
+      </Sequence>
       <SceneStage
         scene={scene}
         localFrame={localFrame}

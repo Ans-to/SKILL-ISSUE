@@ -1,6 +1,7 @@
 import React from 'react';
-import {spring, useCurrentFrame} from 'remotion';
+import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine} from '../KineticEngine';
+import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro, Panel} from '../TelemetryHud';
 import {
@@ -9,6 +10,7 @@ import {
   ORANGE,
   SCENE_MAP,
   WHITE,
+  WORD_START_FRAMES,
   cueAfter,
   energyAt,
   findSceneCue,
@@ -89,8 +91,18 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
     config: {damping: 14, stiffness: 190},
   });
 
+  const realLocalFrame = WORD_START_FRAMES[realCue.globalIndex] - scene.from;
+  const breakLocalFrame = WORD_START_FRAMES[breakCue.globalIndex] - scene.from;
+
   return (
     <SceneContainer>
+      <SceneAudioBed scene={scene} />
+      <Sequence from={realLocalFrame} durationInFrames={8} layout="none" name="twist-stress-sfx">
+        <Audio src={staticFile(SFX_PATHS.clickAccent)} volume={0.28} />
+      </Sequence>
+      <Sequence from={breakLocalFrame} durationInFrames={16} layout="none" name="twist-fracture-slash-sfx">
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.44} />
+      </Sequence>
       <SceneStage
         scene={scene}
         localFrame={localFrame}

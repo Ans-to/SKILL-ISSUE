@@ -1,6 +1,7 @@
 import React from 'react';
-import {spring, useCurrentFrame} from 'remotion';
+import {Audio, Sequence, spring, staticFile, useCurrentFrame} from 'remotion';
 import {KineticEngine} from '../KineticEngine';
+import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
@@ -11,6 +12,7 @@ import {
   SCENE_MAP,
   SCRIPT_CUES,
   WHITE,
+  WORD_START_FRAMES,
   cueIndexFor,
   energyAt,
   findSceneCue,
@@ -109,6 +111,23 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
 
   return (
     <SceneContainer>
+      <SceneAudioBed scene={scene} />
+      <Sequence
+        from={WORD_START_FRAMES[definedIdx] - scene.from}
+        durationInFrames={14}
+        layout="none"
+        name="mechanism-math-lock-sfx"
+      >
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.32} />
+      </Sequence>
+      <Sequence
+        from={WORD_START_FRAMES[noTemplateIdx] - scene.from}
+        durationInFrames={14}
+        layout="none"
+        name="mechanism-zero-roulette-sfx"
+      >
+        <Audio src={staticFile(SFX_PATHS.slashImpact)} volume={0.34} />
+      </Sequence>
       <SceneStage
         scene={scene}
         localFrame={localFrame}
