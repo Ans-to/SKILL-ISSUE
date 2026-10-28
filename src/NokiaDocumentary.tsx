@@ -2,6 +2,7 @@ import React, {useMemo, useRef} from 'react';
 import {AbsoluteFill, Audio, Easing, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {ThreeCanvas} from '@remotion/three';
 import {Html, RoundedBox} from '@react-three/drei';
+import {EffectComposer, DepthOfField, Vignette} from '@react-three/postprocessing';
 import {useFrame, useThree} from '@react-three/fiber';
 import {
   BufferGeometry,
@@ -43,10 +44,11 @@ const rawGeo = (lat: number, lon: number, radius = EARTH_R) => {
   const l = (lon * Math.PI) / 180;
   return new Vector3(radius * Math.cos(p) * Math.sin(l), radius * Math.sin(p), radius * Math.cos(p) * Math.cos(l));
 };
-const finlandRaw = rawGeo(64.5, 25);
+const NOKIA_TOWN = {lat: 61.46, lon: 23.5};
+const finlandRaw = rawGeo(NOKIA_TOWN.lat, NOKIA_TOWN.lon);
 const earthRotation = new Quaternion().setFromUnitVectors(finlandRaw.clone().normalize(), new Vector3(0, 0, 1));
 const geoPoint = (lat: number, lon: number, radius = EARTH_R) => rawGeo(lat, lon, radius).applyQuaternion(earthRotation);
-const FINLAND = geoPoint(64.5, 25, EARTH_R + 0.04);
+const FINLAND = geoPoint(NOKIA_TOWN.lat, NOKIA_TOWN.lon, EARTH_R + 0.04);
 const CITY_DATA = [
   {name: 'LONDON', lat: 51.507, lon: -0.128, delay: 0},
   {name: 'NEW YORK', lat: 40.713, lon: -74.006, delay: 12},
@@ -75,6 +77,18 @@ const makeGlobeGrid = () => {
   return geometry;
 };
 
+const makeIndustrialCage = () => {
+  const points: number[] = [];
+  const edge = (a: Vector3, b: Vector3) => points.push(...a.toArray(), ...b.toArray());
+  // Open volumetric lattice: every cue travels through a real 3D wire cage, never a flat grid plane.
+  for (let y=-3.2; y<=3.2; y+=0.8) for (let z=-3.2; z<=3.2; z+=1.6) edge(new Vector3(-8,y,z),new Vector3(8,y,z));
+  for (let x=-8; x<=8; x+=1.6) for (let z=-3.2; z<=3.2; z+=1.6) edge(new Vector3(x,-3.2,z),new Vector3(x,3.2,z));
+  for (let x=-8; x<=8; x+=1.6) for (let y=-3.2; y<=3.2; y+=0.8) edge(new Vector3(x,y,-3.2),new Vector3(x,y,3.2));
+  const geometry=new BufferGeometry();
+  geometry.setAttribute('position',new Float32BufferAttribute(points,3));
+  return geometry;
+};
+
 const makeLandGeometry = (coordinates: readonly (readonly [number, number])[]) => {
   const contour = coordinates.map(([lat, lon]) => new Vector2(lon, lat));
   const triangles = ShapeUtils.triangulateShape(contour, []);
@@ -95,40 +109,41 @@ const LAND: readonly (readonly (readonly [number, number])[])[] = [
   [[-11,113],[-17,120],[-24,114],[-32,116],[-39,132],[-37,148],[-29,153],[-20,150],[-14,142],[-11,128]],
 ] as const;
 
-const useTrack = (frame: number, keys: {f: number; p: [number,number,number]; t: [number,number,number]; fov: number}[]) => {
+const useTrack = (frame: number, keys: {f: number; p: [number,number,number]; t: [number,number,number]}[]) => {
   let i = 0;
   while (i < keys.length - 2 && frame > keys[i + 1].f) i++;
   const a = keys[i];
   const b = keys[i + 1];
   const q = interpolate(frame, [a.f, b.f], [0, 1], eased);
+  const position = a.p.map((v, j) => v + (b.p[j] - v) * q) as [number,number,number];
+  const target = a.t.map((v, j) => v + (b.t[j] - v) * q) as [number,number,number];
+  // Hard limits keep every dolly and aim point inside the calibrated camera envelope.
   return {
-    position: a.p.map((v, j) => v + (b.p[j] - v) * q) as [number,number,number],
-    target: a.t.map((v, j) => v + (b.t[j] - v) * q) as [number,number,number],
-    fov: a.fov + (b.fov - a.fov) * q,
+    position: [Math.max(-3,Math.min(3,position[0])), Math.max(-1,Math.min(5,position[1])), Math.max(5.3,Math.min(21,position[2]))] as [number,number,number],
+    target: [Math.max(-2,Math.min(2,target[0])), Math.max(-2,Math.min(2,target[1])), Math.max(-0.5,Math.min(4.6,target[2]))] as [number,number,number],
   };
 };
 
 const CameraRig: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
   const {camera} = useThree();
   const keys = useMemo(() => [
-    {f:0, p:[0,0,18] as [number,number,number], t:[0,0,0] as [number,number,number], fov:43},
-    {f:60, p:[0,2.15,3.1] as [number,number,number], t:[0,0,4.28] as [number,number,number], fov:48},
-    {f:120, p:[0,3.8,8.6] as [number,number,number], t:[0,0,4.1] as [number,number,number], fov:45},
-    {f:180, p:[0,2.1,8.6] as [number,number,number], t:[0,0,4.1] as [number,number,number], fov:45},
-    {f:450, p:[1.8,2.1,8.6] as [number,number,number], t:[0.6,0,4.1] as [number,number,number], fov:43},
-    {f:540, p:[0,0,9] as [number,number,number], t:[0,0,0] as [number,number,number], fov:42},
-    {f:690, p:[0,0,16] as [number,number,number], t:[0,0,0] as [number,number,number], fov:39},
-    {f:900, p:[0,0,16] as [number,number,number], t:[0,0,0] as [number,number,number], fov:39},
+    {f:0, p:[0,0,18] as [number,number,number], t:[0,0,0] as [number,number,number]},
+    {f:60, p:[0,2.15,5.45] as [number,number,number], t:[0,0,4.1] as [number,number,number]},
+    {f:120, p:[0,3.4,9] as [number,number,number], t:[0,0,4.1] as [number,number,number]},
+    {f:180, p:[0,2.1,9] as [number,number,number], t:[0,0,4.1] as [number,number,number]},
+    {f:450, p:[1.8,2.1,9] as [number,number,number], t:[0.6,0,4.1] as [number,number,number]},
+    {f:540, p:[1.8,2.1,9] as [number,number,number], t:[0.6,0,4.1] as [number,number,number]},
+    {f:690, p:[0,0,18] as [number,number,number], t:[0,0,0] as [number,number,number]},
+    {f:900, p:[0,0,18] as [number,number,number], t:[0,0,0] as [number,number,number]},
   ], []);
   const track = useTrack(frame, keys);
   useFrame(() => {
     const cam = camera as PerspectiveCamera;
     cam.position.set(...track.position);
+    cam.up.set(0,1,0);
     cam.lookAt(...track.target);
-    cam.fov = track.fov;
-    cam.updateProjectionMatrix();
+    // Fixed 43° lens: zoom is exclusively a clamped Z-axis dolly, never FOV warping.
   });
   return null;
 };
@@ -250,7 +265,11 @@ const MillDiorama: React.FC<{frame:number}> = ({frame}) => {
   const reveal=springAt(frame,fps,44);
   const dissolve=easeBetween(frame,180,210);
   const size=reveal*(1-dissolve*0.98);
-  const snowShift=Math.sin(frame/20)*0.025;
+  const paperBuild=springAt(frame,fps,130);
+  const fiberCurves=useMemo(()=>[
+    curveTube(new CatmullRomCurve3([new Vector3(-0.38,-0.27,0),new Vector3(-0.14,0.16,0.02),new Vector3(0.1,-0.13,0.04),new Vector3(0.38,0.3,0.06)]),24,0.012),
+    curveTube(new CatmullRomCurve3([new Vector3(-0.34,0.3,0.01),new Vector3(-0.08,-0.18,0.03),new Vector3(0.23,0.14,0.05)]),20,0.009),
+  ],[]);
   return <group position={[0,0,4.08]} scale={size}>
     <mesh position={[0,-1.1,0]} receiveShadow><boxGeometry args={[8.4,0.34,4.6]}/><meshStandardMaterial color="#dce9e6" roughness={0.95}/></mesh>
     <mesh position={[0,-1.28,-0.08]}><boxGeometry args={[8.55,0.26,4.74]}/><meshStandardMaterial color="#263943" metalness={0.32} roughness={0.5}/></mesh>
@@ -275,10 +294,24 @@ const MillDiorama: React.FC<{frame:number}> = ({frame}) => {
       {[0,1,2,3].map((i)=><mesh key={i} position={[0.22*i,0.09*i,0]} rotation={[0,0,-0.16]}><boxGeometry args={[1.4,0.16,0.2]}/><meshStandardMaterial color={i%2?'#936445':'#b07a4a'} roughness={0.86}/></mesh>)}
     </group>
     <mesh position={[0,-1.06,2.18]}><boxGeometry args={[8.5,0.018,0.018]}/><meshBasicMaterial color={C.cyan}/></mesh>
+    {/* Fibre blueprint is a spring-built 3D stack of translucent material sheets and volumetric fibre paths. */}
+    <group position={[1.55,0.12,1.45]} scale={paperBuild} rotation={[0.03,-0.12,0.025]}>
+      <RoundedBox args={[1.12,1.48,0.14]} radius={0.08} smoothness={4}>
+        <meshStandardMaterial color="#102b36" metalness={0.5} roughness={0.28} emissive="#0d5360" emissiveIntensity={0.35}/>
+      </RoundedBox>
+      {[-0.045,0.015,0.075].map((z,i)=><RoundedBox key={z} args={[0.88,1.2,0.025]} radius={0.035} smoothness={3} position={[0,0,z+0.09]}>
+        <meshPhysicalMaterial color={i===1?'#92dce1':'#c4e9e6'} roughness={0.25} metalness={0.12} transparent opacity={0.28}/>
+      </RoundedBox>)}
+      {fiberCurves.map((geometry,i)=><mesh key={i} geometry={geometry} position={[0,0,0.24]}>
+        <meshBasicMaterial color={i?C.amber:C.cyan} transparent opacity={0.92}/>
+      </mesh>)}
+      {[-0.35,0,0.35].map((x,i)=><mesh key={i} position={[x,-0.48,0.28]}>
+        <sphereGeometry args={[0.035,8,8]}/><meshBasicMaterial color={i===1?C.amber:C.ice}/>
+      </mesh>)}
+    </group>
     <Html position={[2.65,1.15,1.2]} transform distanceFactor={8} center zIndexRange={[40,0]}>
-      <div style={{width:245,padding:'17px 19px',color:C.ice,background:'rgba(8,17,27,.78)',border:'1px solid rgba(112,233,242,.68)',borderRadius:13,backdropFilter:'blur(18px)',boxShadow:'0 0 34px rgba(60,211,229,.18)',filter:'drop-shadow(0 0 18px rgba(79,221,238,.35))',fontFamily:'Arial,sans-serif',transform:`scale(${0.78+0.22*springAt(frame,fps,130)})`,transformOrigin:'left center'}}>
-        <div style={{fontSize:10,letterSpacing:2.6,color:C.cyan}}>MATERIAL / 01 · FINLAND</div><div style={{font:'25px Georgia,serif',marginTop:7}}>Paper</div>
-        <svg viewBox="0 0 205 48" width="205" height="48" style={{display:'block',marginTop:8}}><path d="M4 36L26 14l21 20 23-27 24 25 24-20 23 19 20-15 21 12" fill="none" stroke="#70e9f2" strokeWidth="1.6" strokeDasharray="260" strokeDashoffset={260*(1-springAt(frame,fps,130))}/><path d="M4 41H201M28 8v34m43-28v28m47-22v22m45-28v28" fill="none" stroke="#70e9f2" strokeOpacity=".32" strokeWidth=".8"/><text x="5" y="10" fill="#a8c6c8" fontSize="6" letterSpacing="1.4">PULP FIBRE · CELLULOSE / WATER</text></svg>
+      <div style={{width:245,padding:'17px 19px',color:C.ice,background:'rgba(8,17,27,.78)',border:'1px solid rgba(112,233,242,.68)',borderRadius:13,backdropFilter:'blur(18px)',boxShadow:'0 0 34px rgba(60,211,229,.18)',filter:'drop-shadow(0 0 18px rgba(79,221,238,.35))',fontFamily:'Arial,sans-serif',transform:`scale(${0.78+0.22*paperBuild})`,transformOrigin:'left center'}}>
+        <div style={{fontSize:10,letterSpacing:2.6,color:C.cyan}}>MATERIAL / 01 · NOKIA, FINLAND</div><div style={{font:'25px Georgia,serif',marginTop:7}}>Paper</div><div style={{fontSize:11,color:'#a8bdc2',marginTop:7}}>Cellulose · water · wood pulp</div>
       </div>
     </Html>
   </group>;
@@ -300,17 +333,20 @@ const GridStage: React.FC<{frame:number}> = ({frame}) => {
   const packetT=((Math.max(0,frame-300)*0.018)%1);
   const packet=cableCurve.getPointAt(packetT);
   const graph=springAt(frame,fps,390);
+  const graphLine=useMemo(()=>curveTube(new CatmullRomCurve3([new Vector3(-0.8,-0.72,0),new Vector3(-0.45,-0.52,0.04),new Vector3(-0.12,-0.31,0.08),new Vector3(0.2,-0.12,0.12),new Vector3(0.55,0.22,0.16),new Vector3(0.9,0.62,0.2)]),42,0.024),[]);
+  const cage=useMemo(makeIndustrialCage,[]);
   return <group scale={scale} position={[0,0,4.05]}>
-    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-1.05,0]}><planeGeometry args={[22,16,1,1]}/><meshStandardMaterial color="#101d29" metalness={0.3} roughness={0.62}/></mesh>
-    <gridHelper args={[22,32,0x287583,0x173b48]} position={[0,-1.02,0]}/>
+    <lineSegments geometry={cage}>
+      <lineBasicMaterial color="#287583" transparent opacity={0.34*scale} depthWrite={false}/>
+    </lineSegments>
     <group position={[0,0,drift]}>
       <mesh geometry={tube}>
         <meshBasicMaterial color={C.copper} transparent opacity={0.95*cable} depthWrite={false}/>
       </mesh>
-      <mesh position={packet.toArray()}>
+      <mesh position={packet.toArray()} scale={cable}>
         <sphereGeometry args={[0.09,16,16]}/><meshBasicMaterial color={C.ice}/>
       </mesh>
-      <mesh position={packet.toArray()}>
+      <mesh position={packet.toArray()} scale={cable}>
         <sphereGeometry args={[0.2,12,12]}/><meshBasicMaterial color={C.cyan} transparent opacity={0.2*cable}/>
       </mesh>
       {/* Editorially shaded rubber boot, lifting cleanly off the drafting grid at 00:08. */}
@@ -332,11 +368,24 @@ const GridStage: React.FC<{frame:number}> = ({frame}) => {
         <pointLight position={[0,1.8,0.3]} color={C.cyan} intensity={3.8*electricity} distance={4}/>
       </group>
     </group>
+    {/* Output data is a volumetric curve with rising 3D columns, springing on at 00:13. */}
+    <group position={[0.45,-0.06,1.55]}>
+      <mesh position={[0,-0.76,0]}><boxGeometry args={[2.05,0.028,0.032]}/><meshBasicMaterial color="#4e7580"/></mesh>
+      <mesh geometry={graphLine} scale={[graph,1,1]}><meshBasicMaterial color={C.cyan} transparent opacity={0.94} toneMapped={false}/></mesh>
+      {[0,1,2,3,4].map((i)=>{
+        const s=springAt(frame,fps,390+i*3);
+        const height=(0.18+i*0.13)*s;
+        return <mesh key={i} position={[-0.72+i*0.34,-0.72+height/2,0.06]} scale={[1,s,1]}>
+          <cylinderGeometry args={[0.045,0.055,0.24,8]}/><meshStandardMaterial color={i<3?'#397681':C.cyan} emissive={i===4?C.cyan:'#1a5260'} emissiveIntensity={0.6}/>
+        </mesh>;
+      })}
+      <pointLight position={[0.65,0.35,0.35]} color={C.cyan} intensity={2.5*graph} distance={3}/>
+    </group>
     <Html position={[3.45,1.5,1.6]} transform distanceFactor={8} center zIndexRange={[40,0]}>
       <div style={{width:278,padding:'15px 18px',color:C.ice,background:'rgba(7,16,27,.8)',border:'1px solid rgba(112,233,242,.62)',borderRadius:13,backdropFilter:'blur(17px)',boxShadow:'0 0 28px rgba(72,214,233,.2)',filter:'drop-shadow(0 0 18px rgba(79,221,238,.32))',fontFamily:'Arial,sans-serif',transform:`scale(${0.82+0.18*graph})`,transformOrigin:'left center'}}>
         <div style={{display:'flex',justifyContent:'space-between',fontSize:9,letterSpacing:2,color:C.cyan}}><span>FINLAND · INDUSTRIAL OUTPUT</span><span>1920s</span></div>
-        <div style={{font:'22px Georgia,serif',marginTop:7}}>From industry to current</div>
-        <svg viewBox="0 0 242 62" width="242" height="62" style={{display:'block',marginTop:7}}><path d="M2 54H240" stroke="#4e7580" strokeOpacity=".6"/><path d="M3 48C28 48 28 40 48 44S75 34 94 37 116 29 134 33 156 20 174 24 199 8 217 14 233 6 240 4" fill="none" stroke="#70e9f2" strokeWidth="2.3" strokeDasharray="360" strokeDashoffset={360*(1-graph)} style={{filter:'drop-shadow(0 0 5px #70e9f2)'}}/><path d="M3 48C28 48 28 40 48 44S75 34 94 37 116 29 134 33 156 20 174 24 199 8 217 14 233 6 240 4V58H3Z" fill="#70e9f2" fillOpacity=".09"/></svg>
+        <div style={{font:'22px Georgia,serif',marginTop:7}}>Powering a modern nation</div>
+        <div style={{fontSize:10,letterSpacing:1.8,color:'#8fb2b9',marginTop:10}}>ELECTRICITY · NETWORK · INDUSTRY</div>
       </div>
     </Html>
   </group>;
@@ -347,6 +396,7 @@ const Phone: React.FC<{frame:number}> = ({frame}) => {
   const bloom=springAt(frame,fps,690);
   const breathe=Math.sin(frame/9)*0.035;
   const sweep=(frame*6)%360;
+  const radarRay=useMemo(()=>curveTube(new CatmullRomCurve3([new Vector3(0,0,0),new Vector3(0.34,0.32,0),new Vector3(0.5,0.73,0)]),18,0.012),[]);
   const scale=bloom;
   return <group position={[0,-0.05,0.3]} scale={scale} rotation={[0.02*Math.sin(frame/19),0.12*Math.sin(frame/23),0]}>
     <RoundedBox args={[2.62,5.25,0.34]} radius={0.27} smoothness={8} castShadow>
@@ -355,22 +405,15 @@ const Phone: React.FC<{frame:number}> = ({frame}) => {
     <RoundedBox args={[2.42,5.02,0.12]} radius={0.23} smoothness={8} position={[0,0,0.2]}>
       <meshStandardMaterial color="#08121c" metalness={0.45} roughness={0.29}/>
     </RoundedBox>
-    <mesh position={[0,0,0.275]}>
-      <planeGeometry args={[2.22,4.76]}/><meshStandardMaterial color="#0d202b" metalness={0.25} roughness={0.42} emissive="#082d39" emissiveIntensity={0.56}/>
-    </mesh>
-    <mesh position={[0,0.07,0.3]}>
-      <torusGeometry args={[0.91,0.013,8,72]}/><meshBasicMaterial color={C.cyan} transparent opacity={0.5}/>
-    </mesh>
-    {[0.68,0.47,0.26].map((r)=><mesh key={r} position={[0,0.07,0.31]}>
-      <torusGeometry args={[r,0.009,6,64]}/><meshBasicMaterial color={r<0.3?C.amber:C.cyan} transparent opacity={0.48}/>
+    <RoundedBox args={[2.22,4.76,0.055]} radius={0.16} smoothness={6} position={[0,0,0.29]}>
+      <meshStandardMaterial color="#0d202b" metalness={0.25} roughness={0.42} emissive="#082d39" emissiveIntensity={0.56}/>
+    </RoundedBox>
+    {[0.91,0.68,0.47,0.26].map((r)=><mesh key={r} position={[0,0.07,0.34]}>
+      <torusGeometry args={[r,0.013,8,72]}/><meshBasicMaterial color={r<0.3?C.amber:C.cyan} transparent opacity={0.48}/>
     </mesh>)}
-    <group position={[0,0.07,0.32]} rotation={[0,0,-sweep*Math.PI/180]}>
-      <mesh>
-        <circleGeometry args={[0.9,48,0,Math.PI/2.4]}/><meshBasicMaterial color={C.cyan} transparent opacity={0.24} side={2}/>
-      </mesh>
-      <mesh position={[0.3,0.3,0.006]}>
-        <sphereGeometry args={[0.035,10,10]}/><meshBasicMaterial color={C.ice}/>
-      </mesh>
+    <group position={[0,0.07,0.36]} rotation={[0,0,-sweep*Math.PI/180]}>
+      <mesh geometry={radarRay}><meshBasicMaterial color={C.cyan} transparent opacity={0.95}/></mesh>
+      <mesh position={[0.5,0.73,0]}><sphereGeometry args={[0.035,10,10]}/><meshBasicMaterial color={C.ice}/></mesh>
     </group>
     {[0,1,2,3,4,5].map((i)=><mesh key={i} position={[-0.74+i*0.29,-1.57,0.32]}>
       <boxGeometry args={[0.16,0.018,0.012]}/><meshBasicMaterial color={i<Math.floor(((frame-690)/12)%6)?C.amber:C.cyan} transparent opacity={0.7}/>
@@ -421,12 +464,15 @@ const SceneWorld: React.FC<{frame:number}> = ({frame}) => {
   const captionScale=springAt(frame,fps,cue.start);
   const globeRotation=remap(frame,450,690,0,0.24);
   return <>
-    <color attach="background" args={[C.obsidian]}/>
     <fog attach="fog" args={[C.obsidian,18,42]}/>
     <ambientLight intensity={0.38}/>
     <directionalLight position={[-5,8,10]} intensity={2.25} color="#c7f0ee" castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024}/>
     <pointLight position={[0,0,10]} intensity={2.4} color="#2b9cae" distance={22}/>
     <pointLight position={[-6,1,7]} intensity={1.7} color={C.amber} distance={18}/>
+    <EffectComposer multisampling={0}>
+      <DepthOfField focusDistance={frame<180?0.09:frame<450?0.06:0.035} focalLength={0.02} bokehScale={0.7}/>
+      <Vignette eskil={false} offset={0.22} darkness={0.78}/>
+    </EffectComposer>
     <CameraRig/>
     <group scale={springAt(frame,fps,0)}>
       <group rotation={[0,globeRotation,0]}><Globe frame={frame}/></group>
@@ -451,18 +497,15 @@ const SceneWorld: React.FC<{frame:number}> = ({frame}) => {
     </Billboard>
     {frame>=558&&frame<690&&<Billboard offset={[3.55,2.45,-9]} scale={springAt(frame,fps,558)}>
       <div style={{width:290,padding:'16px 18px',color:C.ice,background:'rgba(7,15,25,.78)',border:'1px solid rgba(112,233,242,.72)',borderRadius:13,backdropFilter:'blur(18px)',filter:'drop-shadow(0 0 18px rgba(79,221,238,.36))',fontFamily:'Arial,sans-serif'}}>
-        <div style={{fontSize:9,letterSpacing:2.8,color:C.cyan}}>GLOBAL REACH · 00:18.6</div><div style={{font:'24px Georgia,serif',marginTop:8}}>Billions connected</div><div style={{fontSize:11,color:'#a3bac1',marginTop:7}}>Helsinki → London · New York · Tokyo</div>
+        <div style={{fontSize:9,letterSpacing:2.8,color:C.cyan}}>GLOBAL REACH · 00:18.6</div><div style={{font:'24px Georgia,serif',marginTop:8}}>Billions connected</div><div style={{fontSize:11,color:'#a3bac1',marginTop:7}}>Nokia, Finland → London · New York · Tokyo</div>
       </div>
     </Billboard>}
-    <mesh position={[0,0,-22]}>
-      <planeGeometry args={[200,120]}/><meshBasicMaterial color={C.obsidian}/>
-    </mesh>
   </>;
 };
 
 export const NokiaDocumentary: React.FC = () => (
-  <AbsoluteFill style={{background:C.obsidian,overflow:'hidden'}}>
-    <ThreeCanvas width={W} height={H} camera={{position:[0,0,18],fov:43,near:0.02,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} shadows>
+  <AbsoluteFill style={{background:C.obsidian,overflow:'hidden',boxShadow:'inset 0 0 210px 18px rgba(0,0,0,.82)'}}>
+    <ThreeCanvas width={W} height={H} dpr={1.35} camera={{position:[0,0,18],fov:43,near:0.05,far:120}} gl={{antialias:true,alpha:true,powerPreference:'high-performance'}} shadows style={{filter:'drop-shadow(0 0 14px rgba(65,205,225,.18)) saturate(1.12) contrast(1.04)'}}>
       <SceneWorld frame={useCurrentFrame()}/>
     </ThreeCanvas>
     <Sequence from={0} durationInFrames={180}><Audio src={staticFile('audio/scene-1.mp3')} volume={1} playbackRate={0.92}/></Sequence>
