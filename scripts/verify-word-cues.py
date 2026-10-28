@@ -7,9 +7,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CUES = ROOT / "src" / "engine" / "word-cues.json"
+CUES = ROOT / "src" / "engine" / "agent-engine-word-cues.json"
 AUDIO_NAME = "voiceover.wav"
-DURATION_SECONDS = 60.0
+DURATION_SECONDS = 45.0
 
 
 def tokens(text: str) -> list[str]:
@@ -36,7 +36,7 @@ def main() -> None:
         if start < previous_start:
             raise SystemExit(f"Non-monotonic word order: {cue}")
         previous_start = start
-    print(f"Verified {len(track['words'])} exact script word cues in one 60-second narration track.")
+    print(f"Verified {len(track['words'])} exact script word cues in one 45-second narration track.")
 
 
 if __name__ == "__main__":

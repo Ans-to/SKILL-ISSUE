@@ -1,4 +1,4 @@
-name: Render word-synced motion explainer
+name: Render word-synced engine-first explainer
 
 on:
   push:
@@ -13,7 +13,7 @@ env:
 
 jobs:
   render:
-    name: Render one-minute motion explainer
+    name: Render 45-second engine-first explainer
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -42,16 +42,16 @@ jobs:
         run: rm -rf node_modules/.cache/webpack
 
       - name: Prepare output directory
-        run: mkdir -p out && rm -f out/The-Code-That-Replaced-After-Effects.mp4
+        run: mkdir -p out && rm -f out/AI-Agent-Engine-First.mp4
 
       - name: Render MP4 in GitHub Actions
         # Remotion 4.0.539 uses 100% for maximum detected CPU concurrency.
-        run: npx remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
+        run: npx remotion render src/index.ts EngineFirstExplainer out/AI-Agent-Engine-First.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
 
       - name: Upload downloadable MP4 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: after-effects-code-explainer-${{ github.sha }}
-          path: out/The-Code-That-Replaced-After-Effects.mp4
+          name: engine-first-agent-explainer-${{ github.sha }}
+          path: out/AI-Agent-Engine-First.mp4
           if-no-files-found: error
           retention-days: 30

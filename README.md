@@ -1,19 +1,44 @@
-# The Code That Replaced After Effects
+# Deterministic Motion Documentaries
 
-A 60-second, word-synchronized Remotion explainer built around the submitted storyboard. The root timeline renders through `src/engine/MotionEngine.tsx`; all motion is deterministic and cue-driven, with the Three.js layer isolated behind the front-facing 2D typography.
+This Remotion project contains two separate, word-synchronized films. Each uses the same independent compositing architecture: an obsidian background, an isolated Three.js depth layer, and front-facing 2D typography. The established one-minute After Effects explainer remains available alongside the new 45-second engine-first AI-agent film.
 
-## Visual sequence
+## Engine-First AI Agent Documentary (45 seconds)
 
-- **Shock hook:** center-slamming words over a perspective grid and an audio-reactive orange vector streak.
-- **Core claim:** traditional timeline tracks are crossed out, then a cue-populated graph takes over.
-- **Reveal:** `THIS IS CLAUDE OPUS 5.5` and a prompt window that types only words already spoken.
-- **Mechanics:** live code cues on the left; a coordinate grid with morphing geometry and live coordinates on the right.
-- **Workflow:** spoken After Effects steps are struck through as they arrive, then the prompt-to-code-to-render-to-video path replaces them.
-- **Control and close:** a square morphs, changes color and easing, and returns to its starting state; `PRETTY INSANE` punches forward before the radial-black data-point close.
+The new film contrasts template-shaped agent demos with deterministic, code-driven production:
 
-Palette: deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. Narration is aligned to **182 exact script word cues** with no future-word preview. The selected conversational voiceover was accelerated to fit the one-minute brief while retaining the complete supplied copy.
+- **Hook:** spring-slamming electric-white words over a gridded, audio-reactive vector streak.
+- **Twist:** an intentionally generic dashboard is cut by a safety-orange vector slash on “break.”
+- **Shift:** split chat/terminal view reveals spoken codebase constraints as they arrive.
+- **Mechanism:** physics, isolation, and math scale into view on exact narration cues; timing/easing details and same-input/same-frame proof reveal progressively.
+- **Payoff:** a fast-scrolling timeline resolves through prompt, code, frames, and MP4 stages as each is spoken.
+- **Outro:** “BUILD THE ENGINE” punches forward, then cuts to black.
 
-## Local checks and preview
+The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. This film uses its own 45-second narration, 91 exact word cues, and frame-level audio envelope under `public/agent-engine/` and `src/engine/agent-engine-*.json`. The generated narration was retimed by section to preserve the script while meeting the 45-second storyboard beats. Visual transitions follow the spoken-word cues at approximately 0.00, 3.00, 7.92, 15.00, 28.00, and 40.02 seconds; visible script words are never shown ahead of their audio.
+
+Render the new AI-agent film:
+
+```sh
+npm run render
+```
+
+The MP4 is written to `out/AI-Agent-Engine-First.mp4`.
+
+## The Code That Replaced After Effects (60 seconds)
+
+The previously completed one-minute video and its independent composition are preserved:
+
+- Composition: `TheCodeThatReplacedAfterEffects`
+- Source: `src/engine/MotionEngine.tsx`
+- Narration/cues: `public/after-effects/voiceover.wav` and `src/engine/word-cues.json`
+- Deliverable: `deliverables/The-Code-That-Replaced-After-Effects.mp4`
+
+Render that film separately with:
+
+```sh
+npm run render:after-effects
+```
+
+## Checks and preview
 
 ```sh
 npm ci
@@ -22,22 +47,16 @@ npm run verify:sync
 npm run start
 ```
 
-Regenerate exact word timestamps from the local faster-whisper small model:
+Regenerate exact AI-agent narration timestamps from a local faster-whisper model:
 
 ```sh
 python3 scripts/align-narration.py --model-dir /path/to/whisper-model
 ```
 
-Regenerate the frame RMS envelope:
+Regenerate the AI-agent frame-level RMS envelope:
 
 ```sh
 python3 scripts/derive-audio-envelope.py
 ```
 
-Render at the maximum supported Remotion concurrency:
-
-```sh
-npm run render
-```
-
-Remotion 4.0.539 rejects the literal `--concurrency=max`; `--concurrency=100%` selects its maximum. If needed, provide a local browser with `npm run render -- --browser-executable=/path/to/chromium`. The 1920×1080, 30 fps MP4 is written to `out/The-Code-That-Replaced-After-Effects.mp4` and published under `deliverables/`.
+Remotion 4.0.539 rejects literal `--concurrency=max`; `--concurrency=100%` selects its maximum. If required, pass local Chromium using `npm run render -- --browser-executable=/path/to/chromium`.

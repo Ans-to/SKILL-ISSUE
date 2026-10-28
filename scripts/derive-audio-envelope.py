@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive a render-frame RMS envelope from the final one-minute narration."""
+"""Derive a render-frame RMS envelope from the final 45-second narration."""
 from __future__ import annotations
 
 import array
@@ -11,11 +11,11 @@ import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIO_FILE = ROOT / "public" / "after-effects" / "voiceover.wav"
-OUTPUT = ROOT / "src" / "engine" / "audio-envelope.json"
+AUDIO_FILE = ROOT / "public" / "agent-engine" / "voiceover.wav"
+OUTPUT = ROOT / "src" / "engine" / "agent-engine-audio-envelope.json"
 FFMPEG = ROOT / "node_modules" / "@remotion" / "compositor-linux-x64-gnu" / "ffmpeg"
 FPS = 30
-DURATION_SECONDS = 60.0
+DURATION_SECONDS = 45.0
 SAMPLE_RATE = 8000
 
 
@@ -53,13 +53,7 @@ def main() -> None:
         sum(compressed[max(0, i - 1): min(len(compressed), i + 2)]) / len(compressed[max(0, i - 1): min(len(compressed), i + 2)])
         for i in range(len(compressed))
     ]
-    result = {
-        "fps": FPS,
-        "playbackRate": 1.0,
-        "sampleRate": SAMPLE_RATE,
-        "trackFrames": [frame_count],
-        "energy": [round(value, 5) for value in smoothed],
-    }
+    result = {"fps": FPS, "playbackRate": 1.0, "sampleRate": SAMPLE_RATE, "trackFrames": [frame_count], "energy": [round(value, 5) for value in smoothed]}
     OUTPUT.write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"Wrote {len(smoothed)} frame samples to {OUTPUT.relative_to(ROOT)}.")
 

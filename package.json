@@ -1,13 +1,14 @@
 {
-  "name": "after-effects-code-explainer",
+  "name": "deterministic-motion-documentaries",
   "version": "1.0.0",
   "private": true,
-  "description": "Word-synchronized procedural motion-graphics explainer: The Code That Replaced After Effects",
+  "description": "Two word-synchronized deterministic motion documentaries",
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify:sync": "python3 scripts/verify-word-cues.py",
-    "render": "remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
+    "render": "remotion render src/index.ts EngineFirstExplainer out/AI-Agent-Engine-First.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite",
+    "render:after-effects": "remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
   },
   "dependencies": {
     "@react-three/drei": "9.122.0",

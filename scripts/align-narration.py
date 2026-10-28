@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
-"""Align the supplied script to its generated narration with word timestamps."""
+"""Align the submitted engine-first script to its generated narration."""
 from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 from faster_whisper import WhisperModel
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIO_FILE = ROOT / "public" / "after-effects" / "voiceover.wav"
-OUTPUT = ROOT / "src" / "engine" / "word-cues.json"
-SCRIPT = """Holy shit... you are not ready for this.
-I made these motion graphics without even opening After Effects. And no—I'm not talking about an After Effects MCP.
-This is Claude Opus 5.5. Instead of controlling After Effects, you basically tell Claude what you want the animation to look like.
-Claude doesn’t actually generate an MP4 directly. It writes the animation itself as code—the text, shapes, positions, easing, transitions, particles—basically every visual element is defined mathematically over time.
-So instead of: After Effects to layers to keyframes to graph editor to render... you’re essentially doing: Prompt to code to render to video.
-And because the animation is procedural, you can literally tell Claude: “Make this transition smoother, change the color, slow this section down, make the ending seamlessly loop into the beginning.” And it modifies the underlying animation instead of you manually moving hundreds of keyframes.
-Does this replace After Effects? Not really. But for certain types of motion graphics... the fact that you can go from an idea to a working animation without touching a timeline is pretty insane."""
+AUDIO_FILE = ROOT / "public" / "agent-engine" / "voiceover.wav"
+OUTPUT = ROOT / "src" / "engine" / "agent-engine-word-cues.json"
+SCRIPT = """Your AI agent didn’t build anything. It pasted a template.
+It looks finished. That’s the trick. Boilerplate demos clean. Real codebases break.
+Prompt harder? No. It still can’t infer your codebase’s timing model, render graph, or hard constraints from a pretty prompt.
+Engine-first means physics, isolation, timing, positions, easing, transitions—defined as math. Same inputs. Same frames. No template roulette.
+Feed intent into the engine. It compiles the prompt to code, code to frames, frames to MP4. Fast. Inspectable. Repeatable.
+Stop playing with templates. Build the engine—or ship toys."""
 
 
 def canonical_words(text: str) -> list[str]:
-    # Split em-dash compounds into spoken word cues while keeping the dash on the first word.
-    return text.replace("—", "— ").split()
+    # Split compounds into word-sized cues while retaining their original hyphen or dash.
+    return text.replace("—", "— ").replace("-", "- ").split()
 
 
 def main() -> None:
@@ -46,16 +44,26 @@ def main() -> None:
             if item.word.strip():
                 recognized.append({"text": item.word.strip(), "start": float(item.start), "end": float(item.end)})
 
-    # Whisper splits the spoken decimal “five point five” into two word events; join it
-    # into the exact written cue “5.5.” so the on-screen transcript matches the script.
+    # Whisper splits “codebases” into “co” + “-bases/-basis” and contracts
+    # “prompt to” into “prompter”. Restore the script's lexical events while
+    # keeping each merged/split event on the observed acoustic interval.
     merged = []
     index = 0
     while index < len(recognized):
         current = recognized[index]
-        if current["text"].strip() == "5" and index + 1 < len(recognized) and recognized[index + 1]["text"].strip().lower().strip(".") == "5":
-            following = recognized[index + 1]
+        token = current["text"].strip().lower().strip(".,!?;:")
+        following = recognized[index + 1] if index + 1 < len(recognized) else None
+        next_token = following["text"].strip().lower().strip(".,!?;:") if following else ""
+        if token in {"co", "code"} and next_token in {"-bases", "bases", "-basis", "basis"}:
             merged.append({"start": current["start"], "end": following["end"]})
             index += 2
+        elif token in {"prompter", "promptto"}:
+            split = current["start"] + (current["end"] - current["start"]) * 0.62
+            merged.extend([
+                {"start": current["start"], "end": split},
+                {"start": split, "end": current["end"]},
+            ])
+            index += 1
         else:
             merged.append({"start": current["start"], "end": current["end"]})
             index += 1
@@ -68,15 +76,10 @@ def main() -> None:
         )
 
     timed_words = [
-        {"text": word, "start": round(timing["start"], 3), "end": round(timing["end"], 3)}
-        for word, timing in zip(words, merged)
+        {"text": word, "start": round(item["start"], 3), "end": round(item["end"], 3)}
+        for word, item in zip(words, merged)
     ]
-    track = {
-        "audio": "voiceover.wav",
-        "language": info.language,
-        "text": SCRIPT,
-        "words": timed_words,
-    }
+    track = {"audio": "voiceover.wav", "language": info.language, "text": SCRIPT, "words": timed_words}
     payload = {
         "format": "word-cues-v1",
         "aligner": "faster-whisper small / word_timestamps, canonical script text",
