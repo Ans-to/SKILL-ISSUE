@@ -1,27 +1,31 @@
-## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES
+# UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES — v7.0
 
-### 1. High-Retention Cinematic Visual Standards
-- **Zero Boring Layouts:** Absolutely no flat slides, static icons, or predictable corporate templates. Every scene must resemble high-end documentary essays (Johnny Harris / Polymatter style) designed for instant, continuous engagement.
-- **Macro-to-Micro Spatial Zooming:** Use continuous, smooth trigonometric camera motion (`interpolate`) to dive from wide global or country-level contexts straight down into hyper-detailed micro-elements.
-- **Kinetic Data & Spring Physics:** Linear transitions are strictly banned. All UI entrances, stat callouts, and data cards must use Remotion's `spring()` physics (`damping: 12`, `stiffness: 100`).
-- **Obsidian Dark-Mode & Glassmorphism:** Anchor all visuals in deep obsidian foundations (`#0b0f19`) paired with high-contrast neon accents, volumetric shadows, and frosted glassmorphic UI containers (`backdrop-blur`, thin 1px glowing borders).
+## 1. High-Retention Cinematic Visual Standards
+- **Zero Boring Layouts:** Avoid flat slides, static icons, and predictable corporate templates. Every sequence should feel like a high-end documentary essay, designed for visual momentum and narrative clarity.
+- **Macro-to-Micro Spatial Orchestration:** Use continuous, smooth camera motion to move between geographic context, places, materials, and intimate objects. Preserve a fixed lens unless a lens change is narratively motivated; prefer true camera dolly and object-space motion.
+- **Kinetic Data & Spring Physics:** UI entrances, callouts, and typographic reveals use Remotion `spring()` physics (`damping: 12`, `stiffness: 100`) or other continuous, deterministic easing. Avoid abrupt linear state changes.
+- **Obsidian Cinematic Foundations:** Use deep obsidian foundations (`#0b0f19`), restrained neon accents, layered lighting, dimensional shadows, and sophisticated glassmorphism with readable contrast.
 
-### 2. High-End Vector Character & Avatar Standards
-- **Eradicate Childish Clip-Art:** Ban flat, disjointed, or cartoonish vector avatars with floating detached limbs. 
-- **Sophisticated Editorial Illustration:** Characters and focal elements must feature clean geometric proportions, mature shading, and a professional graphic-novel or high-end motion design aesthetic (resembling studios like Buck or Kurzgesagt).
-- **Procedural Motion & Lighting:** Characters must include subtle continuous micro-motion (e.g., procedural breathing using `Math.sin()`) and integrate directly into the scene's cinematic lighting with directional rim glows and gradient highlights.
+## 2. Studio-Grade Objects, Materials & Lighting
+- **No Generic Placeholder Art:** Avoid unfinished primitives, flat ovals, repetitive iconography, or unmotivated geometry. Build assets from layered, detailed geometry, custom vector work, purposeful material choices, and scene-specific lighting.
+- **Sophisticated Editorial Illustration:** Keep proportions considered and materials tactile. Use custom silhouettes, bevels, fine linework, translucent layers, and controlled highlights rather than default primitive-only assemblies.
+- **Procedural Motion & Depth:** Add restrained micro-motion, atmospheric particles, contact shadows, ambient occlusion, and directional rim light where they support the story. Keep effects deterministic for frame-by-frame rendering.
 
-### 3. Cinematic Geographic & Spatial Zooming Engine
-- **Macro-to-Micro Camera Orchestration:** Whenever a script mentions a country, region, or city, the visuals must utilize continuous spatial zooming. Never use hard cuts between locations.
-- **Dynamic Map Coordinates:** Use programmatic vector maps or 3D globe layers where camera coordinates smoothly animate using `interpolate()` to dive from a wide world view straight down into precise city-level focal points.
-- **Contextual HUD Triggers:** As the camera locks onto a city, trigger spring-physics HUD callouts (`backdrop-blur` glassmorphic cards) displaying local data synchronized precisely with the voiceover timestamp.
+## 3. Cinematic Geographic & Spatial Engine
+- **Spatially Motivated Camera:** When geography matters, move smoothly from world to region to place and object. Clamp camera bounds, preserve a predictable aim, and do not warp perspective to fake a dolly.
+- **Geographic Visuals:** Use programmatic maps, globes, route geometry, coordinate nodes, and contextual data visualizations. Place all labels in the independent 2D editorial layer unless the narrative specifically requires spatial text.
+- **Clean 3D-to-2D Separation:** Keep the 3D world and the typography/HUD overlay in separate render layers. Overlay text must remain front-facing, legible, and independent of scene-camera rotations.
 
-### 4. The Law of Literal Visual Synchronization (Narrative-to-Visual Binding)
-- **Zero Idle Visuals:** Every single phrase, noun, statistic, and historical event spoken in the voiceover must be visually represented on screen in real-time. 
-- **Dynamic Context Shifting:** The visual composition must evolve dynamically with the audio track. Never let a single visual state or character linger static across multiple sentences.
-- **Zero Generic Fillers:** Ban generic placeholder avatars, static watermarks, or idle background grids that do not directly serve the exact word being spoken at that exact timestamp.
+## 4. Concept-First Narrative and Audio Momentum (v7.0)
+- **Do Not Treat the Script as a Rigid Timeline:** Do not assign one literal visual to every word or force every sentence into a fixed timestamp grid. First interpret the narrative, identify its central argument, emotional turns, places, entities, and visual metaphors.
+- **Programmatic Concept Extraction:** Parse the script/transcript into a compact set of semantic concepts and relationships (for example: origin → material → transformation → network → consequence). Use those concepts to select or synthesize visual motifs, motion-graphic structures, and typographic emphasis.
+- **Narrative-Led, Not Word-Led:** Visuals may anticipate, overlap, and resolve concepts across adjacent phrases. Preserve the argument and factual meaning while allowing an editorial rhythm; do not invent unsupported claims or literalize every noun.
+- **Audio-Momentum Mapping:** Use the supplied narration/music as the timing authority. Derive or author a deterministic audio-energy/envelope map and use it to modulate motion intensity, particle activity, camera acceleration, signal pulses, and typography. Let pauses breathe; reserve strong reveals and kinetic accents for emphasis, transitions, and cadence.
+- **Semantic Spring Reveals:** Trigger concept callouts and headline emphasis when the corresponding idea emerges in the audio. Use spring physics and eased overlaps rather than hard cuts or rigid per-caption animation resets.
+- **No Idle Decoration:** Every graphic, node, map, particle field, and callout must reinforce the current concept or emotional beat. Remove any visual system that becomes an unrelated persistent wallpaper.
 
-### 5. Automated GitHub Actions Rendering Pipeline (Zero Local Renders)
-- **Mandatory Cloud Rendering:** Local video rendering is strictly prohibited. All final production MP4 builds must be executed via automated GitHub Actions workflows (`.github/workflows/render.yml`).
-- **CI/CD Execution & Download Link:** When a script or scene is pushed, the GitHub Action runner must execute headless Remotion rendering and package the final high-definition MP4 as a workflow artifact, ensuring an automated, direct downloadable link is provided upon completion.
--
+## 5. Local Rendering & GitHub Delivery
+- **Local Final Render:** Final MP4 renders may and should be produced locally when requested. Use the maximum concurrency supported by the installed Remotion version (`--concurrency=100%` if that version does not accept the literal `max` value). Never run a render with an invalid CLI option.
+- **Verify Before Publishing:** Typecheck and inspect the composition, run the local final render, verify the MP4 is readable and has the intended duration/resolution/audio, and check the final file size before publishing.
+- **Publish the Deliverable to GitHub:** Push source changes only to the active Arena branch. Publish the final MP4 as a downloadable GitHub Release asset or an Actions artifact; do not add generated media to Git unless explicitly requested. Share a working download link after upload.
+- **Artifact Hygiene:** Keep scratch files and temporary render intermediates out of Git. Use the repository’s ignore rules and preserve reproducible render settings.

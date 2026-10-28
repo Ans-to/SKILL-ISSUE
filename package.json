@@ -5,7 +5,8 @@
   "description": "Cinematic Remotion short documentary: The Empire of Timber & Tech",
   "scripts": {
     "start": "remotion preview src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "render": "remotion render src/index.ts NokiaDocumentary out/Nokia-Documentary.mp4 --codec=h264 --crf=18 --concurrency=100% --gl=angle"
   },
   "dependencies": {
     "@react-three/drei": "9.122.0",
