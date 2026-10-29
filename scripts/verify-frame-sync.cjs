@@ -28,7 +28,13 @@ const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
 const {TelemetryHud, AtmosphericOverlays, getHudLifecycle} = require('../src/TelemetryHud.tsx');
-const {KineticEngine, SceneSemanticGraph} = require('../src/KineticEngine.tsx');
+const {
+  KineticEngine,
+  SceneSemanticGraph,
+  classifyTokenTypographicSchema,
+  resolveCueTypographicSchema,
+  computeTypographicKinematics,
+} = require('../src/KineticEngine.tsx');
 const {
   SFX_PATHS,
   getSceneWordAudioCues,
@@ -305,6 +311,93 @@ const mechStart = computeWordMotion(mechCue, 'mechanism', mechCue.startFrame);
 const mechSettled = computeWordMotion(mechCue, 'mechanism', mechCue.startFrame + 10);
 assert.equal(mechStart.mode, 'precision');
 assert.ok(mechStart.opacity < 0.25 && mechSettled.opacity === 1, 'Precision scenes must easeInOutCubic fade words');
+
+// ============================================================================
+// Verify TYPOGRAPHIC VARIATION SCHEMA across all 91 tokens & 6 scenes:
+// 1. 'hook-climax'     -> spring(damping:8, stiffness:300), scale 0.8 -> 1.0, vector slice + red glow flash
+// 2. 'code-typewriter' -> character-by-character monospaced terminal line + blinking `_` cursor
+// 3. 'metric-glitch'   -> rapid horizontal translateX slide + chromatic aberration + opacity flicker
+// ============================================================================
+assert.equal(classifyTokenTypographicSchema('break.'), 'hook-climax');
+assert.equal(classifyTokenTypographicSchema('Prompt'), 'code-typewriter');
+assert.equal(classifyTokenTypographicSchema('template.'), 'code-typewriter');
+assert.equal(classifyTokenTypographicSchema('physics,'), 'metric-glitch');
+assert.equal(classifyTokenTypographicSchema('Repeatable.'), 'metric-glitch');
+
+const schemaCounts = {'hook-climax': 0, 'code-typewriter': 0, 'metric-glitch': 0};
+for (const scene of SCENE_SEQUENCES) {
+  const sceneSchemas = new Set();
+  for (let idx = scene.firstWordIndex; idx <= scene.lastWordIndex; idx += 1) {
+    const cue = SCRIPT_CUES[idx];
+    const schema = resolveCueTypographicSchema(cue, scene.id);
+    sceneSchemas.add(schema);
+    schemaCounts[schema] += 1;
+
+    const kinStart = computeTypographicKinematics(cue, scene.id, cue.startFrame);
+    const kinEnd = computeTypographicKinematics(cue, scene.id, cue.endFrame - 1);
+    const startMarkup = renderToStaticMarkup(
+      React.createElement(KineticEngine, {cue, variant: scene.id, globalFrame: cue.startFrame}),
+    );
+
+    assert.ok(
+      startMarkup.includes(`data-typography-schema="${schema}"`),
+      `Cue #${idx} missing data-typography-schema="${schema}"`,
+    );
+
+    if (schema === 'hook-climax') {
+      assert.equal(kinStart.scale, 0.8, `Hook/Climax cue #${idx} must pop from scale 0.8`);
+      if (cue.endFrame - cue.startFrame >= 12) {
+        assert.ok(
+          Math.abs(kinEnd.scale - 1.0) < 0.06,
+          `Hook/Climax cue #${idx} must settle near scale 1.0`,
+        );
+      }
+      assert.ok(kinStart.sliceIntensity > 0.9, `Hook/Climax cue #${idx} missing horizontal vector slice`);
+      assert.ok(kinStart.redGlowFlash > 0.35, `Hook/Climax cue #${idx} missing red glow flash`);
+      assert.ok(startMarkup.includes('data-vector-slice="true"'));
+      assert.ok(startMarkup.includes('data-red-glow-flash='));
+    } else if (schema === 'code-typewriter') {
+      if (cue.text.length > 1 && cue.endFrame - cue.startFrame > 1) {
+        assert.equal(
+          kinStart.visibleChars,
+          1,
+          `Typewriter cue #${idx} ("${cue.text}") must begin typing at 1 char`,
+        );
+      }
+      assert.equal(
+        kinEnd.visibleChars,
+        cue.text.length,
+        `Typewriter cue #${idx} ("${cue.text}") must complete 100% of characters before cue end`,
+      );
+      assert.equal(kinEnd.visibleText, cue.text);
+      assert.ok(startMarkup.includes('ui-monospace'), 'Typewriter schema must use monospaced font');
+      assert.ok(startMarkup.includes('data-typewriter-cursor='), 'Typewriter schema must render blinking `_` cursor');
+      assert.ok(startMarkup.includes('>_</span>'), 'Typewriter schema must render literal `_` cursor glyph');
+    } else if (schema === 'metric-glitch') {
+      assert.equal(Math.abs(kinStart.slideTranslateX), 96, `Metric/Glitch cue #${idx} must horizontal-slide from ±96px`);
+      assert.ok(kinStart.chromaticOffsetPx > 10, `Metric/Glitch cue #${idx} must apply chromatic aberration on entry`);
+      assert.ok(kinStart.flickerOpacity < 1.0, `Metric/Glitch cue #${idx} must apply subtle opacity flicker on entry`);
+      if (cue.endFrame - cue.startFrame >= 7) {
+        assert.equal(kinEnd.slideTranslateX, 0, `Metric/Glitch cue #${idx} must lock to translateX(0)`);
+        assert.equal(kinEnd.flickerOpacity, 1.0, `Metric/Glitch cue #${idx} flicker must stabilize to 1.0`);
+      }
+      assert.ok(startMarkup.includes('data-chromatic-aberration='));
+      assert.ok(startMarkup.includes('data-opacity-flicker='));
+    }
+  }
+  assert.ok(
+    sceneSchemas.size >= 2,
+    `Scene ${scene.id} must not use a single uniform entrance animation (found: ${[...sceneSchemas].join(',')})`,
+  );
+}
+assert.ok(schemaCounts['hook-climax'] >= 20, 'Expected substantial hook-climax coverage');
+assert.ok(schemaCounts['code-typewriter'] >= 20, 'Expected substantial code-typewriter coverage');
+assert.ok(schemaCounts['metric-glitch'] >= 18, 'Expected substantial metric-glitch coverage');
+// Verify typewriter `_` cursor blinks across settled frames (e.g. "codebases" F0321..F0343)
+const codebasesCue = SCRIPT_CUES[20];
+const twBlinkA = computeTypographicKinematics(codebasesCue, 'twist', 332).cursorBlinkOn;
+const twBlinkB = computeTypographicKinematics(codebasesCue, 'twist', 336).cursorBlinkOn;
+assert.notEqual(twBlinkA, twBlinkB, 'Typewriter `_` cursor must blink across settled frames');
 
 const rootSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');
 assert.ok(/export const Root\b/.test(rootSource), 'src/Root.tsx must export Root');
