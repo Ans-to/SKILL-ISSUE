@@ -2,16 +2,21 @@ import React from 'react';
 import {Easing, interpolate} from 'remotion';
 import {Micro, Panel} from './TelemetryHud';
 import {
+  DURATION_FRAMES,
   MUTED,
   ORANGE,
   SCENE_MAP,
+  SCENE_SEQUENCES,
   SCRIPT_CUES,
   WHITE,
+  clamp,
   cueAfter,
 } from './engine/agentEngineModel';
 
 /**
- * Full-canvas (1080x1920) floating translucent Payoff timeline & compiler overlay.
+ * Full-canvas (1080x1920) floating translucent Payoff compiler & linear keyframe timeline.
+ * Zero unscripted repeating loops: renders the actual 6 <Sequence> spans of the composition
+ * with a deterministic playhead locked to globalFrame.
  */
 export const TimelineGrid: React.FC<{
   localFrame: number;
@@ -43,7 +48,7 @@ export const TimelineGrid: React.FC<{
     {code: '03 // FRAMES', cue: framesCue},
     {code: '04 // MP4', cue: mp4Cue},
   ];
-  const scroll = (localFrame * 11) % 240;
+  const playheadPct = clamp((globalFrame / DURATION_FRAMES) * 100, 0, 100);
 
   return (
     <Panel
@@ -51,23 +56,23 @@ export const TimelineGrid: React.FC<{
         position: 'absolute',
         left: 56,
         right: 56,
-        top: 432,
+        top: 668,
         bottom: 204,
         borderRadius: 16,
-        padding: '24px 28px',
+        padding: '20px 26px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         transform: `translateY(${(1 - enter) * 28}px) scale(${0.97 + enter * 0.03})`,
       }}
     >
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Micro accent>DETERMINISTIC RENDER GRAPH // FULL CANVAS</Micro>
+        <Micro accent>DETERMINISTIC SEQUENCE TIMELINE // 1547 FRAMES</Micro>
         <Micro>PLAYHEAD F{String(globalFrame).padStart(4, '0')}</Micro>
       </div>
 
-      {/* Multi-track scrolling Sequence lanes */}
+      {/* Exact 6-Sequence Composition Track Map (zero unscripted loop) */}
       <div
         style={{
           flex: 1,
@@ -76,50 +81,60 @@ export const TimelineGrid: React.FC<{
           background: 'rgba(6,9,17,.66)',
           position: 'relative',
           overflow: 'hidden',
-          padding: '16px 0',
+          padding: '12px 16px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
         }}
       >
-        {[0, 1, 2, 3, 4, 5].map((lane) => (
-          <div
-            key={lane}
-            style={{
-              height: 64,
-              position: 'relative',
-              borderTop: '1px solid rgba(244,247,255,.07)',
-              borderBottom: '1px solid rgba(244,247,255,.07)',
-            }}
-          >
-            {[0, 1, 2, 3, 4, 5, 6].map((clip) => {
-              const hot = (lane + clip) % 3 === 0;
-              return (
-                <i
-                  key={clip}
-                  style={{
-                    position: 'absolute',
-                    left: clip * 240 - scroll + (lane % 2) * 64,
-                    top: 10,
-                    width: 158 + ((lane + clip) % 3) * 42,
-                    height: 44,
-                    border: `1px solid ${hot ? ORANGE : 'rgba(244,247,255,.2)'}`,
-                    background: hot ? 'rgba(255,69,0,.22)' : 'rgba(244,247,255,.075)',
-                  }}
-                />
-              );
-            })}
-          </div>
-        ))}
+        {SCENE_SEQUENCES.map((seq) => {
+          const leftPct = (seq.from / DURATION_FRAMES) * 100;
+          const widthPct = Math.max(3, (seq.durationInFrames / DURATION_FRAMES) * 100);
+          const isCurrentSeq = seq.id === 'payoff';
+          return (
+            <div
+              key={seq.id}
+              style={{
+                height: 46,
+                position: 'relative',
+                borderTop: '1px solid rgba(244,247,255,.06)',
+                borderBottom: '1px solid rgba(244,247,255,.06)',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%`,
+                  top: 6,
+                  width: `${widthPct}%`,
+                  height: 32,
+                  border: `1px solid ${isCurrentSeq ? ORANGE : 'rgba(244,247,255,.24)'}`,
+                  background: isCurrentSeq ? 'rgba(255,69,0,.2)' : 'rgba(244,247,255,.06)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: 10,
+                  boxSizing: 'border-box',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 11,
+                  color: isCurrentSeq ? ORANGE : MUTED,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {seq.name}
+              </div>
+            </div>
+          );
+        })}
         <i
           style={{
             position: 'absolute',
-            left: '58%',
+            left: `${playheadPct}%`,
             top: 0,
             bottom: 0,
-            width: 3,
+            width: 2.5,
             background: ORANGE,
-            boxShadow: `0 0 24px ${ORANGE}`,
+            boxShadow: `0 0 18px ${ORANGE}`,
           }}
         />
       </div>
@@ -129,10 +144,10 @@ export const TimelineGrid: React.FC<{
         style={{
           border: `1px solid ${globalFrame >= codeCue.startFrame ? ORANGE : 'rgba(244,247,255,.15)'}`,
           background: 'rgba(8,12,21,.68)',
-          padding: '20px 24px',
+          padding: '16px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
+          gap: 12,
         }}
       >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -140,18 +155,18 @@ export const TimelineGrid: React.FC<{
           <span style={{fontFamily: 'monospace', fontSize: 12, color: MUTED}}>1080 × 1920 · 30 FPS</span>
         </div>
 
-        <div style={{fontFamily: 'monospace', fontSize: 16, lineHeight: 1.55}}>
+        <div style={{fontFamily: 'monospace', fontSize: 15, lineHeight: 1.45}}>
           <div style={{color: ORANGE}}>{'<Sequence from={1053} durationInFrames={347}>'}</div>
           <div style={{paddingLeft: 22, color: WHITE}}>{'<PayoffScene canvas="1080x1920" />'}</div>
           <div style={{color: ORANGE}}>{'</Sequence>'}</div>
         </div>
 
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14}}>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12}}>
           {[0, 1, 2, 3].map((slot) => (
             <div
               key={slot}
               style={{
-                height: 92,
+                height: 70,
                 border: `1px solid ${globalFrame >= framesCue.startFrame ? ORANGE : 'rgba(244,247,255,.18)'}`,
                 background:
                   globalFrame >= mp4Cue.startFrame

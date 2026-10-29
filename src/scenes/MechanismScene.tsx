@@ -6,7 +6,6 @@ import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
   MUTED,
-  OBSIDIAN,
   ORANGE,
   SCENE_MAP,
   SCRIPT_CUES,
@@ -17,62 +16,7 @@ import {
   findSceneCue,
   type SceneSpec,
 } from '../engine/agentEngineModel';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-
-const MechanismBackground: React.FC<{energy: number}> = ({energy}) => (
-  <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        background: `radial-gradient(circle at 50% 54%, rgba(255,69,0,${0.06 + energy * 0.12}), transparent 52%)`,
-      }}
-    />
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        opacity: 0.13,
-        backgroundImage:
-          'linear-gradient(rgba(244,247,255,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.35) 1px, transparent 1px), linear-gradient(rgba(244,247,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.12) 1px, transparent 1px)',
-        backgroundSize: '108px 108px, 108px 108px, 27px 27px, 27px 27px',
-      }}
-    />
-  </div>
-);
-
-const MechanismThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; activeIdx: number; energy: number}> = ({
-  scene,
-  localFrame,
-  activeIdx,
-  energy,
-}) => {
-  const rot = localFrame * 0.008;
-  return (
-    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.42}>
-      <group position={[0, -0.35, 0]} rotation={[0.25, rot, 0.08]}>
-        <mesh>
-          <dodecahedronGeometry args={[2.05, 0]} />
-          <meshBasicMaterial color={ORANGE} wireframe transparent opacity={0.24 + energy * 0.22} />
-        </mesh>
-        <mesh rotation={[-rot * 1.2, 0.4, 0.2]}>
-          <torusGeometry args={[2.8, 0.012, 8, 96]} />
-          <meshBasicMaterial color={WHITE} transparent opacity={0.22} />
-        </mesh>
-        {[0, 1, 2, 3, 4, 5].map((node) => {
-          const angle = (node / 6) * Math.PI * 2 + rot * 0.5;
-          const hot = activeIdx >= 0 && activeIdx % 6 === node;
-          return (
-            <mesh key={node} position={[Math.cos(angle) * 2.65, Math.sin(angle) * 1.4, Math.sin(angle) * 1.3]}>
-              <octahedronGeometry args={[hot ? 0.17 : 0.085, 0]} />
-              <meshBasicMaterial color={hot ? ORANGE : WHITE} wireframe={!hot} transparent opacity={hot ? 0.95 : 0.45} />
-            </mesh>
-          );
-        })}
-      </group>
-    </SceneThreeCanvas>
-  );
-};
+import {CleanCoordinateGrid, SceneStage, SceneThreeCanvas} from './SceneStage';
 
 const PRIMITIVE_SVGS: ReadonlyArray<string> = [
   'M16 92 C68 12, 112 118, 168 44 S256 76, 324 52',
@@ -114,6 +58,8 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
   const framesLocked = globalFrame >= SCRIPT_CUES[sameFramesIdx].startFrame;
   const noRouletteLocked = globalFrame >= SCRIPT_CUES[noTemplateIdx].startFrame;
 
+  const subtleGridBreath = 0.075 + 0.045 * (0.5 + 0.5 * Math.sin(localFrame * 0.09));
+
   return (
     <SceneContainer>
       <SceneAudioBed scene={scene} />
@@ -137,15 +83,8 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
         scene={scene}
         localFrame={localFrame}
         activeCue={activeCue}
-        background={<MechanismBackground energy={energy} />}
-        threeD={
-          <MechanismThreeLayer
-            scene={scene}
-            localFrame={localFrame}
-            activeIdx={activeCue?.globalIndex ?? -1}
-            energy={energy}
-          />
-        }
+        background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.04} />}
+        threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.44} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
@@ -164,12 +103,12 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                 position: 'absolute',
                 left: 56,
                 right: 56,
-                top: 432,
-                height: 1106,
+                top: 668,
+                height: 874,
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
                 gridTemplateRows: 'repeat(3, 1fr)',
-                gap: 20,
+                gap: 18,
                 transform: `translateY(${(1 - enter) * 24}px)`,
               }}
             >
@@ -193,15 +132,15 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                         ? 'rgba(255,69,0,.14)'
                         : isPast
                           ? 'rgba(13,19,32,.62)'
-                          : 'rgba(11,15,25,.48)',
+                          : 'rgba(11,15,25,.52)',
                       backdropFilter: 'blur(8px)',
-                      padding: '22px 26px',
+                      padding: '20px 26px',
                       boxSizing: 'border-box',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      transform: `scale(${isCurrent ? 0.94 + pop * 0.06 : 1})`,
-                      boxShadow: isCurrent ? '0 0 38px rgba(255,69,0,.24)' : 'none',
+                      transform: `scale(${isCurrent ? 0.96 + pop * 0.04 : 1})`,
+                      boxShadow: isCurrent ? '0 0 34px rgba(255,69,0,.22)' : 'none',
                     }}
                   >
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -211,7 +150,7 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                       </span>
                     </div>
 
-                    <svg viewBox="0 0 340 120" style={{width: '100%', height: 155}}>
+                    <svg viewBox="0 0 340 120" style={{width: '100%', height: 108}}>
                       <path
                         d={PRIMITIVE_SVGS[cellIdx]}
                         fill="none"
@@ -223,7 +162,7 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                     <div
                       style={{
                         fontFamily: 'monospace',
-                        fontSize: 28,
+                        fontSize: 26,
                         fontWeight: 900,
                         letterSpacing: 0.8,
                         color: isCurrent ? ORANGE : isPast ? WHITE : MUTED,
@@ -259,7 +198,7 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
                   key={badge.code}
                   style={{
                     border: `1px solid ${badge.active ? ORANGE : 'rgba(244,247,255,.14)'}`,
-                    background: badge.active ? 'rgba(255,69,0,.12)' : 'rgba(11,15,25,.48)',
+                    background: badge.active ? 'rgba(255,69,0,.12)' : 'rgba(11,15,25,.52)',
                     backdropFilter: 'blur(8px)',
                     display: 'flex',
                     alignItems: 'center',

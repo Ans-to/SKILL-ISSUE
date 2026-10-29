@@ -6,7 +6,6 @@ import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays, Micro} from '../TelemetryHud';
 import {
   FPS,
-  OBSIDIAN,
   ORANGE,
   SCENE_MAP,
   SCRIPT_CUES,
@@ -17,77 +16,7 @@ import {
   findSceneCue,
   type SceneSpec,
 } from '../engine/agentEngineModel';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-
-const ShiftBackground: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => (
-  <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        opacity: 0.18,
-        backgroundImage: 'radial-gradient(rgba(244,247,255,.38) 1.3px, transparent 1.3px)',
-        backgroundSize: '38px 38px',
-      }}
-    />
-    <svg
-      viewBox="0 0 1080 1920"
-      preserveAspectRatio="none"
-      style={{position: 'absolute', inset: 0, width: '100%', height: '100%'}}
-    >
-      <line
-        x1="56"
-        y1="860"
-        x2="1024"
-        y2="860"
-        stroke={ORANGE}
-        strokeOpacity={0.45 + energy * 0.35}
-        strokeDasharray="8 10"
-        strokeWidth="2.2"
-      />
-      <circle
-        cx={96 + ((localFrame * 7) % 888)}
-        cy="860"
-        r={6 + energy * 4}
-        fill={ORANGE}
-      />
-    </svg>
-  </div>
-);
-
-const ShiftThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; rightActive: boolean; energy: number}> = ({
-  scene,
-  localFrame,
-  rightActive,
-  energy,
-}) => {
-  const spin = localFrame * 0.014;
-  return (
-    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.6} opacity={0.42}>
-      <group position={[0, 2.25, 0]} rotation={[spin * 0.7, spin, 0]}>
-        <mesh>
-          <icosahedronGeometry args={[1.45, 1]} />
-          <meshBasicMaterial color={WHITE} wireframe transparent opacity={0.18 + energy * 0.14} />
-        </mesh>
-      </group>
-      <group position={[0, -2.05, 0]} rotation={[0.22, -spin * 0.9, 0.08]}>
-        <mesh>
-          <boxGeometry args={[2.35, 2.35, 2.35]} />
-          <meshBasicMaterial
-            color={rightActive ? ORANGE : WHITE}
-            wireframe
-            transparent
-            opacity={rightActive ? 0.44 : 0.2}
-          />
-        </mesh>
-        <mesh rotation={[0.5, 0.5, 0]}>
-          <octahedronGeometry args={[1.35, 0]} />
-          <meshBasicMaterial color={ORANGE} wireframe transparent opacity={0.28 + energy * 0.22} />
-        </mesh>
-      </group>
-    </SceneThreeCanvas>
-  );
-};
+import {CleanCoordinateGrid, SceneStage, SceneThreeCanvas} from './SceneStage';
 
 export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shift}) => {
   const localFrame = useCurrentFrame();
@@ -132,15 +61,8 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
         scene={scene}
         localFrame={localFrame}
         activeCue={activeCue}
-        background={<ShiftBackground localFrame={localFrame} energy={energy} />}
-        threeD={
-          <ShiftThreeLayer
-            scene={scene}
-            localFrame={localFrame}
-            rightActive={timingHot || graphHot || constraintsHot}
-            energy={energy}
-          />
-        }
+        background={<CleanCoordinateGrid gridOpacity={0.08} glowOpacity={0.045} />}
+        threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.6} opacity={0.44} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
@@ -151,12 +73,12 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
                 position: 'absolute',
                 left: 56,
                 right: 56,
-                top: 170,
-                height: 528,
+                top: 162,
+                height: 416,
                 border: `1px solid ${promptHot ? ORANGE : 'rgba(244,247,255,.2)'}`,
-                background: 'rgba(11,15,25,.56)',
+                background: 'rgba(11,15,25,.6)',
                 backdropFilter: 'blur(8px)',
-                padding: '24px 30px',
+                padding: '20px 28px',
                 boxSizing: 'border-box',
                 transform: `translateY(${(1 - reveal) * -26}px)`,
                 display: 'flex',
@@ -169,40 +91,32 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
                 <Micro>UNSTRUCTURED TEXT</Micro>
               </div>
 
-              <svg viewBox="0 0 908 380" style={{width: '100%', height: 380}}>
+              <svg viewBox="0 0 908 350" style={{width: '100%', height: 274}}>
                 <rect
                   x="16"
                   y="24"
                   width="876"
-                  height="164"
+                  height="156"
                   fill="none"
                   stroke={promptHot ? ORANGE : WHITE}
                   strokeOpacity={promptHot ? 0.85 : 0.3}
                   strokeDasharray="8 6"
                   strokeWidth="1.8"
                 />
-                <line x1="48" y1="78" x2="660" y2="78" stroke={WHITE} strokeOpacity=".26" strokeWidth="10" />
-                <line x1="48" y1="130" x2="490" y2="130" stroke={ORANGE} strokeOpacity=".44" strokeWidth="10" />
-                <rect
-                  x="508"
-                  y="118"
-                  width="12"
-                  height="24"
-                  fill={ORANGE}
-                  opacity={Math.sin(localFrame * 0.35) > 0 ? 1 : 0.2}
-                />
+                <line x1="48" y1="74" x2="660" y2="74" stroke={WHITE} strokeOpacity=".26" strokeWidth="10" />
+                <line x1="48" y1="126" x2="490" y2="126" stroke={ORANGE} strokeOpacity=".44" strokeWidth="10" />
                 <path
-                  d="M454 206 V290 L770 290"
+                  d="M454 198 V276 L770 276"
                   fill="none"
                   stroke={ORANGE}
                   strokeWidth="2.2"
                   strokeDasharray="6 10"
                 />
-                <g transform="translate(770 290)">
+                <g transform="translate(770 276)">
                   <circle r="21" fill="none" stroke={ORANGE} strokeWidth="2.2" />
                   <path d="M-9 -9L9 9M9 -9L-9 9" stroke={ORANGE} strokeWidth="2.4" />
                 </g>
-                <text x="24" y="346" fill={ORANGE} fontFamily="monospace" fontSize="16" letterSpacing="3">
+                <text x="24" y="332" fill={ORANGE} fontFamily="monospace" fontSize="16" letterSpacing="3">
                   BRIDGE UNRESOLVED // {activeCue && promptHot ? activeCue.text : 'NO INFERENCE'}
                 </text>
               </svg>
@@ -219,12 +133,12 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
                 position: 'absolute',
                 left: 56,
                 right: 56,
-                top: 1022,
-                height: 676,
+                top: 1126,
+                height: 572,
                 border: `1px solid ${timingHot || graphHot || constraintsHot ? ORANGE : 'rgba(244,247,255,.2)'}`,
-                background: 'rgba(11,15,25,.56)',
+                background: 'rgba(11,15,25,.6)',
                 backdropFilter: 'blur(8px)',
-                padding: '24px 30px',
+                padding: '20px 28px',
                 boxSizing: 'border-box',
                 transform: `translateY(${(1 - reveal) * 26}px)`,
                 display: 'flex',
@@ -350,7 +264,6 @@ export const ShiftScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.shi
               </div>
             </div>
 
-            {/* Full-Width Center Seam Kinetic Command Overlay */}
             {activeCue && (
               <KineticEngine key={activeCue.globalIndex} cue={activeCue} variant="shift" globalFrame={globalFrame} />
             )}

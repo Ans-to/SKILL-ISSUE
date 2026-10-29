@@ -6,64 +6,14 @@ import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays} from '../TelemetryHud';
 import {TimelineGrid} from '../TimelineGrid';
 import {
-  OBSIDIAN,
-  ORANGE,
   SCENE_MAP,
-  WHITE,
   WORD_START_FRAMES,
   cueAfter,
   energyAt,
   findSceneCue,
   type SceneSpec,
 } from '../engine/agentEngineModel';
-import {SceneStage, SceneThreeCanvas} from './SceneStage';
-
-const PayoffBackground: React.FC<{localFrame: number; energy: number}> = ({localFrame, energy}) => (
-  <div style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}>
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        background: `radial-gradient(ellipse at 50% 58%, rgba(255,69,0,${0.06 + energy * 0.11}), transparent 54%)`,
-      }}
-    />
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        opacity: 0.13,
-        backgroundImage: 'linear-gradient(90deg, rgba(244,247,255,.26) 1px, transparent 1px)',
-        backgroundSize: '54px 100%',
-        transform: `translateX(${-(localFrame * 3) % 54}px)`,
-      }}
-    />
-  </div>
-);
-
-const PayoffThreeLayer: React.FC<{scene: SceneSpec; localFrame: number; energy: number}> = ({scene, localFrame, energy}) => {
-  const travel = (localFrame * 0.05) % 1.8;
-  return (
-    <SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.38}>
-      <group position={[0, -0.35, 0]}>
-        {[0, 1, 2, 3, 4].map((idx) => {
-          const z = -idx * 1.8 + travel;
-          const accent = idx % 2 === 0;
-          return (
-            <mesh key={idx} position={[0, 0, z]}>
-              <boxGeometry args={[2.75, 4.5, 0.02]} />
-              <meshBasicMaterial
-                color={accent ? ORANGE : WHITE}
-                wireframe
-                transparent
-                opacity={0.14 + energy * 0.16}
-              />
-            </mesh>
-          );
-        })}
-      </group>
-    </SceneThreeCanvas>
-  );
-};
+import {CleanCoordinateGrid, SceneStage, SceneThreeCanvas} from './SceneStage';
 
 export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.payoff}) => {
   const localFrame = useCurrentFrame();
@@ -75,6 +25,7 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
   const codeCue = cueAfter('code,', promptCue.globalIndex);
   const framesCue = cueAfter('frames,', codeCue.globalIndex);
   const mp4Cue = cueAfter('MP4.', framesCue.globalIndex);
+  const subtleGridBreath = 0.075 + 0.045 * (0.5 + 0.5 * Math.sin(localFrame * 0.09));
 
   return (
     <SceneContainer>
@@ -102,8 +53,8 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
         scene={scene}
         localFrame={localFrame}
         activeCue={activeCue}
-        background={<PayoffBackground localFrame={localFrame} energy={energy} />}
-        threeD={<PayoffThreeLayer scene={scene} localFrame={localFrame} energy={energy} />}
+        background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.045} />}
+        threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.42} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />

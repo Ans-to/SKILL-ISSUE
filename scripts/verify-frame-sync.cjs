@@ -151,22 +151,56 @@ for (const scene of SCENE_SEQUENCES) {
 }
 assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
 
-// Verify Contextual Holographic B-Roll keyword mapping & 1-to-2s temporal flash/fade bursts.
+// Verify Semantic B-Roll & Background Asset Override:
+// 1. Zero random orbital rings, random grid dots, or continuous unscripted geometric loops.
+for (const cleanRel of [
+  'src/ContextualBroll.tsx',
+  'src/TelemetryHud.tsx',
+  'src/scenes/SceneStage.tsx',
+  'src/scenes/HookScene.tsx',
+  'src/scenes/TwistScene.tsx',
+  'src/scenes/ShiftScene.tsx',
+  'src/scenes/MechanismScene.tsx',
+  'src/scenes/PayoffScene.tsx',
+  'src/scenes/OutroScene.tsx',
+]) {
+  const src = fs.readFileSync(path.join(__dirname, '..', cleanRel), 'utf8');
+  assert.ok(!src.includes('torusGeometry'), `${cleanRel} must not contain generic floating orbital rings`);
+  assert.ok(!src.includes('SCENE_CONSTELLATIONS'), `${cleanRel} must not render random spiderweb constellations`);
+  assert.ok(!src.includes('1.3px'), `${cleanRel} must not render random dot-matrix background clutter`);
+}
+
+// 2. Strictly narrative-driven semantic keyword mapping:
+// - "AI / Agent" -> 'neural'
+// - "Code / Prompt / Template" -> 'syntax'
+// - "Physics / Timing / Easing" -> 'math'
+// - Non-matching words -> null (clean subtle coordinate grid only)
 assert.equal(classifyBrollKeyword('AI'), 'neural');
 assert.equal(classifyBrollKeyword('Agent'), 'neural');
-assert.equal(classifyBrollKeyword('Codebase'), 'syntax');
+assert.equal(classifyBrollKeyword('Code'), 'syntax');
 assert.equal(classifyBrollKeyword('Prompt'), 'syntax');
-assert.equal(classifyBrollKeyword('Servers'), 'orbital');
-assert.equal(classifyBrollKeyword('Engine'), 'orbital');
+assert.equal(classifyBrollKeyword('Template'), 'syntax');
+assert.equal(classifyBrollKeyword('Physics'), 'math');
+assert.equal(classifyBrollKeyword('Timing'), 'math');
+assert.equal(classifyBrollKeyword('Easing'), 'math');
+assert.equal(classifyBrollKeyword('Your'), null);
+assert.equal(classifyBrollKeyword('finished.'), null);
+assert.equal(classifyBrollKeyword('Fast.'), null);
+assert.equal(classifyBrollKeyword('toys.'), null);
 
 let totalBrollBursts = 0;
 for (const scene of SCENE_SEQUENCES) {
   const bursts = SCENE_BROLL_BURSTS[scene.id];
-  for (const b of bursts) {
-    assert.ok(b.durationFrames >= 16 && b.durationFrames <= 56, `Burst ${b.id} outside 1-2s window`);
-    const peakLocal = (b.startFrame + 4) - scene.from;
-    const activeAtPeak = getActiveBrollBursts(scene, peakLocal).find((x) => x.id === b.id);
-    assert.ok(activeAtPeak && activeAtPeak.opacity > 0.7, `Burst ${b.id} failed instant flash-in`);
+  for (let i = 0; i < bursts.length; i += 1) {
+    const b = bursts[i];
+    assert.ok(b.durationFrames >= 12 && b.durationFrames <= 58, `Burst ${b.id} outside localized burst window`);
+    if (i > 0) {
+      assert.ok(b.startFrame >= bursts[i - 1].endFrame, `Overlapping semantic bursts in ${scene.id}`);
+    }
+    const peakLocal = (b.startFrame + 5) - scene.from;
+    const activeAtPeak = getActiveBrollBursts(scene, peakLocal);
+    assert.equal(activeAtPeak.length, 1, `At most one semantic B-roll asset may be active at frame ${b.startFrame + 5}`);
+    assert.ok(activeAtPeak[0].opacity > 0.7, `Burst ${b.id} failed semantic entry`);
     const renderedBroll = renderToStaticMarkup(
       React.createElement(ContextualVectorBroll, {scene, localFrame: peakLocal}),
     );
@@ -187,7 +221,10 @@ for (const scene of SCENE_SEQUENCES) {
     }
   }
 }
-assert.ok(totalBrollBursts >= 6, 'Expected contextual B-roll bursts across neural, syntax, and orbital keywords');
+assert.ok(totalBrollBursts >= 8, 'Expected semantic B-roll bursts across neural, syntax, and math keywords');
+// Verify non-matching frames render zero B-roll (clean subtle coordinate grid only)
+assert.equal(getActiveBrollBursts(SCENE_SEQUENCES[0], 10).length, 0, '"Your" frame must stay clutter-free');
+assert.equal(getActiveBrollBursts(SCENE_SEQUENCES[5], 125).length, 0, '"toys." frame must stay clutter-free');
 
 // Verify Emotional Pacing & Dynamic Cinematography rules.
 assert.equal(TENSION_SPRING_CONFIG.damping, 8);

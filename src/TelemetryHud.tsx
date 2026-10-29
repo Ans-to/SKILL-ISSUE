@@ -14,7 +14,6 @@ import {
   isSceneCleared,
   sceneForFrame,
   sceneSpokenCues,
-  type SceneKey,
   type SceneSpec,
   type ScriptCue,
 } from './engine/agentEngineModel';
@@ -57,75 +56,6 @@ export const Panel: React.FC<{
   </div>
 );
 
-type Constellation = {
-  nodes: ReadonlyArray<readonly [number, number]>;
-  edges: ReadonlyArray<readonly [number, number]>;
-};
-
-// Six full-canvas 1080x1920 constellations — animating in and out per isolated <Sequence>.
-const SCENE_CONSTELLATIONS: Record<SceneKey, Constellation> = {
-  hook: {
-    nodes: [
-      [110, 210], [340, 175], [690, 205], [960, 250], [890, 610], [560, 680], [180, 640],
-      [130, 1080], [430, 1180], [830, 1120], [950, 1440], [660, 1560], [320, 1520], [140, 1690],
-    ],
-    edges: [
-      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0],
-      [6, 7], [7, 8], [8, 9], [9, 4], [9, 10], [10, 11], [11, 12], [12, 13], [12, 7],
-    ],
-  },
-  twist: {
-    nodes: [
-      [105, 220], [520, 185], [965, 235], [220, 560], [830, 540], [540, 880], [135, 1020],
-      [945, 1020], [295, 1310], [775, 1330], [540, 1540], [150, 1690], [540, 1710], [935, 1680],
-    ],
-    edges: [
-      [0, 1], [1, 2], [0, 3], [2, 4], [3, 5], [4, 5], [5, 6], [5, 7],
-      [6, 8], [7, 9], [8, 10], [9, 10], [10, 11], [10, 12], [10, 13],
-    ],
-  },
-  shift: {
-    nodes: [
-      [120, 210], [380, 210], [700, 210], [960, 210], [185, 580], [490, 580], [875, 580],
-      [185, 960], [540, 960], [895, 960], [200, 1380], [540, 1380], [880, 1380], [540, 1690],
-    ],
-    edges: [
-      [0, 4], [1, 5], [2, 6], [3, 6], [4, 7], [5, 8], [6, 9],
-      [7, 10], [8, 11], [9, 12], [10, 13], [11, 13], [12, 13], [4, 5], [10, 11], [11, 12],
-    ],
-  },
-  mechanism: {
-    nodes: [
-      [155, 220], [540, 195], [925, 220], [155, 640], [540, 640], [925, 640], [155, 1060],
-      [540, 1060], [925, 1060], [155, 1460], [540, 1460], [925, 1460], [330, 1690], [750, 1690],
-    ],
-    edges: [
-      [0, 1], [1, 2], [3, 4], [4, 5], [6, 7], [7, 8], [9, 10], [10, 11],
-      [0, 3], [1, 4], [2, 5], [3, 6], [4, 7], [5, 8], [6, 9], [7, 10], [8, 11], [9, 12], [11, 13], [12, 13],
-    ],
-  },
-  payoff: {
-    nodes: [
-      [105, 230], [330, 310], [610, 245], [945, 320], [175, 690], [490, 650], [840, 710],
-      [140, 1100], [540, 1060], [925, 1120], [200, 1460], [610, 1420], [935, 1490], [540, 1690],
-    ],
-    edges: [
-      [0, 1], [1, 2], [2, 3], [0, 4], [2, 5], [3, 6], [4, 5], [5, 6],
-      [4, 7], [5, 8], [6, 9], [7, 8], [8, 9], [7, 10], [8, 11], [9, 12], [10, 13], [11, 13], [12, 13],
-    ],
-  },
-  outro: {
-    nodes: [
-      [540, 290], [810, 440], [945, 700], [965, 960], [930, 1240], [780, 1490], [540, 1630],
-      [300, 1490], [150, 1240], [115, 960], [135, 700], [270, 440], [540, 660], [540, 1260],
-    ],
-    edges: [
-      [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 0],
-      [0, 12], [3, 12], [9, 12], [6, 13], [3, 13], [9, 13], [12, 13],
-    ],
-  },
-};
-
 export type TelemetryHudProps = {
   scene: SceneSpec;
   localFrame: number;
@@ -148,16 +78,17 @@ export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number =>
   return clamp(enter * exit, 0, 1);
 };
 
+/**
+ * Minimal, clutter-free frame calibration hairlines (zero random floating nodes,
+ * zero spiderweb constellations, zero unscripted geometric loops).
+ */
 export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   scene,
   localFrame,
-  energy,
   activeCue,
 }) => {
-  const graph = SCENE_CONSTELLATIONS[scene.id];
   const activeCueId = activeCue?.globalIndex ?? -1;
-  const hotNode = activeCueId >= 0 ? activeCueId % graph.nodes.length : -1;
-  const secondaryNode = activeCueId >= 0 ? (activeCueId * 5 + 3) % graph.nodes.length : -1;
+  const hotNode = activeCueId >= 0 ? activeCueId % 14 : -1;
   const reveal = getHudLifecycle(scene, localFrame);
 
   return (
@@ -172,55 +103,15 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
         inset: 0,
         width: '100%',
         height: '100%',
-        opacity: reveal * (0.28 + energy * 0.42),
-        transform: `scale(${0.965 + reveal * 0.035})`,
+        opacity: reveal * 0.36,
         pointerEvents: 'none',
       }}
       aria-hidden="true"
     >
-      {graph.edges.map(([a, b], index) => {
-        const [x1, y1] = graph.nodes[a];
-        const [x2, y2] = graph.nodes[b];
-        const hot = a === hotNode || b === hotNode;
-        const warm = a === secondaryNode || b === secondaryNode;
-        const shift = Math.sin(localFrame * 0.04 + index) * 4.5;
-        return (
-          <line
-            key={index}
-            x1={x1 + shift}
-            y1={y1 - shift * 0.5}
-            x2={x2 - shift}
-            y2={y2 + shift * 0.5}
-            stroke={hot || warm ? ORANGE : WHITE}
-            strokeOpacity={hot ? 0.58 : warm ? 0.28 : 0.09}
-            strokeWidth={hot ? 1.9 : 1}
-          />
-        );
-      })}
-      {graph.nodes.map(([x, y], index) => {
-        const hot = index === hotNode;
-        const warm = index === secondaryNode;
-        const dx = Math.sin(localFrame * 0.04 + index) * 4.5;
-        const dy = -Math.cos(localFrame * 0.035 + index) * 3.5;
-        return (
-          <g key={index} transform={`translate(${x + dx} ${y + dy})`}>
-            {hot && (
-              <circle
-                r={18 + energy * 11}
-                fill="none"
-                stroke={ORANGE}
-                strokeOpacity={0.52}
-                strokeWidth={1.4}
-              />
-            )}
-            <circle
-              r={hot ? 6.5 + energy * 3.5 : warm ? 4.2 : 2.8}
-              fill={hot || warm ? ORANGE : WHITE}
-              fillOpacity={hot ? 0.95 : warm ? 0.65 : 0.26}
-            />
-          </g>
-        );
-      })}
+      <path d="M56 138 V122 H72" fill="none" stroke={WHITE} strokeOpacity="0.22" strokeWidth="1.2" />
+      <path d="M1024 138 V122 H1008" fill="none" stroke={WHITE} strokeOpacity="0.22" strokeWidth="1.2" />
+      <path d="M56 1720 V1736 H72" fill="none" stroke={WHITE} strokeOpacity="0.22" strokeWidth="1.2" />
+      <path d="M1024 1720 V1736 H1008" fill="none" stroke={WHITE} strokeOpacity="0.22" strokeWidth="1.2" />
     </svg>
   );
 };

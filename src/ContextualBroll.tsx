@@ -2,6 +2,7 @@ import React from 'react';
 import {Easing, interpolate, spring} from 'remotion';
 import {
   FPS,
+  MUTED,
   ORANGE,
   OUTRO_CUT_FRAME,
   SCENE_SEQUENCES,
@@ -14,14 +15,22 @@ import {
   type SceneSpec,
 } from './engine/agentEngineModel';
 
-export type BrollKind = 'neural' | 'syntax' | 'orbital';
+/**
+ * Strictly narrative-driven semantic B-roll categories:
+ * - 'neural': "AI" / "Agent" -> localized neural node lattice / synaptic graph (pulses once & dissolves)
+ * - 'syntax': "Code" / "Prompt" / "Template" -> localized scrolling terminal syntax block / text-parsing matrix
+ * - 'math':   "Physics" / "Timing" / "Easing" -> clean mathematical curve graph / linear keyframe grid
+ */
+export type BrollKind = 'neural' | 'syntax' | 'math';
+
+export type MathSubkind = 'physics' | 'timing' | 'easing';
 
 export type BrollBurstSpec = {
   id: string;
   sceneId: SceneKey;
   kind: BrollKind;
+  mathSubkind: MathSubkind | null;
   triggerWordIndex: number;
-  secondaryWordIndex: number | null;
   triggerText: string;
   startFrame: number;
   endFrame: number;
@@ -33,46 +42,47 @@ export type ActiveBrollBurst = BrollBurstSpec & {
   progress: number;
   opacity: number;
   scale: number;
-  pulseBoost: number;
+  pulseProgress: number;
 };
 
-/**
- * Classifies narration keywords into contextual holographic B-roll archetypes:
- * - "AI" / "Agent" -> 'neural' (Holographic neural net / pulsing brain wireframe)
- * - "Codebase" / "Prompt" / "Code" -> 'syntax' (Matrix terminal cascade / syntax tree flash)
- * - "Servers" / "Engine" -> 'orbital' (Rotating orbital server nodes / data rings)
- */
 export const classifyBrollKeyword = (rawWord: string): BrollKind | null => {
   const token = normalize(rawWord);
   if (token === 'ai' || token === 'agent' || token === 'agents') {
     return 'neural';
   }
   if (
+    token === 'code' ||
     token === 'codebase' ||
     token === 'codebases' ||
     token === 'prompt' ||
     token === 'prompts' ||
-    token === 'code'
+    token === 'template' ||
+    token === 'templates' ||
+    token === 'boilerplate'
   ) {
     return 'syntax';
   }
-  if (
-    token === 'server' ||
-    token === 'servers' ||
-    token === 'engine' ||
-    token === 'enginefirst'
-  ) {
-    return 'orbital';
+  if (token === 'physics' || token === 'timing' || token === 'easing') {
+    return 'math';
   }
   return null;
 };
 
-const DEFAULT_BURST_FRAMES = 46; // ~1.53s (strictly within 1-to-2s window)
+const getMathSubkind = (rawWord: string): MathSubkind | null => {
+  const token = normalize(rawWord);
+  if (token === 'physics') return 'physics';
+  if (token === 'timing') return 'timing';
+  if (token === 'easing') return 'easing';
+  return null;
+};
+
+const DEFAULT_BURST_FRAMES = 42; // 1.40s localized single-pulse / scroll burst
 
 /**
- * Precomputed, scene-isolated 1-to-2 second keyword bursts across all 6 scenes.
- * Adjacent keywords of the same archetype within 24 frames coalesce into one
- * clean 1.5s-1.85s burst with a secondary pulse hit so visuals never overcrowd.
+ * Precomputed, strictly non-overlapping semantic B-roll bursts per scene.
+ * Adjacent tokens of the same semantic family coalesce into a single localized burst,
+ * and any burst is truncated before the next distinct semantic token or scene cut so
+ * two background assets NEVER overlap.
  */
 export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSpec[]>> = (() => {
   const byScene: Record<SceneKey, BrollBurstSpec[]> = {
@@ -87,18 +97,23 @@ export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSp
   for (const scene of SCENE_SEQUENCES) {
     const maxEndFrame =
       scene.id === 'outro' ? OUTRO_CUT_FRAME - 2 : scene.endFrame - scene.clearFrames - 2;
-    const list: BrollBurstSpec[] = [];
+    const rawList: BrollBurstSpec[] = [];
 
     for (let idx = scene.firstWordIndex; idx <= scene.lastWordIndex; idx += 1) {
       const cue = SCRIPT_CUES[idx];
       const kind = classifyBrollKeyword(cue.text);
       if (!kind) continue;
+      const mathSubkind = getMathSubkind(cue.text);
 
-      const prev = list[list.length - 1];
-      if (prev && prev.kind === kind && cue.startFrame - prev.startFrame <= 24) {
-        const extendedEnd = Math.min(maxEndFrame, Math.max(prev.endFrame, cue.startFrame + 36));
-        const cappedEnd = Math.min(extendedEnd, prev.startFrame + 56); // <= 1.87s max
-        prev.secondaryWordIndex = idx;
+      const prev = rawList[rawList.length - 1];
+      if (
+        prev &&
+        prev.kind === kind &&
+        prev.mathSubkind === mathSubkind &&
+        cue.startFrame - prev.startFrame <= 32
+      ) {
+        const extendedEnd = Math.min(maxEndFrame, Math.max(prev.endFrame, cue.startFrame + 32));
+        const cappedEnd = Math.min(extendedEnd, prev.startFrame + 58); // <= 1.93s max
         prev.endFrame = cappedEnd;
         prev.durationFrames = cappedEnd - prev.startFrame;
         continue;
@@ -106,14 +121,14 @@ export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSp
 
       const startFrame = cue.startFrame;
       const endFrame = Math.min(maxEndFrame, startFrame + DEFAULT_BURST_FRAMES);
-      if (endFrame - startFrame < 16) continue;
+      if (endFrame - startFrame < 14) continue;
 
-      list.push({
+      rawList.push({
         id: `${scene.id}-${kind}-${idx}`,
         sceneId: scene.id,
         kind,
+        mathSubkind,
         triggerWordIndex: idx,
-        secondaryWordIndex: null,
         triggerText: cue.text,
         startFrame,
         endFrame,
@@ -121,16 +136,26 @@ export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSp
       });
     }
 
-    byScene[scene.id] = list;
+    // Enforce zero overlap between sequential semantic bursts in the same scene
+    for (let i = 0; i < rawList.length - 1; i += 1) {
+      const curr = rawList[i];
+      const next = rawList[i + 1];
+      if (curr.endFrame > next.startFrame) {
+        curr.endFrame = next.startFrame;
+        curr.durationFrames = curr.endFrame - curr.startFrame;
+      }
+    }
+
+    byScene[scene.id] = rawList.filter((b) => b.durationFrames >= 12);
   }
 
   return byScene;
 })();
 
 /**
- * Evaluates active holographic B-roll bursts for a scene frame using Remotion's
- * `spring` and `interpolate` so assets flash/scale in instantly on keyword onset
- * and dissolve smoothly back to obsidian.
+ * Evaluates active semantic B-roll bursts for a scene frame.
+ * Returns an empty array whenever no semantic keyword burst owns the current frame,
+ * keeping the background completely clean over the subtle coordinate grid.
  */
 export const getActiveBrollBursts = (
   scene: SceneSpec,
@@ -145,98 +170,96 @@ export const getActiveBrollBursts = (
     if (globalFrame < spec.startFrame || globalFrame >= spec.endFrame) continue;
     const elapsed = globalFrame - spec.startFrame;
     const dur = spec.durationFrames;
-    const fadeOutStart = Math.max(6, dur - 15);
+    const fadeOutStart = Math.max(5, dur - 14);
 
     const enterSpring = spring({
       frame: elapsed,
       fps: FPS,
-      config: {damping: 11, stiffness: 240},
+      config: {damping: 14, stiffness: 210},
     });
 
-    const flashFade = interpolate(
+    const opacity = interpolate(
       elapsed,
-      [0, 3, fadeOutStart, dur],
-      [0, 1, 0.86, 0],
+      [0, 4, fadeOutStart, dur],
+      [0, 1, 0.85, 0],
       {
-        easing: Easing.out(Easing.cubic),
+        easing: Easing.inOut(Easing.cubic),
         extrapolateLeft: 'clamp',
         extrapolateRight: 'clamp',
       },
     );
 
-    let pulseBoost = interpolate(elapsed, [0, 4, 14], [0.45, 1, 0], {
+    // Single monotonic 0 -> 1 pulse/scroll progression across the burst (pulses once & dissolves)
+    const pulseProgress = interpolate(elapsed, [0, dur], [0, 1], {
+      easing: Easing.out(Easing.cubic),
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     });
-
-    if (spec.secondaryWordIndex !== null) {
-      const secStart = SCRIPT_CUES[spec.secondaryWordIndex].startFrame;
-      if (globalFrame >= secStart) {
-        const secDt = globalFrame - secStart;
-        const secPulse = interpolate(secDt, [0, 3, 14], [0.35, 1, 0], {
-          extrapolateLeft: 'clamp',
-          extrapolateRight: 'clamp',
-        });
-        pulseBoost = Math.max(pulseBoost, secPulse);
-      }
-    }
 
     active.push({
       ...spec,
       elapsedFrames: elapsed,
       progress: clamp(elapsed / Math.max(1, dur), 0, 1),
-      opacity: clamp(flashFade, 0, 1),
-      scale: 0.84 + enterSpring * 0.16 + pulseBoost * 0.04,
-      pulseBoost,
+      opacity: clamp(opacity, 0, 1),
+      scale: 0.94 + enterSpring * 0.06,
+      pulseProgress,
     });
   }
 
   return active;
 };
 
-const NEURAL_NODES: ReadonlyArray<readonly [number, number]> = [
-  // Left cortex hemisphere
-  [370, 560], [305, 635], [275, 745], [315, 860], [395, 920], [465, 815], [455, 670], [375, 735],
-  // Right cortex hemisphere
-  [710, 560], [775, 635], [805, 745], [765, 860], [685, 920], [615, 815], [625, 670], [705, 735],
-  // Corpus callosum bridge
-  [540, 625], [540, 740], [540, 855],
+// Localized 4-layer feed-forward synaptic node lattice inside Hook upper bay (x: 270..810, y: 398..650)
+const SYNAPTIC_NODES: ReadonlyArray<{x: number; y: number; layer: number}> = [
+  {x: 270, y: 432, layer: 0},
+  {x: 270, y: 522, layer: 0},
+  {x: 270, y: 612, layer: 0},
+  {x: 450, y: 398, layer: 1},
+  {x: 450, y: 482, layer: 1},
+  {x: 450, y: 566, layer: 1},
+  {x: 450, y: 650, layer: 1},
+  {x: 630, y: 428, layer: 2},
+  {x: 630, y: 522, layer: 2},
+  {x: 630, y: 616, layer: 2},
+  {x: 810, y: 478, layer: 3},
+  {x: 810, y: 568, layer: 3},
 ];
 
-const NEURAL_EDGES: ReadonlyArray<readonly [number, number]> = [
-  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0],
-  [0, 7], [2, 7], [4, 7], [5, 7], [6, 7],
-  [8, 9], [9, 10], [10, 11], [11, 12], [12, 13], [13, 14], [14, 8],
-  [8, 15], [10, 15], [12, 15], [13, 15], [14, 15],
-  [6, 16], [16, 14], [7, 17], [17, 15], [5, 18], [18, 13], [16, 17], [17, 18],
+const SYNAPTIC_EDGES: ReadonlyArray<readonly [number, number]> = [
+  [0, 3], [0, 4], [1, 4], [1, 5], [2, 5], [2, 6],
+  [3, 7], [4, 7], [4, 8], [5, 8], [5, 9], [6, 9],
+  [7, 10], [8, 10], [8, 11], [9, 11],
 ];
 
-const MATRIX_COLUMNS: ReadonlyArray<{x: number; speed: number; tokens: readonly string[]}> = [
-  {x: 84, speed: 15, tokens: ['AST_01', '0x4F9A', 'PARSE()', 'NODE_7', 'F(t)', '0x91C0', 'TOKEN']},
-  {x: 156, speed: 19, tokens: ['LEX_04', 'TREE=>', '0x1B8E', 'SCHEMA', 'DAG_2', 'CONST', '0x77A1']},
-  {x: 228, speed: 13, tokens: ['PROMPT', 'INFER?', '0x00E4', 'BRANCH', 'LEAF_9', '0x5D3F', 'BIND']},
-  {x: 852, speed: 17, tokens: ['CODE_8', '0xC412', 'GRAPH', 'COMPILE', '0x88F0', 'STRICT', 'TYPE']},
-  {x: 924, speed: 21, tokens: ['0x3A7B', 'SYNTAX', 'FRAME', 'EMIT()', '0xE209', 'LOCK_1', 'HASH']},
-  {x: 996, speed: 14, tokens: ['ROOT_0', '0x6B11', 'VERIFY', 'EDGE_3', 'PURE', '0xF4D2', 'SYNC']},
+const TERMINAL_LINES: ReadonlyArray<{indent: number; cmd: string; status: string}> = [
+  {indent: 0, cmd: '$ parse_tokens --strict --ast', status: '[OK]'},
+  {indent: 1, cmd: 'lex.scan(input_stream) -> 91_cues', status: '0.4ms'},
+  {indent: 1, cmd: 'schema.bind(frame_clock, fps=30)', status: 'LOCKED'},
+  {indent: 2, cmd: 'verify(invariants, zero_drift)', status: 'PASS'},
+  {indent: 1, cmd: 'emit_render_graph(1080x1920)', status: 'READY'},
+  {indent: 0, cmd: '> deterministic_pipeline_engaged', status: 'DONE'},
 ];
 
-const AST_NODES: ReadonlyArray<{x: number; y: number; label: string}> = [
-  {x: 540, y: 760, label: 'PROGRAM_ROOT'},
-  {x: 340, y: 900, label: 'PROMPT_AST'},
-  {x: 740, y: 900, label: 'ENGINE_SCHEMA'},
-  {x: 235, y: 1050, label: 'TOKEN_STREAM'},
-  {x: 445, y: 1050, label: 'TIMING_DAG'},
-  {x: 635, y: 1050, label: 'FRAME_GRAPH'},
-  {x: 845, y: 1050, label: 'INVARIANT_LOCK'},
-];
-
-const AST_EDGES: ReadonlyArray<readonly [number, number]> = [
-  [0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6],
-];
+const getBurstBay = (sceneId: SceneKey, kind: BrollKind): {top: number; height: number} => {
+  if (sceneId === 'hook') {
+    return kind === 'neural' ? {top: 334, height: 356} : {top: 1190, height: 232};
+  }
+  if (sceneId === 'twist') {
+    return {top: 1090, height: 232};
+  }
+  if (sceneId === 'shift') {
+    return {top: 854, height: 240};
+  }
+  if (sceneId === 'mechanism' || sceneId === 'payoff') {
+    return {top: 420, height: 228};
+  }
+  // outro
+  return {top: 1220, height: 232};
+};
 
 /**
- * 2D Holographic Vector B-Roll Layer (rendered strictly inside the background layer,
- * behind foreground wireframes, HUD, and kinetic typography).
+ * Localized, clutter-free 2D semantic B-roll graphics rendered strictly inside the
+ * background layer ONLY when a semantic keyword ('neural' | 'syntax' | 'math') is spoken.
  */
 export const ContextualVectorBroll: React.FC<{
   scene: SceneSpec;
@@ -252,9 +275,11 @@ export const ContextualVectorBroll: React.FC<{
       style={{position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden'}}
     >
       {bursts.map((burst) => {
+        const bay = getBurstBay(scene.id, burst.kind);
+
         if (burst.kind === 'neural') {
-          const waveR = 130 + ((burst.elapsedFrames * 13) % 310);
-          const wave2R = 90 + (((burst.elapsedFrames + 16) * 13) % 310);
+          // Single synaptic wave traveling left -> right across layers 0..3 once, then dissolving
+          const waveLayer = burst.pulseProgress * 3.4;
           return (
             <svg
               key={burst.id}
@@ -267,300 +292,278 @@ export const ContextualVectorBroll: React.FC<{
                 inset: 0,
                 width: '100%',
                 height: '100%',
-                opacity: burst.opacity * 0.82,
+                opacity: burst.opacity * 0.88,
                 transform: `scale(${burst.scale})`,
-                transformOrigin: '540px 740px',
+                transformOrigin: '540px 512px',
               }}
             >
-              {/* Synaptic pulse shockwaves */}
-              <circle
-                cx="540"
-                cy="740"
-                r={waveR}
-                fill="none"
-                stroke={ORANGE}
-                strokeWidth="2.2"
-                strokeOpacity={clamp(1 - waveR / 440, 0.08, 0.72)}
-                strokeDasharray="10 8"
+              <rect
+                x="216"
+                y={bay.top}
+                width="648"
+                height={bay.height}
+                rx="10"
+                fill="rgba(11,15,25,.74)"
+                stroke="rgba(244,247,255,.16)"
+                strokeWidth="1.2"
               />
-              <circle
-                cx="540"
-                cy="740"
-                r={wave2R}
-                fill="none"
-                stroke={WHITE}
-                strokeWidth="1.4"
-                strokeOpacity={clamp(0.75 - wave2R / 440, 0.05, 0.48)}
-              />
-              {/* Dual-hemisphere holographic cortex aura */}
-              <ellipse
-                cx="385"
-                cy="740"
-                rx="155"
-                ry="215"
-                fill="rgba(255,69,0,.045)"
-                stroke={ORANGE}
-                strokeOpacity={0.35 + burst.pulseBoost * 0.35}
-                strokeWidth="1.5"
-                strokeDasharray="6 8"
-              />
-              <ellipse
-                cx="695"
-                cy="740"
-                rx="155"
-                ry="215"
-                fill="rgba(255,69,0,.045)"
-                stroke={ORANGE}
-                strokeOpacity={0.35 + burst.pulseBoost * 0.35}
-                strokeWidth="1.5"
-                strokeDasharray="6 8"
-              />
-              {/* Firing neural edges */}
-              {NEURAL_EDGES.map(([a, b], idx) => {
-                const [x1, y1] = NEURAL_NODES[a];
-                const [x2, y2] = NEURAL_NODES[b];
-                const firing = (burst.elapsedFrames + idx) % 4 === 0;
+              <text
+                x="244"
+                y={bay.top + 30}
+                fill={ORANGE}
+                fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                fontSize="11"
+                letterSpacing="2.4"
+              >
+                SYNAPTIC_LATTICE // SINGLE_PULSE [{burst.triggerText.toUpperCase()}]
+              </text>
+
+              {SYNAPTIC_EDGES.map(([a, b], idx) => {
+                const na = SYNAPTIC_NODES[a];
+                const nb = SYNAPTIC_NODES[b];
+                const edgeMidLayer = (na.layer + nb.layer) * 0.5;
+                const dist = Math.abs(waveLayer - edgeMidLayer);
+                const pulse = clamp(1 - dist / 0.85, 0, 1);
                 return (
                   <line
                     key={idx}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke={firing ? ORANGE : WHITE}
-                    strokeOpacity={firing ? 0.82 : 0.26}
-                    strokeWidth={firing ? 2.6 : 1.2}
+                    x1={na.x}
+                    y1={na.y}
+                    x2={nb.x}
+                    y2={nb.y}
+                    stroke={pulse > 0.35 ? ORANGE : WHITE}
+                    strokeOpacity={0.16 + pulse * 0.74}
+                    strokeWidth={1.2 + pulse * 1.8}
                   />
                 );
               })}
-              {/* Synaptic nodes */}
-              {NEURAL_NODES.map(([cx, cy], idx) => {
-                const hot = (burst.elapsedFrames + idx) % 5 === 0;
+
+              {SYNAPTIC_NODES.map((node, idx) => {
+                const dist = Math.abs(waveLayer - node.layer);
+                const pulse = clamp(1 - dist / 0.75, 0, 1);
                 return (
-                  <g key={idx}>
-                    {hot && (
+                  <g key={idx} transform={`translate(${node.x} ${node.y})`}>
+                    {pulse > 0.2 && (
                       <circle
-                        cx={cx}
-                        cy={cy}
-                        r={15 + burst.pulseBoost * 8}
+                        r={8 + pulse * 13}
                         fill="none"
                         stroke={ORANGE}
-                        strokeOpacity="0.65"
-                        strokeWidth="1.6"
+                        strokeOpacity={pulse * 0.65}
+                        strokeWidth="1.5"
                       />
                     )}
                     <circle
-                      cx={cx}
-                      cy={cy}
-                      r={hot ? 6.5 : 4}
-                      fill={hot ? ORANGE : WHITE}
-                      fillOpacity={hot ? 0.95 : 0.55}
+                      r={4.2 + pulse * 3}
+                      fill={pulse > 0.3 ? ORANGE : WHITE}
+                      fillOpacity={0.42 + pulse * 0.58}
                     />
                   </g>
                 );
               })}
-              <text
-                x="540"
-                y="498"
-                textAnchor="middle"
-                fill={ORANGE}
-                fontFamily="monospace"
-                fontSize="13"
-                letterSpacing="4"
-                opacity="0.85"
-              >
-                HOLO_BROLL // NEURAL_CORTEX_PULSE [{burst.triggerText.toUpperCase()}]
-              </text>
             </svg>
           );
         }
 
         if (burst.kind === 'syntax') {
+          // Clean localized scrolling terminal syntax block / text-parsing matrix
+          const revealedRows = Math.max(2, Math.ceil(burst.pulseProgress * TERMINAL_LINES.length));
+          const scrollOffset =
+            revealedRows > 5
+              ? interpolate(burst.pulseProgress, [0.78, 1], [0, 26], {
+                  extrapolateLeft: 'clamp',
+                  extrapolateRight: 'clamp',
+                })
+              : 0;
+
           return (
-            <svg
+            <div
               key={burst.id}
               data-broll-kind="syntax"
               data-broll-trigger={burst.triggerWordIndex}
-              viewBox="0 0 1080 1920"
-              preserveAspectRatio="none"
               style={{
                 position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                opacity: burst.opacity * 0.76,
-                transform: `scale(${0.92 + (burst.scale - 0.84) * 0.5})`,
-                transformOrigin: '540px 640px',
+                left: 84,
+                right: 84,
+                top: bay.top,
+                height: bay.height,
+                border: '1px solid rgba(244,247,255,.16)',
+                borderLeft: `3px solid ${ORANGE}`,
+                background: 'rgba(8,12,21,.78)',
+                borderRadius: 8,
+                padding: '15px 24px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                opacity: burst.opacity * 0.88,
+                transform: `scale(${burst.scale})`,
               }}
             >
-              {/* Matrix-style terminal cascade columns */}
-              {MATRIX_COLUMNS.map((col, colIdx) => {
-                const baseY = ((burst.elapsedFrames * col.speed + colIdx * 130) % 1380) + 140;
-                return (
-                  <g key={col.x}>
-                    <line
-                      x1={col.x}
-                      y1={140}
-                      x2={col.x}
-                      y2={1660}
-                      stroke={colIdx % 2 === 0 ? ORANGE : WHITE}
-                      strokeOpacity="0.1"
-                      strokeDasharray="3 9"
-                    />
-                    {col.tokens.map((tok, tIdx) => {
-                      const y = 160 + ((baseY + tIdx * 155) % 1460);
-                      const head = tIdx === 0;
-                      return (
-                        <text
-                          key={tok}
-                          x={col.x}
-                          y={y}
-                          textAnchor="middle"
-                          fill={head ? ORANGE : WHITE}
-                          fillOpacity={head ? 0.88 : Math.max(0.14, 0.52 - tIdx * 0.06)}
-                          fontFamily="monospace"
-                          fontSize={head ? '14' : '12'}
-                          fontWeight={head ? '700' : '400'}
-                        >
-                          {tok}
-                        </text>
-                      );
-                    })}
-                  </g>
-                );
-              })}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 10,
+                  borderBottom: '1px solid rgba(244,247,255,.09)',
+                  paddingBottom: 8,
+                  flexShrink: 0,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 11,
+                  letterSpacing: 2,
+                  color: ORANGE,
+                }}
+              >
+                <span>TEXT_PARSER // SYNTAX_MATRIX [{burst.triggerText.toUpperCase()}]</span>
+                <span style={{color: MUTED}}>UTF-8 · AST</span>
+              </div>
 
-              {/* Holographic Syntax Tree (AST) flash */}
-              {AST_EDGES.map(([a, b], idx) => {
-                const na = AST_NODES[a];
-                const nb = AST_NODES[b];
-                const activeBranch = (burst.elapsedFrames + idx) % 3 === 0;
-                return (
-                  <path
-                    key={idx}
-                    d={`M${na.x} ${na.y + 18} V${(na.y + nb.y) / 2} H${nb.x} V${nb.y - 18}`}
-                    fill="none"
-                    stroke={activeBranch ? ORANGE : WHITE}
-                    strokeOpacity={activeBranch ? 0.78 : 0.3}
-                    strokeWidth={activeBranch ? 2.4 : 1.4}
-                  />
-                );
-              })}
-              {AST_NODES.map((node, idx) => {
-                const hot = idx === 0 || (burst.elapsedFrames + idx) % 4 === 0;
-                return (
-                  <g key={node.label} transform={`translate(${node.x} ${node.y})`}>
-                    <rect
-                      x="-78"
-                      y="-18"
-                      width="156"
-                      height="36"
-                      rx="4"
-                      fill="rgba(11,15,25,.78)"
-                      stroke={hot ? ORANGE : WHITE}
-                      strokeOpacity={hot ? 0.85 : 0.32}
-                      strokeWidth="1.5"
-                    />
-                    <text
-                      x="0"
-                      y="5"
-                      textAnchor="middle"
-                      fill={hot ? ORANGE : WHITE}
-                      fontFamily="monospace"
-                      fontSize="11"
-                      letterSpacing="1.4"
-                    >
-                      {node.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+              <div style={{flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative'}}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 9,
+                    paddingTop: 4,
+                    transform: `translateY(${-scrollOffset}px)`,
+                  }}
+                >
+                  {TERMINAL_LINES.slice(0, revealedRows).map((row, idx) => {
+                    const isActiveRow = idx === revealedRows - 1;
+                    return (
+                      <div
+                        key={row.cmd}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          paddingLeft: row.indent * 20,
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                          fontSize: 14,
+                          color: isActiveRow ? WHITE : 'rgba(244,247,255,.58)',
+                        }}
+                      >
+                        <span>{row.cmd}</span>
+                        <span style={{color: isActiveRow ? ORANGE : MUTED}}>{row.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           );
         }
 
-        // 'orbital' -> Rotating orbital server nodes & concentric data rings
-        const deg = burst.elapsedFrames * 3.6;
+        // 'math' -> Clean mathematical curve graph or linear keyframe grid ("Physics / Timing / Easing")
+        const sub = burst.mathSubkind ?? 'easing';
+        const drawDashOffset = (1 - burst.pulseProgress) * 680;
+
         return (
           <svg
             key={burst.id}
-            data-broll-kind="orbital"
-            data-broll-trigger={burst.triggerWordIndex}
-            viewBox="0 0 1080 1920"
+            data-broll-kind="math"
+            data-broll-subkind={sub}
+            viewBox="0 0 912 240"
             preserveAspectRatio="none"
             style={{
               position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              opacity: burst.opacity * 0.82,
+              left: 84,
+              width: 912,
+              top: bay.top,
+              height: bay.height,
+              opacity: burst.opacity * 0.88,
               transform: `scale(${burst.scale})`,
-              transformOrigin: '540px 920px',
             }}
           >
-            <g transform={`translate(540 920) rotate(${deg})`}>
-              <circle
-                r="430"
-                fill="none"
-                stroke={ORANGE}
-                strokeOpacity="0.42"
-                strokeWidth="2"
-                strokeDasharray="22 14 6 14"
-              />
-              <circle
-                r="325"
-                fill="none"
-                stroke={WHITE}
-                strokeOpacity="0.24"
-                strokeWidth="1.4"
-                strokeDasharray="6 10"
-              />
-            </g>
-            <g transform={`translate(540 920) rotate(${-deg * 1.35})`}>
-              <ellipse
-                rx="455"
-                ry="190"
-                fill="none"
-                stroke={ORANGE}
-                strokeOpacity="0.5"
-                strokeWidth="1.8"
-              />
-              {[0, 1, 2, 3, 4, 5].map((srv) => {
-                const a = (srv / 6) * Math.PI * 2;
-                const sx = Math.cos(a) * 455;
-                const sy = Math.sin(a) * 190;
-                const hot = srv % 2 === 0;
-                return (
-                  <g key={srv} transform={`translate(${sx} ${sy}) rotate(${deg * 1.35})`}>
-                    <rect
-                      x="-26"
-                      y="-18"
-                      width="52"
-                      height="36"
-                      rx="4"
-                      fill="rgba(11,15,25,.86)"
-                      stroke={hot ? ORANGE : WHITE}
-                      strokeWidth="1.8"
-                    />
-                    <line x1="-16" y1="-6" x2="16" y2="-6" stroke={ORANGE} strokeWidth="2" />
-                    <line x1="-16" y1="4" x2="10" y2="4" stroke={WHITE} strokeOpacity="0.65" strokeWidth="1.6" />
-                    <circle cx="15" cy="4" r="2.5" fill={ORANGE} />
-                  </g>
-                );
-              })}
-            </g>
+            <rect
+              x="0"
+              y="0"
+              width="912"
+              height="240"
+              rx="8"
+              fill="rgba(8,12,21,.76)"
+              stroke="rgba(244,247,255,.16)"
+              strokeWidth="1.2"
+            />
+            {/* Orthogonal coordinate axes */}
+            <line x1="56" y1="42" x2="56" y2="206" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
+            <line x1="56" y1="206" x2="860" y2="206" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
+            <line x1="56" y1="124" x2="860" y2="124" stroke={WHITE} strokeOpacity="0.1" strokeDasharray="4 6" />
+
             <text
-              x="540"
-              y="445"
-              textAnchor="middle"
+              x="72"
+              y="28"
               fill={ORANGE}
-              fontFamily="monospace"
-              fontSize="13"
-              letterSpacing="4"
-              opacity="0.86"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+              fontSize="11"
+              letterSpacing="2.2"
             >
-              HOLO_BROLL // ORBITAL_ENGINE_NODES [{burst.triggerText.toUpperCase()}]
+              {sub === 'timing'
+                ? 'LINEAR_KEYFRAME_GRID // QUANTIZED_30FPS'
+                : sub === 'physics'
+                  ? 'HARMONIC_SPRING_CURVE // x(t) = 1 - exp(-zeta*w*t)cos(wd*t)'
+                  : 'CUBIC_BEZIER_CURVE // EASE_IN_OUT_CUBIC'}
             </text>
+
+            {sub === 'timing' && (
+              <g>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((kf) => {
+                  const x = 88 + kf * 62;
+                  const lit = kf / 12 <= burst.pulseProgress;
+                  return (
+                    <g key={kf}>
+                      <line
+                        x1={x}
+                        y1={kf % 3 === 0 ? 64 : 94}
+                        x2={x}
+                        y2={206}
+                        stroke={lit ? ORANGE : WHITE}
+                        strokeOpacity={lit ? 0.88 : 0.22}
+                        strokeWidth={kf % 3 === 0 ? 2.2 : 1.2}
+                      />
+                      {kf % 3 === 0 && (
+                        <rect
+                          x={x - 5}
+                          y={56}
+                          width="10"
+                          height="10"
+                          transform={`rotate(45 ${x} 61)`}
+                          fill={lit ? ORANGE : 'none'}
+                          stroke={lit ? ORANGE : WHITE}
+                          strokeOpacity="0.78"
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            )}
+
+            {sub === 'physics' && (
+              <path
+                d="M56 196 C134 44, 210 176, 294 92 C372 140, 456 110, 550 126 C648 120, 748 124, 856 124"
+                fill="none"
+                stroke={ORANGE}
+                strokeWidth="3.2"
+                strokeDasharray="680"
+                strokeDashoffset={drawDashOffset}
+              />
+            )}
+
+            {sub === 'easing' && (
+              <g>
+                <line x1="56" y1="198" x2="380" y2="198" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+                <line x1="536" y1="54" x2="856" y2="54" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+                <circle cx="380" cy="198" r="4.5" fill={WHITE} fillOpacity="0.68" />
+                <circle cx="536" cy="54" r="4.5" fill={WHITE} fillOpacity="0.68" />
+                <path
+                  d="M56 198 C380 198, 536 54, 856 54"
+                  fill="none"
+                  stroke={ORANGE}
+                  strokeWidth="3.2"
+                  strokeDasharray="680"
+                  strokeDashoffset={drawDashOffset}
+                />
+              </g>
+            )}
           </svg>
         );
       })}
@@ -569,8 +572,9 @@ export const ContextualVectorBroll: React.FC<{
 };
 
 /**
- * 3D WebGL Wireframe B-Roll Sub-Components (mounted strictly inside <SceneThreeCanvas>,
- * completely separated from 2D titles, captions, and HUD).
+ * Localized, semantic-only 3D WebGL depth backplane inside <SceneThreeCanvas>.
+ * Registered directly behind each active semantic card bay — zero duplicate ghost dots,
+ * zero orbital rings, zero continuous unscripted geometric loops.
  */
 export const ContextualThreeBroll: React.FC<{
   scene: SceneSpec;
@@ -582,85 +586,23 @@ export const ContextualThreeBroll: React.FC<{
   return (
     <group>
       {bursts.map((burst) => {
+        const bay = getBurstBay(scene.id, burst.kind);
+        const bayCenterY = bay.top + bay.height * 0.5;
+        const worldY = ((960 - bayCenterY) / 960) * 5.25;
+        const planeW = burst.kind === 'neural' ? 3.55 : 4.95;
+        const planeH = (bay.height / 1920) * 10.5;
         const s = burst.scale;
-        if (burst.kind === 'neural') {
-          const pulse = 1 + burst.pulseBoost * 0.14;
-          const spin = burst.elapsedFrames * 0.032;
-          return (
-            <group key={burst.id} position={[0, 0.85, -0.8]} scale={[s * pulse, s * pulse, s * pulse]}>
-              <mesh position={[-0.78, 0, 0]} rotation={[spin * 0.6, spin, 0]}>
-                <icosahedronGeometry args={[1.05, 1]} />
-                <meshBasicMaterial color={ORANGE} wireframe transparent opacity={burst.opacity * 0.52} />
-              </mesh>
-              <mesh position={[0.78, 0, 0]} rotation={[-spin * 0.6, -spin, 0]}>
-                <icosahedronGeometry args={[1.05, 1]} />
-                <meshBasicMaterial color={ORANGE} wireframe transparent opacity={burst.opacity * 0.52} />
-              </mesh>
-              <mesh rotation={[Math.PI / 2, 0, spin * 1.5]}>
-                <torusGeometry args={[2.15, 0.016, 8, 72]} />
-                <meshBasicMaterial color={WHITE} transparent opacity={burst.opacity * 0.36} />
-              </mesh>
-            </group>
-          );
-        }
 
-        if (burst.kind === 'syntax') {
-          const drop = (burst.elapsedFrames * 0.09) % 1.6;
-          return (
-            <group key={burst.id} position={[0, 0.3, -1.1]} scale={[s, s, s]}>
-              {[-2.1, -1.05, 1.05, 2.1].map((x, idx) => (
-                <mesh
-                  key={idx}
-                  position={[x, 1.2 - drop + (idx % 2) * 0.45, -0.3 * idx]}
-                  rotation={[0.12, burst.elapsedFrames * 0.02, 0]}
-                >
-                  <boxGeometry args={[0.58, 2.3, 0.24]} />
-                  <meshBasicMaterial
-                    color={idx % 2 === 0 ? ORANGE : WHITE}
-                    wireframe
-                    transparent
-                    opacity={burst.opacity * 0.4}
-                  />
-                </mesh>
-              ))}
-            </group>
-          );
-        }
-
-        // 'orbital' -> Rotating 3D orbital server nodes & gyroscopic data rings
-        const orbit = burst.elapsedFrames * 0.055;
         return (
-          <group key={burst.id} position={[0, 0.1, -0.7]} scale={[s, s, s]}>
-            <mesh rotation={[0.92, orbit, 0.28]}>
-              <torusGeometry args={[2.95, 0.02, 10, 96]} />
-              <meshBasicMaterial color={ORANGE} transparent opacity={burst.opacity * 0.58} />
+          <group key={burst.id} position={[0, worldY, -1.25]} scale={[s, s, s]}>
+            <mesh>
+              <planeGeometry args={[planeW, planeH]} />
+              <meshBasicMaterial
+                color={ORANGE}
+                transparent
+                opacity={burst.opacity * 0.055}
+              />
             </mesh>
-            <mesh rotation={[-0.78, -orbit * 1.25, -0.22]}>
-              <torusGeometry args={[2.35, 0.014, 10, 84]} />
-              <meshBasicMaterial color={WHITE} transparent opacity={burst.opacity * 0.42} />
-            </mesh>
-            {[0, 1, 2, 3, 4, 5].map((nodeIdx) => {
-              const angle = (nodeIdx / 6) * Math.PI * 2 + orbit * 1.4;
-              return (
-                <mesh
-                  key={nodeIdx}
-                  position={[
-                    Math.cos(angle) * 2.95,
-                    Math.sin(angle) * 1.15,
-                    Math.sin(angle) * 1.65,
-                  ]}
-                  rotation={[orbit, angle, 0]}
-                >
-                  <boxGeometry args={[0.28, 0.28, 0.28]} />
-                  <meshBasicMaterial
-                    color={nodeIdx % 2 === 0 ? ORANGE : WHITE}
-                    wireframe
-                    transparent
-                    opacity={burst.opacity * 0.85}
-                  />
-                </mesh>
-              );
-            })}
           </group>
         );
       })}
