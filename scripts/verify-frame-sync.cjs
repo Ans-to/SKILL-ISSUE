@@ -31,6 +31,7 @@ const {
   TelemetryHud,
   AtmosphericOverlays,
   HUD_TRANSITION_FRAMES,
+  SCENE_HUD_PROFILES,
   getHudEnvelope,
   getHudLifecycle,
 } = require('../src/TelemetryHud.tsx');
@@ -38,6 +39,7 @@ const {
   KineticEngine,
   SceneSemanticGraph,
   SCENE_HERO_PHRASES,
+  ALL_HERO_PHRASES,
   SCENE_TYPEWRITER_WINDOWS,
   TYPEWRITER_ENTER_FRAMES,
   getTypewriterWindowEnvelope,
@@ -47,6 +49,9 @@ const {
 } = require('../src/KineticEngine.tsx');
 const {
   STAGGERED_SPRING_CONFIG,
+  HOOK_POP_SPRINGS,
+  TERMINAL_SLIDE_CONFIGS,
+  TELEMETRY_FLICKER_TABLES,
   StaggeredTextItem,
   computeStaggeredTextMotion,
 } = require('../src/StaggeredTextItem.tsx');
@@ -61,6 +66,8 @@ const {
 const {
   ASSET_TRANSITION_FRAMES,
   CLAUSE_HANDOFF_OVERLAP_FRAMES,
+  CLAUSE_MOTION_SIGNATURES,
+  ALL_UI_CLAUSES,
   SCENE_UI_CLAUSES,
   computeAssetTransition,
   classifyUiSimulationKeyword,
@@ -284,14 +291,14 @@ assert.ok(
 assert.ok(CLAUSE_HANDOFF_OVERLAP_FRAMES >= 2, 'Intra-scene UI clauses must smoothly cross-handoff');
 
 const sampleTotal = 60;
-const envStart = computeAssetTransition(0, sampleTotal);
-const envMidEnter = computeAssetTransition(6, sampleTotal);
-const envSettled = computeAssetTransition(ASSET_TRANSITION_FRAMES + 4, sampleTotal);
-const envMidExit = computeAssetTransition(sampleTotal - 6, sampleTotal);
-const envEnd = computeAssetTransition(sampleTotal, sampleTotal);
+const envStart = computeAssetTransition(0, sampleTotal, {mode: 'heavy-spring-pop'});
+const envMidEnter = computeAssetTransition(6, sampleTotal, {mode: 'heavy-spring-pop'});
+const envSettled = computeAssetTransition(ASSET_TRANSITION_FRAMES + 4, sampleTotal, {mode: 'heavy-spring-pop'});
+const envMidExit = computeAssetTransition(sampleTotal - 6, sampleTotal, {mode: 'heavy-spring-pop'});
+const envEnd = computeAssetTransition(sampleTotal, sampleTotal, {mode: 'heavy-spring-pop'});
 assert.equal(envStart.opacity, 0, 'Asset entrance must start at opacity 0');
 assert.equal(envStart.scale, 0.95, 'Asset entrance must start at scale 0.95');
-assert.ok(Math.abs(envStart.translateY) >= 18, 'Asset entrance must slide in via translateY');
+assert.ok(Math.abs(envStart.translateY) >= 18, 'Heavy-pop asset entrance must offset translateY');
 assert.ok(envMidEnter.opacity > 0.3 && envMidEnter.opacity < 0.95, 'Asset entrance must smoothly interpolate opacity');
 assert.ok(envMidEnter.scale > 0.96 && envMidEnter.scale <= 1.0, 'Asset entrance must smoothly spring scale 0.95 -> 1.0');
 assert.equal(envSettled.opacity, 1, 'Settled asset must reach opacity 1.0');
@@ -299,23 +306,33 @@ assert.equal(envSettled.scale, 1, 'Settled asset must reach scale 1.0');
 assert.equal(envSettled.translateY, 0, 'Settled asset must settle at translateY 0');
 assert.ok(envMidExit.opacity > 0.1 && envMidExit.opacity < 0.9, 'Asset exit must reverse-ease opacity smoothly');
 assert.ok(envMidExit.scale > 0.95 && envMidExit.scale < 1.0, 'Asset exit must reverse-ease scale 1.0 -> 0.95');
-assert.ok(Math.abs(envMidExit.translateY) > 1, 'Asset exit must slide out via translateY');
+assert.ok(Math.abs(envMidExit.translateY) > 1, 'Asset exit must slide out smoothly');
 assert.equal(envEnd.opacity, 0, 'Asset exit must complete at opacity 0');
 assert.equal(envEnd.scale, 0.95, 'Asset exit must complete at scale 0.95');
 
-// Verify frame-by-frame continuity (no binary opacity step > 0.30) across every UI clause, HUD, and Typewriter window
+const envHorizStart = computeAssetTransition(0, sampleTotal, {mode: 'horizontal-terminal-slide', slideX: -54});
+const envHorizSettled = computeAssetTransition(ASSET_TRANSITION_FRAMES + 4, sampleTotal, {mode: 'horizontal-terminal-slide', slideX: -54});
+assert.equal(envHorizStart.translateX, -54, 'Horizontal-terminal-slide asset must start offset along X');
+assert.equal(envHorizSettled.translateX, 0, 'Horizontal-terminal-slide asset must settle at translateX 0');
+
+const envFlick2 = computeAssetTransition(2, sampleTotal, {mode: 'digital-flicker-fade'});
+const envFlick1 = computeAssetTransition(1, sampleTotal, {mode: 'digital-flicker-fade'});
+assert.ok(envFlick2.opacity < envFlick1.opacity, 'Digital-flicker-fade asset must step through digital shutter onset');
+
+// Verify frame-by-frame continuity across every UI clause, HUD, and Typewriter window
 for (const scene of SCENE_SEQUENCES) {
   const activeFrames = getSceneActiveAudioFrames(scene);
   // HUD continuity check
   let prevHudOp = 0;
   for (let lf = 0; lf <= activeFrames; lf += 1) {
     const hudEnv = getHudEnvelope(scene, lf);
+    const maxStep = hudEnv.mode === 'digital-flicker' ? 0.35 : 0.3;
     assert.ok(
-      Math.abs(hudEnv.opacity - prevHudOp) <= 0.3,
+      Math.abs(hudEnv.opacity - prevHudOp) <= maxStep,
       `Binary HUD opacity jump detected in ${scene.id} at localFrame=${lf} (${prevHudOp} -> ${hudEnv.opacity})`,
     );
     if (lf === 0) {
-      assert.equal(hudEnv.scale, 0.95, `HUD in ${scene.id} must start at scale 0.95`);
+      assert.ok(hudEnv.scale < 1.0 && hudEnv.scale >= 0.85, `HUD in ${scene.id} must start compressed (< 1.0)`);
     }
     prevHudOp = hudEnv.opacity;
   }
@@ -391,8 +408,16 @@ for (const sceneFile of [
   );
 }
 
-// Verify StaggeredTextItem ({ damping: 12, stiffness: 200 }, translateY: 20 -> 0, opacity: 0 -> 1)
-// across BOTH multi-word Hero Phrases and UI Simulation cards / Clause Strip across all 6 scenes!
+// ============================================================================
+// SYSTEM ARCHITECTURE RULE 1: MANDATORY TYPOGRAPHIC & MOTION VARIETY
+// 1. Prohibit repeating entrance animations, transitions, or spring physics
+//    across consecutive scenes, consecutive hero phrases, consecutive UI clauses,
+//    or consecutive text elements.
+// 2. Dynamically vary motion profiles:
+//    - Hooks/Errors     -> heavy, high-velocity spring pops ('hook-pop' / 'hook-climax')
+//    - Code/Prompts     -> smooth horizontal terminal slides ('terminal-slide' / 'code-typewriter')
+//    - Telemetry/Data   -> sharp digital flicker-fades ('telemetry-flicker' / 'metric-glitch')
+// ============================================================================
 const staggeredSrc = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'StaggeredTextItem.tsx'),
   'utf8',
@@ -401,34 +426,128 @@ assert.ok(
   staggeredSrc.includes('useCurrentFrame') && staggeredSrc.includes('useVideoConfig'),
   'StaggeredTextItem must use Remotion useCurrentFrame() and useVideoConfig()',
 );
-assert.equal(STAGGERED_SPRING_CONFIG.damping, 12, 'StaggeredTextItem damping must be 12');
-assert.equal(STAGGERED_SPRING_CONFIG.stiffness, 200, 'StaggeredTextItem stiffness must be 200');
+assert.ok(HOOK_POP_SPRINGS.length >= 4, 'HOOK_POP_SPRINGS must provide varied high-velocity springs');
+assert.ok(TERMINAL_SLIDE_CONFIGS.length >= 4, 'TERMINAL_SLIDE_CONFIGS must provide varied horizontal slides');
+assert.ok(TELEMETRY_FLICKER_TABLES.length >= 4, 'TELEMETRY_FLICKER_TABLES must provide varied digital flickers');
 
-const stPre = computeStaggeredTextMotion(5, 10, 30);
-const stMid = computeStaggeredTextMotion(13, 10, 30);
-const stSettled = computeStaggeredTextMotion(55, 10, 30);
-assert.equal(stPre.opacity, 0, 'StaggeredTextItem before delay must have opacity 0');
-assert.equal(stPre.translateY, 20, 'StaggeredTextItem before delay must start at translateY 20px');
-assert.ok(stMid.opacity > 0.4 && stMid.translateY < 15, 'StaggeredTextItem must spring upward after delay');
-assert.ok(Math.abs(stSettled.opacity - 1) < 0.01, 'StaggeredTextItem must settle at opacity 1');
-assert.ok(Math.abs(stSettled.translateY) < 0.05, 'StaggeredTextItem must settle at translateY 0px');
+// A) Verify 'hook-pop' heavy high-velocity spring pop
+const popPre = computeStaggeredTextMotion(5, 10, 30, 'hook-pop', 0);
+const popOnset = computeStaggeredTextMotion(10, 10, 30, 'hook-pop', 0);
+const popOvershoot = computeStaggeredTextMotion(14, 10, 30, 'hook-pop', 0);
+const popSettled = computeStaggeredTextMotion(55, 10, 30, 'hook-pop', 0);
+assert.equal(popPre.opacity, 0, 'hook-pop before delay must have opacity 0');
+assert.ok(popOnset.scale < 0.85, 'hook-pop at delay must start compressed for heavy pop');
+assert.ok(popOvershoot.scale > 1.01, 'hook-pop must exhibit high-velocity spring overshoot');
+assert.ok(Math.abs(popSettled.opacity - 1) < 0.01 && Math.abs(popSettled.scale - 1) < 0.01);
+assert.notEqual(
+  computeStaggeredTextMotion(12, 10, 30, 'hook-pop', 0).signature,
+  computeStaggeredTextMotion(12, 10, 30, 'hook-pop', 1).signature,
+  'Consecutive hook-pop items must never share identical spring physics',
+);
+
+// B) Verify 'terminal-slide' smooth horizontal terminal slide
+const slidePre = computeStaggeredTextMotion(5, 10, 30, 'terminal-slide', 0);
+const slideMid = computeStaggeredTextMotion(13, 10, 30, 'terminal-slide', 0);
+const slideSettled = computeStaggeredTextMotion(55, 10, 30, 'terminal-slide', 0);
+assert.equal(slidePre.opacity, 0, 'terminal-slide before delay must have opacity 0');
+assert.ok(slidePre.translateX <= -48 && slidePre.translateY === 0, 'terminal-slide must slide strictly horizontally');
+assert.ok(slideMid.translateX > slidePre.translateX && slideMid.translateX < 0, 'terminal-slide must glide smoothly along X');
+assert.ok(Math.abs(slideSettled.opacity - 1) < 0.01 && Math.abs(slideSettled.translateX) < 0.05);
+assert.notEqual(
+  computeStaggeredTextMotion(12, 10, 30, 'terminal-slide', 0).signature,
+  computeStaggeredTextMotion(12, 10, 30, 'terminal-slide', 1).signature,
+  'Consecutive terminal-slide items must never share identical slide physics',
+);
+
+// C) Verify 'telemetry-flicker' sharp digital flicker-fade
+const flickPre = computeStaggeredTextMotion(5, 10, 30, 'telemetry-flicker', 0);
+const flickF1 = computeStaggeredTextMotion(11, 10, 30, 'telemetry-flicker', 0);
+const flickF2 = computeStaggeredTextMotion(12, 10, 30, 'telemetry-flicker', 0);
+const flickF3 = computeStaggeredTextMotion(13, 10, 30, 'telemetry-flicker', 0);
+const flickSettled = computeStaggeredTextMotion(30, 10, 30, 'telemetry-flicker', 0);
+assert.equal(flickPre.opacity, 0, 'telemetry-flicker before delay must have opacity 0');
+assert.ok(
+  flickF2.opacity < flickF1.opacity && flickF3.opacity > flickF2.opacity,
+  'telemetry-flicker must exhibit sharp digital shutter flicker on onset',
+);
+assert.equal(flickSettled.opacity, 1, 'telemetry-flicker must lock cleanly at opacity 1');
+assert.notEqual(
+  computeStaggeredTextMotion(12, 10, 30, 'telemetry-flicker', 0).signature,
+  computeStaggeredTextMotion(12, 10, 30, 'telemetry-flicker', 1).signature,
+  'Consecutive telemetry-flicker items must never share identical flicker tables',
+);
 
 const sampleStaggerMarkup = renderToStaticMarkup(
-  React.createElement(StaggeredTextItem, {text: 'ENGINE', delay: 10, frameOverride: 10}),
+  React.createElement(StaggeredTextItem, {
+    text: 'ENGINE',
+    delay: 10,
+    profile: 'terminal-slide',
+    frameOverride: 10,
+  }),
 );
 assert.ok(sampleStaggerMarkup.includes('display:inline-block'), 'StaggeredTextItem must be inline-block');
-assert.ok(sampleStaggerMarkup.includes('translateY(20px)'), 'StaggeredTextItem must start at translateY(20px)');
+assert.ok(sampleStaggerMarkup.includes('data-staggered-profile="terminal-slide"'));
+
+// D) Verify consecutive scenes NEVER repeat HUD transition mode or spring physics
+for (let sIdx = 1; sIdx < SCENE_SEQUENCES.length; sIdx += 1) {
+  const prevHud = SCENE_HUD_PROFILES[SCENE_SEQUENCES[sIdx - 1].id];
+  const currHud = SCENE_HUD_PROFILES[SCENE_SEQUENCES[sIdx].id];
+  assert.notEqual(
+    prevHud.mode,
+    currHud.mode,
+    `Consecutive scenes ${SCENE_SEQUENCES[sIdx - 1].id} -> ${SCENE_SEQUENCES[sIdx].id} must not share HUD mode`,
+  );
+  assert.ok(
+    prevHud.damping !== currHud.damping || prevHud.stiffness !== currHud.stiffness,
+    `Consecutive scenes ${SCENE_SEQUENCES[sIdx - 1].id} -> ${SCENE_SEQUENCES[sIdx].id} must not share HUD spring physics`,
+  );
+}
+
+// E) Verify ALL 29 Hero Phrases NEVER repeat schema OR springSignature consecutively (even across scene cuts!)
+assert.ok(ALL_HERO_PHRASES.length >= 25, 'Expected fine-grained varied hero phrases across all 6 scenes');
+for (let pIdx = 1; pIdx < ALL_HERO_PHRASES.length; pIdx += 1) {
+  const prevPh = ALL_HERO_PHRASES[pIdx - 1];
+  const currPh = ALL_HERO_PHRASES[pIdx];
+  assert.notEqual(
+    prevPh.schema,
+    currPh.schema,
+    `Consecutive hero phrases ${prevPh.id} -> ${currPh.id} must NOT repeat entrance schema (${currPh.schema})`,
+  );
+  assert.notEqual(
+    prevPh.springSignature,
+    currPh.springSignature,
+    `Consecutive hero phrases ${prevPh.id} -> ${currPh.id} must NOT repeat spring physics (${currPh.springSignature})`,
+  );
+}
+
+// F) Verify ALL 16 UI Clauses NEVER repeat transitionMode OR spring physics consecutively (even across scene cuts!)
+assert.equal(ALL_UI_CLAUSES.length, 16, 'Expected all 16 narrative UI clauses');
+for (let cIdx = 1; cIdx < ALL_UI_CLAUSES.length; cIdx += 1) {
+  const prevCl = ALL_UI_CLAUSES[cIdx - 1];
+  const currCl = ALL_UI_CLAUSES[cIdx];
+  const prevSig = CLAUSE_MOTION_SIGNATURES[prevCl.variant];
+  const currSig = CLAUSE_MOTION_SIGNATURES[currCl.variant];
+  assert.notEqual(
+    prevSig.mode,
+    currSig.mode,
+    `Consecutive UI clauses ${prevCl.id} -> ${currCl.id} must NOT repeat transition mode (${currSig.mode})`,
+  );
+  assert.ok(
+    prevSig.damping !== currSig.damping || prevSig.stiffness !== currSig.stiffness,
+    `Consecutive UI clauses ${prevCl.id} -> ${currCl.id} must NOT repeat spring physics`,
+  );
+}
 
 let heroPhraseWordTotal = 0;
 for (const scene of SCENE_SEQUENCES) {
   const phrases = SCENE_HERO_PHRASES[scene.id];
-  assert.ok(phrases.length >= 3, `Scene ${scene.id} must define multi-phrase staggered hero progression`);
+  assert.ok(phrases.length >= 2, `Scene ${scene.id} must define multiple non-repeating hero phrases`);
   for (const ph of phrases) {
     for (let wi = ph.firstWordIndex; wi <= ph.lastWordIndex; wi += 1) {
       assert.equal(
         resolveCueTypographicSchema(SCRIPT_CUES[wi], scene.id),
         ph.schema,
-        `Hero phrase ${ph.id} must maintain homogeneous schema ${ph.schema}`,
+        `Hero phrase ${ph.id} must resolve cue #${wi} to schema ${ph.schema}`,
       );
       heroPhraseWordTotal += 1;
     }
@@ -449,12 +568,20 @@ for (const scene of SCENE_SEQUENCES) {
         itemMatches.length >= phraseCues.length,
         `Multi-word hero phrase ${ph.id} must render each spoken word via StaggeredTextItem`,
       );
+      const sigMatches = [...phraseHtml.matchAll(/data-staggered-sig="([^"]+)"/g)].map((m) => m[1]);
+      for (let k = 1; k < sigMatches.length; k += 1) {
+        assert.notEqual(
+          sigMatches[k - 1],
+          sigMatches[k],
+          `Consecutive words in hero phrase ${ph.id} must NOT share identical spring/curve signature`,
+        );
+      }
     }
   }
   const midUiHtml = renderToStaticMarkup(
     React.createElement(ContextualUiSimulationLayer, {
       scene,
-      localFrame: Math.min(scene.durationInFrames - 10, 30),
+      localFrame: Math.min(scene.durationInFrames - 15, 45),
     }),
   );
   const uiStaggerMatches = midUiHtml.match(/data-staggered-item="true"/g) || [];
@@ -462,17 +589,50 @@ for (const scene of SCENE_SEQUENCES) {
     uiStaggerMatches.length >= 6,
     `UI simulation & clause strip in ${scene.id} must animate items via StaggeredTextItem`,
   );
+  // Upper vs lower focal cards in the same clause must never share the same transition mode
+  const simState = getActiveUiSimulation(scene, Math.min(scene.durationInFrames - 15, 45));
+  assert.notEqual(
+    simState.upperEnvelope.mode,
+    simState.lowerEnvelope.mode,
+    `Upper and lower UI cards in ${scene.id} must use distinct transition modes`,
+  );
+  // Verify consecutive spoken words in Clause Strip never share the same entrance profile
+  const lateClauseHtml = renderToStaticMarkup(
+    React.createElement(ContextualUiSimulationLayer, {
+      scene,
+      localFrame: Math.max(20, scene.durationInFrames - scene.clearFrames - 20),
+    }),
+  );
+  const clauseWordProfiles = [
+    ...lateClauseHtml.matchAll(
+      /data-staggered-profile="([^"]+)"[^>]*data-clause-word-index="(\d+)"/g,
+    ),
+  ];
+  for (let cw = 1; cw < clauseWordProfiles.length; cw += 1) {
+    assert.notEqual(
+      clauseWordProfiles[cw - 1][1],
+      clauseWordProfiles[cw][1],
+      `Consecutive Clause Strip words in ${scene.id} must NOT share identical motion profile`,
+    );
+  }
 }
 assert.equal(heroPhraseWordTotal, SCRIPT_CUES.length, 'SCENE_HERO_PHRASES must partition all 91 script cues');
 
-// Verify specific narrative UI components at key script moments:
-// A) "Prompt harder?" (F0376) & "pretty prompt." (F0616) & "Same inputs." (F0942) -> AI CLI input box + blinking cursor + tokenization
-for (const promptFrame of [376, 384, 618, 942, 1076]) {
+// ============================================================================
+// SYSTEM ARCHITECTURE RULE 2: ACTIVE CONTEXTUAL UI SIMULATION
+// Verify interactive AI chat window, live code-input box, and real-time
+// compiler/engine execution terminal across all action verbs:
+// ============================================================================
+// A) Typing a prompt / feeding intent ("paste a template", "Prompt harder?", "pretty prompt.", "Same inputs.", "feed intent")
+for (const promptFrame of [140, 376, 384, 618, 942, 1076]) {
   const sc = sceneForFrame(promptFrame);
   const html = renderToStaticMarkup(
     React.createElement(ContextualUiSimulationLayer, {scene: sc, localFrame: promptFrame - sc.from}),
   );
   assert.ok(html.includes('data-ui-sim-kind="prompt-cli"'), `Expected prompt-cli UI at F${promptFrame}`);
+  assert.ok(html.includes('data-interactive-chat-window="true"'), `Expected interactive AI chat window at F${promptFrame}`);
+  assert.ok(html.includes('data-live-code-input="true"'), `Expected live code-input buffer at F${promptFrame}`);
+  assert.ok(html.includes('data-chat-send-btn="true"'), `Expected interactive chat SEND button at F${promptFrame}`);
   assert.ok(html.includes('data-blinking-cursor="true"'), `Expected blinking cursor in prompt-cli at F${promptFrame}`);
   assert.ok(html.includes('SYNTAX_TOKENIZATION_STREAM'), `Expected syntax tokenization at F${promptFrame}`);
   assert.ok(html.includes('data-ui-slot="upper-focal"') && html.includes('data-ui-slot="lower-third"'));
@@ -483,13 +643,15 @@ const blinkA = getActiveUiSimulation(shiftScene, 375 - shiftScene.from).cursorVi
 const blinkB = getActiveUiSimulation(shiftScene, 386 - shiftScene.from).cursorVisible;
 assert.notEqual(blinkA, blinkB, 'AI CLI cursor must actively blink across frames');
 
-// B) "Engine-first" (F0656), "It compiles the prompt to code, code to frames, frames to MP4." (F1135..F1270), "Build the engine—" (F1484)
+// B) Compiling code / running an engine ("Engine-first", "It compiles the prompt to code, code to frames, frames to MP4.", "Build the engine—")
 for (const engineFrame of [656, 1140, 1175, 1215, 1262, 1484]) {
   const sc = sceneForFrame(engineFrame);
   const html = renderToStaticMarkup(
     React.createElement(ContextualVectorBroll, {scene: sc, localFrame: engineFrame - sc.from}),
   );
   assert.ok(html.includes('data-ui-sim-kind="engine-pipeline"'), `Expected engine-pipeline UI at F${engineFrame}`);
+  assert.ok(html.includes('data-live-code-compiler="true"'), `Expected live code-compiler at F${engineFrame}`);
+  assert.ok(html.includes('data-active-engine-terminal="true"'), `Expected active engine terminal at F${engineFrame}`);
   assert.ok(html.includes('data-ui-lower-kind="execution-terminal"'), `Expected execution terminal at F${engineFrame}`);
 }
 // Verify blocks connect progressively in Payoff compiler pipeline ("prompt" -> "code," -> "frames," -> "MP4.")
@@ -594,13 +756,16 @@ for (const scene of SCENE_SEQUENCES) {
         `Typewriter cue #${idx} ("${cue.text}") must complete 100% of characters before cue end`,
       );
       assert.equal(kinEnd.visibleText, cue.text);
+      assert.equal(kinStart.terminalSlideX, -76, `Code/Prompt cue #${idx} must smoothly slide horizontally from -76px`);
       assert.ok(startMarkup.includes('ui-monospace'), 'Typewriter schema must use monospaced font');
+      assert.ok(startMarkup.includes('data-motion-family="horizontal-terminal-slide"'), 'Code/Prompt schema must use horizontal-terminal-slide');
       assert.ok(startMarkup.includes('data-typewriter-cursor='), 'Typewriter schema must render blinking `_` cursor');
       assert.ok(startMarkup.includes('>_</span>'), 'Typewriter schema must render literal `_` cursor glyph');
     } else if (schema === 'metric-glitch') {
-      assert.equal(Math.abs(kinStart.slideTranslateX), 96, `Metric/Glitch cue #${idx} must horizontal-slide from ±96px`);
+      assert.equal(Math.abs(kinStart.slideTranslateX), 96, `Metric/Glitch cue #${idx} must snap from ±96px digital offset`);
       assert.ok(kinStart.chromaticOffsetPx > 10, `Metric/Glitch cue #${idx} must apply chromatic aberration on entry`);
-      assert.ok(kinStart.flickerOpacity < 1.0, `Metric/Glitch cue #${idx} must apply subtle opacity flicker on entry`);
+      assert.ok(kinStart.flickerOpacity < 1.0, `Metric/Glitch cue #${idx} must apply sharp digital flicker-fade on entry`);
+      assert.ok(startMarkup.includes('data-motion-family="digital-flicker-fade"'), 'Telemetry/Data schema must use digital-flicker-fade');
       if (cue.endFrame - cue.startFrame >= 7) {
         assert.equal(kinEnd.slideTranslateX, 0, `Metric/Glitch cue #${idx} must lock to translateX(0)`);
         assert.equal(kinEnd.flickerOpacity, 1.0, `Metric/Glitch cue #${idx} flicker must stabilize to 1.0`);

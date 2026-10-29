@@ -58,7 +58,6 @@ const CODE_PROMPT_TOKENS = new Set([
   'codebase',
   'codebases',
   'template',
-  'templates',
   'pasted',
   'input',
   'inputs',
@@ -71,9 +70,12 @@ const CODE_PROMPT_TOKENS = new Set([
 ]);
 
 const METRIC_DATA_TOKENS = new Set([
+  'looks',
+  'finished',
   'boilerplate',
   'demos',
   'clean',
+  'templates',
   'timing',
   'model',
   'render',
@@ -91,6 +93,7 @@ const METRIC_DATA_TOKENS = new Set([
   'repeatable',
   'data',
   'metric',
+  'telemetry',
   'config',
 ]);
 
@@ -101,48 +104,62 @@ export const classifyTokenTypographicSchema = (rawWord: string): TypographicSche
   return 'hook-climax';
 };
 
+/**
+ * Deterministic 29-phrase non-repeating motion & typographic mapping across all 91 tokens:
+ *  - 'hook-climax'     -> Hooks / Errors: heavy, high-velocity spring pops
+ *  - 'code-typewriter' -> Code / Prompts: smooth horizontal terminal slides
+ *  - 'metric-glitch'   -> Telemetry / Data: sharp digital flicker-fades
+ * Consecutive phrases NEVER repeat the same schema, entrance animation, or spring physics.
+ */
 export const resolveCueTypographicSchema = (
   cue: ScriptCue,
   _variant?: SceneKey,
 ): TypographicSchemaKind => {
   const idx = cue.globalIndex;
-  if (idx >= 0 && idx <= 5) return 'hook-climax';
-  if (idx >= 6 && idx <= 9) return 'code-typewriter';
-  if (idx >= 10 && idx <= 15) return 'hook-climax';
-  if (idx >= 16 && idx <= 18) return 'metric-glitch';
-  if (idx >= 19 && idx <= 20) return 'code-typewriter';
-  if (idx === 21) return 'hook-climax';
-  if (idx >= 22 && idx <= 23) return 'code-typewriter';
-  if (idx >= 24 && idx <= 27) return 'hook-climax';
-  if (idx >= 28 && idx <= 30) return 'code-typewriter';
-  if (idx >= 31 && idx <= 37) return 'metric-glitch';
-  if (idx >= 38 && idx <= 41) return 'code-typewriter';
-  if (idx >= 42 && idx <= 44) return 'hook-climax';
-  if (idx >= 45 && idx <= 50) return 'metric-glitch';
-  if (idx >= 51 && idx <= 52) return 'code-typewriter';
-  if (idx === 53) return 'hook-climax';
-  if (idx >= 54 && idx <= 55) return 'code-typewriter';
-  if (idx >= 56 && idx <= 57) return 'metric-glitch';
-  if (idx >= 58 && idx <= 60) return 'hook-climax';
-  if (idx >= 61 && idx <= 62) return 'code-typewriter';
-  if (idx >= 63 && idx <= 65) return 'hook-climax';
-  if (idx >= 66 && idx <= 73) return 'code-typewriter';
-  if (idx >= 74 && idx <= 76) return 'metric-glitch';
-  if (idx === 77) return 'hook-climax';
-  if (idx >= 78 && idx <= 80) return 'metric-glitch';
-  if (idx >= 81 && idx <= 83) return 'hook-climax';
-  if (idx === 84) return 'code-typewriter';
-  if (idx >= 85 && idx <= 90) return 'hook-climax';
+  // Scene 1: Hook
+  if (idx >= 0 && idx <= 5) return 'hook-climax'; // "Your AI agent didn’t build anything."
+  if (idx >= 6 && idx <= 9) return 'code-typewriter'; // "It pasted a template."
+  // Scene 2: Twist
+  if (idx >= 10 && idx <= 12) return 'metric-glitch'; // "It looks finished."
+  if (idx >= 13 && idx <= 15) return 'hook-climax'; // "That’s the trick."
+  if (idx >= 16 && idx <= 18) return 'metric-glitch'; // "Boilerplate demos clean."
+  if (idx >= 19 && idx <= 20) return 'code-typewriter'; // "Real codebases"
+  if (idx === 21) return 'hook-climax'; // "break."
+  // Scene 3: Shift
+  if (idx >= 22 && idx <= 23) return 'code-typewriter'; // "Prompt harder?"
+  if (idx >= 24 && idx <= 27) return 'hook-climax'; // "No. It still can’t"
+  if (idx >= 28 && idx <= 30) return 'code-typewriter'; // "infer your codebase’s"
+  if (idx >= 31 && idx <= 37) return 'metric-glitch'; // "timing model, render graph, or hard constraints"
+  if (idx >= 38 && idx <= 41) return 'code-typewriter'; // "from a pretty prompt."
+  // Scene 4: Mechanism
+  if (idx >= 42 && idx <= 44) return 'hook-climax'; // "Engine- first means"
+  if (idx >= 45 && idx <= 50) return 'metric-glitch'; // "physics, isolation, timing, positions, easing, transitions—"
+  if (idx >= 51 && idx <= 52) return 'code-typewriter'; // "defined as"
+  if (idx === 53) return 'hook-climax'; // "math."
+  if (idx >= 54 && idx <= 55) return 'code-typewriter'; // "Same inputs."
+  if (idx >= 56 && idx <= 57) return 'metric-glitch'; // "Same frames."
+  if (idx >= 58 && idx <= 60) return 'hook-climax'; // "No template roulette."
+  // Scene 5: Payoff
+  if (idx >= 61 && idx <= 62) return 'code-typewriter'; // "Feed intent"
+  if (idx >= 63 && idx <= 65) return 'hook-climax'; // "into the engine."
+  if (idx >= 66 && idx <= 73) return 'code-typewriter'; // "It compiles the prompt to code, code to"
+  if (idx >= 74 && idx <= 76) return 'metric-glitch'; // "frames, frames to"
+  if (idx === 77) return 'hook-climax'; // "MP4."
+  if (idx >= 78 && idx <= 80) return 'metric-glitch'; // "Fast. Inspectable. Repeatable."
+  // Scene 6: Outro
+  if (idx >= 81 && idx <= 83) return 'hook-climax'; // "Stop playing with"
+  if (idx === 84) return 'metric-glitch'; // "templates."
+  if (idx >= 85 && idx <= 87) return 'code-typewriter'; // "Build the engine—"
+  if (idx >= 88 && idx <= 90) return 'hook-climax'; // "or ship toys."
   return classifyTokenTypographicSchema(cue.text);
 };
 
-// ============================================================================
-// Beat-Coherent Staggered Hero Phrases across all 91 SCRIPT_CUES & 6 Scenes
-// ============================================================================
 export type HeroPhraseSpec = {
   id: string;
+  globalPhraseIndex: number;
   sceneId: SceneKey;
   schema: TypographicSchemaKind;
+  springSignature: {damping: number; stiffness: number; mass: number};
   firstWordIndex: number;
   lastWordIndex: number;
   firstWordStartFrame: number;
@@ -154,50 +171,45 @@ export type HeroPhraseSpec = {
 
 const HERO_PHRASE_RANGES: Readonly<Record<SceneKey, ReadonlyArray<readonly [number, number]>>> = {
   hook: [
-    [0, 2], // "Your AI agent"
-    [3, 5], // "didn’t build anything."
-    [6, 9], // "It pasted a template."
+    [0, 5], // hook-climax:     "Your AI agent didn’t build anything."
+    [6, 9], // code-typewriter: "It pasted a template."
   ],
   twist: [
-    [10, 12], // "It looks finished."
-    [13, 15], // "That’s the trick."
-    [16, 18], // "Boilerplate demos clean."
-    [19, 20], // "Real codebases"
-    [21, 21], // "break."
+    [10, 12], // metric-glitch:   "It looks finished."
+    [13, 15], // hook-climax:     "That’s the trick."
+    [16, 18], // metric-glitch:   "Boilerplate demos clean."
+    [19, 20], // code-typewriter: "Real codebases"
+    [21, 21], // hook-climax:     "break."
   ],
   shift: [
-    [22, 23], // "Prompt harder?"
-    [24, 24], // "No."
-    [25, 27], // "It still can’t"
-    [28, 30], // "infer your codebase’s"
-    [31, 34], // "timing model, render graph,"
-    [35, 37], // "or hard constraints"
-    [38, 41], // "from a pretty prompt."
+    [22, 23], // code-typewriter: "Prompt harder?"
+    [24, 27], // hook-climax:     "No. It still can’t"
+    [28, 30], // code-typewriter: "infer your codebase’s"
+    [31, 37], // metric-glitch:   "timing model, render graph, or hard constraints"
+    [38, 41], // code-typewriter: "from a pretty prompt."
   ],
   mechanism: [
-    [42, 44], // "Engine- first means"
-    [45, 47], // "physics, isolation, timing,"
-    [48, 50], // "positions, easing, transitions—"
-    [51, 52], // "defined as"
-    [53, 53], // "math."
-    [54, 55], // "Same inputs."
-    [56, 57], // "Same frames."
-    [58, 60], // "No template roulette."
+    [42, 44], // hook-climax:     "Engine- first means"
+    [45, 50], // metric-glitch:   "physics, isolation, timing, positions, easing, transitions—"
+    [51, 52], // code-typewriter: "defined as"
+    [53, 53], // hook-climax:     "math."
+    [54, 55], // code-typewriter: "Same inputs."
+    [56, 57], // metric-glitch:   "Same frames."
+    [58, 60], // hook-climax:     "No template roulette."
   ],
   payoff: [
-    [61, 62], // "Feed intent"
-    [63, 65], // "into the engine."
-    [66, 71], // "It compiles the prompt to code,"
-    [72, 73], // "code to"
-    [74, 76], // "frames, frames to"
-    [77, 77], // "MP4."
-    [78, 80], // "Fast. Inspectable. Repeatable."
+    [61, 62], // code-typewriter: "Feed intent"
+    [63, 65], // hook-climax:     "into the engine."
+    [66, 73], // code-typewriter: "It compiles the prompt to code, code to"
+    [74, 76], // metric-glitch:   "frames, frames to"
+    [77, 77], // hook-climax:     "MP4."
+    [78, 80], // metric-glitch:   "Fast. Inspectable. Repeatable."
   ],
   outro: [
-    [81, 83], // "Stop playing with"
-    [84, 84], // "templates."
-    [85, 87], // "Build the engine—"
-    [88, 90], // "or ship toys."
+    [81, 83], // hook-climax:     "Stop playing with"
+    [84, 84], // metric-glitch:   "templates."
+    [85, 87], // code-typewriter: "Build the engine—"
+    [88, 90], // hook-climax:     "or ship toys."
   ],
 };
 
@@ -213,6 +225,8 @@ export const SCENE_HERO_PHRASES: Readonly<Record<SceneKey, readonly HeroPhraseSp
     payoff: [],
     outro: [],
   };
+
+  let globalPhraseCounter = 0;
 
   for (const scene of SCENE_SEQUENCES) {
     const activeEnd =
@@ -242,10 +256,32 @@ export const SCENE_HERO_PHRASES: Readonly<Record<SceneKey, readonly HeroPhraseSp
         .map((c) => c.text)
         .join(' ').length;
 
+      // Distinct physics signature per phrase so consecutive phrases never share spring constants
+      const springSignature =
+        schema === 'hook-climax'
+          ? {
+              damping: Number((7.6 + (globalPhraseCounter % 4) * 0.5).toFixed(2)),
+              stiffness: 315 + (globalPhraseCounter % 5) * 18,
+              mass: Number((0.84 + (globalPhraseCounter % 3) * 0.09).toFixed(2)),
+            }
+          : schema === 'code-typewriter'
+            ? {
+                damping: 17 + (globalPhraseCounter % 4) * 2,
+                stiffness: 190 + (globalPhraseCounter % 5) * 14,
+                mass: Number((0.92 + (globalPhraseCounter % 3) * 0.06).toFixed(2)),
+              }
+            : {
+                damping: 24 + (globalPhraseCounter % 4) * 2,
+                stiffness: 255 + (globalPhraseCounter % 4) * 15,
+                mass: Number((0.72 + (globalPhraseCounter % 3) * 0.07).toFixed(2)),
+              };
+
       byScene[scene.id].push({
         id: `${scene.id}-phrase-${startIdx}-${endIdx}`,
+        globalPhraseIndex: globalPhraseCounter,
         sceneId: scene.id,
         schema,
+        springSignature,
         firstWordIndex: startIdx,
         lastWordIndex: endIdx,
         firstWordStartFrame,
@@ -254,11 +290,17 @@ export const SCENE_HERO_PHRASES: Readonly<Record<SceneKey, readonly HeroPhraseSp
         renderEndFrame,
         fullCharCount,
       });
+
+      globalPhraseCounter += 1;
     });
   }
 
   return byScene;
 })();
+
+export const ALL_HERO_PHRASES: readonly HeroPhraseSpec[] = SCENE_SEQUENCES.flatMap(
+  (s) => SCENE_HERO_PHRASES[s.id],
+);
 
 export type TypewriterWindowSpec = {
   id: string;
@@ -283,51 +325,19 @@ export const SCENE_TYPEWRITER_WINDOWS: Readonly<Record<SceneKey, readonly Typewr
     };
 
     for (const scene of SCENE_SEQUENCES) {
-      const activeEnd =
-        scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
-      let idx = scene.firstWordIndex;
-      while (idx <= scene.lastWordIndex) {
-        if (resolveCueTypographicSchema(SCRIPT_CUES[idx], scene.id) !== 'code-typewriter') {
-          idx += 1;
-          continue;
+      for (const p of SCENE_HERO_PHRASES[scene.id]) {
+        if (p.schema === 'code-typewriter') {
+          byScene[scene.id].push({
+            id: `${scene.id}-tw-${p.firstWordIndex}-${p.lastWordIndex}`,
+            sceneId: scene.id,
+            firstWordIndex: p.firstWordIndex,
+            lastWordIndex: p.lastWordIndex,
+            firstWordStartFrame: p.firstWordStartFrame,
+            lastWordEndFrame: p.lastWordEndFrame,
+            renderStartFrame: p.renderStartFrame,
+            renderEndFrame: p.renderEndFrame,
+          });
         }
-        let endIdx = idx;
-        while (
-          endIdx + 1 <= scene.lastWordIndex &&
-          resolveCueTypographicSchema(SCRIPT_CUES[endIdx + 1], scene.id) === 'code-typewriter' &&
-          SCRIPT_CUES[endIdx + 1].startFrame - SCRIPT_CUES[endIdx].endFrame <= 18
-        ) {
-          endIdx += 1;
-        }
-
-        const firstWordStartFrame = SCRIPT_CUES[idx].startFrame;
-        const lastWordEndFrame = SCRIPT_CUES[endIdx].endFrame;
-        const prevWordEnd = idx > scene.firstWordIndex ? SCRIPT_CUES[idx - 1].endFrame : scene.from;
-        const nextWordStart =
-          endIdx + 1 <= scene.lastWordIndex ? SCRIPT_CUES[endIdx + 1].startFrame : activeEnd;
-
-        const renderStartFrame = Math.max(
-          scene.from,
-          Math.max(prevWordEnd, firstWordStartFrame - 8),
-        );
-        const renderEndFrame = Math.min(
-          activeEnd,
-          nextWordStart,
-          lastWordEndFrame + TYPEWRITER_EXIT_FRAMES,
-        );
-
-        byScene[scene.id].push({
-          id: `${scene.id}-tw-${idx}-${endIdx}`,
-          sceneId: scene.id,
-          firstWordIndex: idx,
-          lastWordIndex: endIdx,
-          firstWordStartFrame,
-          lastWordEndFrame,
-          renderStartFrame,
-          renderEndFrame,
-        });
-
-        idx = endIdx + 1;
       }
     }
 
@@ -369,12 +379,17 @@ export type TypographicKinematics = {
   visibleChars: number;
   totalChars: number;
   cursorBlinkOn: boolean;
+  terminalSlideX: number;
   slideTranslateX: number;
   chromaticOffsetPx: number;
   flickerOpacity: number;
 };
 
-const GLITCH_FLICKER_PATTERN = [0.44, 0.96, 0.58, 1.0, 0.78, 1.0] as const;
+const TELEMETRY_SHUTTER_PATTERNS: ReadonlyArray<readonly number[]> = [
+  [0.26, 0.94, 0.34, 0.98, 0.62, 1.0],
+  [0.42, 0.18, 0.92, 0.48, 0.96, 1.0],
+  [0.32, 0.88, 0.24, 0.86, 0.72, 1.0],
+];
 
 export const computeTypographicKinematics = (
   cue: ScriptCue,
@@ -386,10 +401,16 @@ export const computeTypographicKinematics = (
   const cueSpan = Math.max(1, cue.endFrame - cue.startFrame);
   const totalChars = cue.text.length;
 
+  // 1. Heavy, high-velocity spring pop (Hooks / Errors) with per-cue varied physics
+  const popSpringConfig = {
+    damping: TENSION_SPRING_CONFIG.damping + (cue.globalIndex % 3) * 0.5,
+    stiffness: TENSION_SPRING_CONFIG.stiffness + (cue.globalIndex % 4) * 22,
+    mass: 0.86 + (cue.globalIndex % 3) * 0.07,
+  };
   const springPop = spring({
     frame: localCueFrame,
     fps: FPS,
-    config: TENSION_SPRING_CONFIG,
+    config: popSpringConfig,
   });
   const scale = 0.8 + 0.2 * springPop;
   const sliceIntensity = interpolate(localCueFrame, [0, 1, 7], [1, 0.92, 0], {
@@ -410,6 +431,7 @@ export const computeTypographicKinematics = (
     },
   );
 
+  // 2. Smooth horizontal terminal slide + live character typing (Code / Prompts)
   const typeFrames =
     totalChars <= 1 || cueSpan <= 1 ? 1 : clamp(Math.floor(cueSpan * 0.55), 1, 8);
   const visibleChars =
@@ -419,7 +441,15 @@ export const computeTypographicKinematics = (
   const visibleText = cue.text.slice(0, visibleChars);
   const cursorBlinkOn =
     localCueFrame < typeFrames ? true : Math.floor(globalFrame / 4) % 2 === 0;
+  const termSlideSpan = Math.min(10, Math.max(4, Math.floor(cueSpan * 0.75)));
+  const termSlideProgress = interpolate(localCueFrame, [0, termSlideSpan], [0, 1], {
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const terminalSlideX = Number(((1 - termSlideProgress) * -76).toFixed(2));
 
+  // 3. Sharp digital flicker-fade + telemetry lock (Telemetry / Data)
   const slideFrames = Math.min(6, Math.max(2, Math.floor(cueSpan * 0.45)));
   const slideProgress = interpolate(localCueFrame, [0, slideFrames], [0, 1], {
     easing: Easing.out(Easing.cubic),
@@ -431,10 +461,9 @@ export const computeTypographicKinematics = (
   const chromaticOffsetPx = Number(
     ((1 - slideProgress) * 10.5 + (localCueFrame < 6 ? 1.8 : 0)).toFixed(2),
   );
+  const shutterPattern = TELEMETRY_SHUTTER_PATTERNS[cue.globalIndex % TELEMETRY_SHUTTER_PATTERNS.length];
   const flickerOpacity =
-    localCueFrame < GLITCH_FLICKER_PATTERN.length
-      ? GLITCH_FLICKER_PATTERN[localCueFrame]
-      : 1.0;
+    localCueFrame < shutterPattern.length ? shutterPattern[localCueFrame] : 1.0;
 
   return {
     schema,
@@ -447,6 +476,7 @@ export const computeTypographicKinematics = (
     visibleChars,
     totalChars,
     cursorBlinkOn,
+    terminalSlideX,
     slideTranslateX,
     chromaticOffsetPx,
     flickerOpacity,
@@ -458,13 +488,17 @@ const fitSansWordSize = (text: string, maxPx: number, innerWidthPx: number): num
 
 const fitSansPhraseSize = (fullCharCount: number, wordCount: number): number => {
   if (wordCount <= 1) return fitSansWordSize('x'.repeat(fullCharCount), 154, 936);
-  if (fullCharCount <= 15) return 90;
+  if (fullCharCount <= 15) return 88;
   if (fullCharCount <= 22) return 72;
-  return 62;
+  if (fullCharCount <= 38) return 60;
+  if (fullCharCount <= 50) return 54;
+  return 50;
 };
 
-const fitMonoPhraseSize = (fullCharCount: number): number =>
-  clamp(Math.floor(852 / Math.max(5.5, (fullCharCount + 3.2) * 0.62)), 40, 102);
+const fitMonoPhraseSize = (fullCharCount: number): number => {
+  if (fullCharCount > 32) return 46;
+  return clamp(Math.floor(852 / Math.max(5.5, (fullCharCount + 3.2) * 0.62)), 44, 98);
+};
 
 const MONO_STACK =
   '"JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace';
@@ -482,6 +516,7 @@ const TerminalTypewriterBox: React.FC<{
   }>;
   cursorBlinkOn: boolean;
   fontSize: number;
+  allowWrap?: boolean;
   textOpacity?: number;
   frameOverride?: number;
   style?: React.CSSProperties;
@@ -494,108 +529,131 @@ const TerminalTypewriterBox: React.FC<{
   spokenWords,
   cursorBlinkOn,
   fontSize,
+  allowWrap = false,
   textOpacity = 1,
   frameOverride,
   style,
-}) => (
-  <div
-    data-kinetic-variant={variant}
-    data-typography-schema="code-typewriter"
-    data-full-token={tokenAttr}
-    data-typed-chars={charCounterLabel}
-    data-terminal-box-opacity={envelope.opacity}
-    data-terminal-box-scale={envelope.scale}
-    style={{
-      position: 'absolute',
-      left: 60,
-      right: 60,
-      top: 852,
-      transform: `translateY(calc(-50% + ${envelope.translateY.toFixed(2)}px)) scale(${envelope.scale})`,
-      opacity: envelope.opacity,
-      display: 'grid',
-      placeItems: 'center',
-      pointerEvents: 'none',
-      ...style,
-    }}
-  >
+}) => {
+  // Smooth horizontal terminal slide envelope (-84px -> 0 on entrance, +72px on exit)
+  const slideX =
+    envelope.phase === 'entering'
+      ? (1 - envelope.enterProgress) * -84
+      : envelope.phase === 'exiting'
+        ? (1 - envelope.exitProgress) * 72
+        : 0;
+
+  return (
     <div
-      data-terminal-typewriter-box="true"
+      data-kinetic-variant={variant}
+      data-typography-schema="code-typewriter"
+      data-motion-family="horizontal-terminal-slide"
+      data-full-token={tokenAttr}
+      data-typed-chars={charCounterLabel}
+      data-terminal-box-opacity={envelope.opacity}
+      data-terminal-box-slide-x={slideX.toFixed(2)}
       style={{
-        padding: '16px 32px 20px',
-        background: 'rgba(8, 13, 24, 0.92)',
-        border: '1px solid rgba(255, 69, 0, 0.42)',
-        borderLeft: `4px solid ${ORANGE}`,
-        boxShadow: '0 18px 48px rgba(0, 0, 0, 0.74), inset 0 0 24px rgba(255, 69, 0, 0.06)',
-        maxWidth: 948,
-        minWidth: 420,
-        boxSizing: 'border-box',
+        position: 'absolute',
+        left: 60,
+        right: 60,
+        top: 852,
+        transform: `translate3d(${slideX.toFixed(2)}px, -50%, 0)`,
+        opacity: envelope.opacity,
+        display: 'grid',
+        placeItems: 'center',
+        pointerEvents: 'none',
+        ...style,
       }}
     >
       <div
+        data-terminal-typewriter-box="true"
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 24,
-          marginBottom: 10,
-          fontFamily: MONO_STACK,
-          fontSize: 11,
-          letterSpacing: 2,
-          color: MUTED,
+          padding: '16px 32px 20px',
+          background: 'rgba(8, 13, 24, 0.94)',
+          border: '1px solid rgba(255, 69, 0, 0.44)',
+          borderLeft: `4px solid ${ORANGE}`,
+          boxShadow: '0 18px 48px rgba(0, 0, 0, 0.74), inset 0 0 24px rgba(255, 69, 0, 0.06)',
+          maxWidth: 948,
+          minWidth: 440,
+          boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       >
-        <span style={{color: ORANGE, fontWeight: 700}}>CLI_STDIN // LIVE_TYPEWRITER</span>
-        <span>CHAR {charCounterLabel}</span>
-      </div>
-
-      <div
-        style={{
-          fontFamily: MONO_STACK,
-          fontSize,
-          fontWeight: 700,
-          letterSpacing: '-0.025em',
-          lineHeight: 1.08,
-          whiteSpace: 'nowrap',
-          opacity: textOpacity,
-          display: 'flex',
-          alignItems: 'baseline',
-        }}
-      >
-        <span style={{color: ORANGE, opacity: 0.88, marginRight: 12}}>&gt;</span>
-        <span data-typewriter-text="true" style={{display: 'inline-flex', gap: Math.round(fontSize * 0.28)}}>
-          {spokenWords.map(({cue, displayText, isCurrent}) => {
-            const hot = isEmphasis(cue.text);
-            return (
-              <StaggeredTextItem
-                key={cue.globalIndex}
-                text={displayText}
-                delay={cue.startFrame - sceneFrom}
-                frameOverride={frameOverride}
-                style={{
-                  color: hot ? ORANGE : isCurrent ? WHITE : 'rgba(244, 247, 255, 0.88)',
-                  textShadow: hot
-                    ? '0 0 26px rgba(255,69,0,0.38)'
-                    : '0 8px 24px rgba(0,0,0,0.65)',
-                }}
-              />
-            );
-          })}
-        </span>
-        <span
-          data-typewriter-cursor={cursorBlinkOn ? 'on' : 'off'}
+        <div
           style={{
-            color: ORANGE,
-            fontWeight: 800,
-            marginLeft: 2,
-            opacity: cursorBlinkOn ? 1 : 0.14,
-            textShadow: cursorBlinkOn ? '0 0 18px rgba(255,69,0,0.75)' : 'none',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 24,
+            marginBottom: 10,
+            fontFamily: MONO_STACK,
+            fontSize: 11,
+            letterSpacing: 2,
+            color: MUTED,
           }}
         >
-          _
-        </span>
+          <span style={{color: ORANGE, fontWeight: 700}}>CLI_STDIN // HORIZONTAL_TERMINAL_SLIDE</span>
+          <span>CHAR {charCounterLabel}</span>
+        </div>
+
+        <div
+          style={{
+            fontFamily: MONO_STACK,
+            fontSize,
+            fontWeight: 700,
+            letterSpacing: '-0.025em',
+            lineHeight: 1.12,
+            whiteSpace: allowWrap ? 'normal' : 'nowrap',
+            opacity: textOpacity,
+            display: 'flex',
+            flexWrap: allowWrap ? 'wrap' : 'nowrap',
+            alignItems: 'baseline',
+          }}
+        >
+          <span style={{color: ORANGE, opacity: 0.9, marginRight: 12}}>&gt;</span>
+          <span
+            data-typewriter-text="true"
+            style={{
+              display: 'inline-flex',
+              flexWrap: allowWrap ? 'wrap' : 'nowrap',
+              alignItems: 'baseline',
+              gap: `6px ${Math.round(fontSize * 0.28)}px`,
+            }}
+          >
+            {spokenWords.map(({cue, displayText, isCurrent}, idx) => {
+              const hot = isEmphasis(cue.text);
+              return (
+                <StaggeredTextItem
+                  key={cue.globalIndex}
+                  text={displayText}
+                  delay={cue.startFrame - sceneFrom}
+                  profile="terminal-slide"
+                  variantSeed={cue.globalIndex + idx}
+                  frameOverride={frameOverride}
+                  style={{
+                    color: hot ? ORANGE : isCurrent ? WHITE : 'rgba(244, 247, 255, 0.90)',
+                    textShadow: hot
+                      ? '0 0 26px rgba(255,69,0,0.38)'
+                      : '0 8px 24px rgba(0,0,0,0.65)',
+                  }}
+                />
+              );
+            })}
+            <span
+              data-typewriter-cursor={cursorBlinkOn ? 'on' : 'off'}
+              style={{
+                color: ORANGE,
+                fontWeight: 800,
+                opacity: cursorBlinkOn ? 1 : 0.14,
+                textShadow: cursorBlinkOn ? '0 0 18px rgba(255,69,0,0.75)' : 'none',
+              }}
+            >
+              _
+            </span>
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const KineticEngine: React.FC<{
   cue: ScriptCue;
@@ -633,19 +691,20 @@ export const KineticEngine: React.FC<{
   const conflictWeight = getConflictImpactWeight(cue.text);
 
   // ==========================================================================
-  // 1. HOOK / CLIMAX ANIMATION (Staggered Multi-Word Spring + Climax Pop/Slice)
+  // 1. HOOKS / ERRORS: Heavy, High-Velocity Spring Pops ('hook-climax')
   // ==========================================================================
   if (kin.schema === 'hook-climax') {
     const isSingle = spokenCues.length === 1 && totalCharBudget === cue.text.length;
     const size = isSingle
       ? fitSansWordSize(cue.text, variant === 'outro' ? 162 : 156, 936)
       : fitSansPhraseSize(totalCharBudget, spokenCues.length);
-    const shearPx = Number((kin.sliceIntensity * 10).toFixed(2));
+    const shearPx = Number((kin.sliceIntensity * 11).toFixed(2));
 
     return (
       <div
         data-kinetic-variant={variant}
         data-typography-schema="hook-climax"
+        data-motion-family="heavy-spring-pop"
         data-full-token={cue.text}
         data-staggered-word-count={spokenCues.length}
         style={{
@@ -665,12 +724,12 @@ export const KineticEngine: React.FC<{
           data-red-glow-flash={kin.redGlowFlash.toFixed(3)}
           style={{
             position: 'absolute',
-            width: 820,
-            height: 230,
+            width: 840,
+            height: 240,
             borderRadius: '50%',
             background: `radial-gradient(ellipse at center, rgba(225, 29, 72, ${(
-              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.56 : 0.34)
-            ).toFixed(3)}) 0%, rgba(255, 69, 0, ${(kin.redGlowFlash * 0.16).toFixed(
+              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.58 : 0.36)
+            ).toFixed(3)}) 0%, rgba(255, 69, 0, ${(kin.redGlowFlash * 0.18).toFixed(
               3,
             )}) 46%, transparent 74%)`,
             filter: 'blur(8px)',
@@ -681,28 +740,30 @@ export const KineticEngine: React.FC<{
         <div
           style={{
             position: 'relative',
-            transform: `scale(${((isSingle ? kin.scale : 0.94 + 0.06 * kin.springPop) * releaseScale).toFixed(4)})`,
+            transform: `scale(${((isSingle ? kin.scale : 0.92 + 0.08 * kin.springPop) * releaseScale).toFixed(4)})`,
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'center',
             alignItems: 'baseline',
-            gap: `${Math.round(size * 0.14)}px ${Math.round(size * 0.24)}px`,
+            gap: `${Math.round(size * 0.15)}px ${Math.round(size * 0.24)}px`,
             maxWidth: 948,
           }}
         >
-          {spokenCues.map((wordCue) => {
+          {spokenCues.map((wordCue, idx) => {
             const wordHot = isEmphasis(wordCue.text);
             const isCurrent = wordCue.globalIndex === cue.globalIndex;
-            const glowShadow = `0 0 ${Math.round(32 + (isCurrent ? kin.redGlowFlash * 40 : 12))}px rgba(225, 29, 72, ${(
-              0.18 +
-              (isCurrent ? kin.redGlowFlash * 0.58 : 0.08)
-            ).toFixed(3)}), 0 0 30px rgba(255, 69, 0, ${wordHot ? '0.42' : '0.16'}), 0 14px 38px rgba(0, 0, 0, 0.78)`;
+            const glowShadow = `0 0 ${Math.round(32 + (isCurrent ? kin.redGlowFlash * 42 : 12))}px rgba(225, 29, 72, ${(
+              0.20 +
+              (isCurrent ? kin.redGlowFlash * 0.60 : 0.08)
+            ).toFixed(3)}), 0 0 30px rgba(255, 69, 0, ${wordHot ? '0.44' : '0.16'}), 0 14px 38px rgba(0, 0, 0, 0.78)`;
 
             return (
               <StaggeredTextItem
                 key={wordCue.globalIndex}
                 text={wordCue.text}
                 delay={wordCue.startFrame - owningScene.from}
+                profile="hook-pop"
+                variantSeed={wordCue.globalIndex + idx}
                 frameOverride={frameOverride}
                 dataAttrs={{'data-hero-word-index': wordCue.globalIndex}}
                 style={{
@@ -781,7 +842,7 @@ export const KineticEngine: React.FC<{
   }
 
   // ==========================================================================
-  // 2. CODE / PROMPT ANIMATION (Staggered Multi-Word CLI Typewriter)
+  // 2. CODE / PROMPTS: Smooth Horizontal Terminal Slides ('code-typewriter')
   // ==========================================================================
   if (kin.schema === 'code-typewriter') {
     const size = fitMonoPhraseSize(totalCharBudget);
@@ -806,6 +867,7 @@ export const KineticEngine: React.FC<{
         spokenWords={terminalWords}
         cursorBlinkOn={kin.cursorBlinkOn}
         fontSize={size}
+        allowWrap={totalCharBudget > 32}
         textOpacity={releaseOpacity}
         frameOverride={frameOverride}
         style={style}
@@ -814,19 +876,19 @@ export const KineticEngine: React.FC<{
   }
 
   // ==========================================================================
-  // 3. METRIC / DATA ANIMATION (Staggered Multi-Word Metric Tokens + Glitch)
+  // 3. TELEMETRY / DATA: Sharp Digital Flicker-Fades ('metric-glitch')
   // ==========================================================================
   const isSingleMetric = spokenCues.length === 1 && totalCharBudget === cue.text.length;
   const metricSize = isSingleMetric
     ? fitSansWordSize(cue.text, 146, 916)
     : fitSansPhraseSize(totalCharBudget, spokenCues.length);
-  const skewDeg = Number((kin.slideTranslateX * -0.06).toFixed(2));
   const firstPhraseDelay = spokenCues[0].startFrame - owningScene.from;
 
   return (
     <div
       data-kinetic-variant={variant}
       data-typography-schema="metric-glitch"
+      data-motion-family="digital-flicker-fade"
       data-full-token={cue.text}
       data-chromatic-aberration={kin.chromaticOffsetPx}
       data-opacity-flicker={kin.flickerOpacity}
@@ -836,7 +898,7 @@ export const KineticEngine: React.FC<{
         left: 56,
         right: 56,
         top: 852,
-        transform: `translateY(calc(-50% + ${releaseTranslateY.toFixed(1)}px)) scale(${releaseScale.toFixed(4)})`,
+        transform: `translateY(-50%) scale(${releaseScale.toFixed(4)})`,
         opacity: releaseOpacity,
         display: 'grid',
         placeItems: 'center',
@@ -853,8 +915,10 @@ export const KineticEngine: React.FC<{
         }}
       >
         <StaggeredTextItem
-          text={`DATA_METRIC // IDX_${String(cue.globalIndex).padStart(2, '0')}`}
+          text={`TELEMETRY_DATA // IDX_${String(cue.globalIndex).padStart(2, '0')}`}
           delay={firstPhraseDelay}
+          profile="telemetry-flicker"
+          variantSeed={cue.globalIndex}
           frameOverride={frameOverride}
           style={{
             fontFamily: MONO_STACK,
@@ -864,8 +928,8 @@ export const KineticEngine: React.FC<{
             color: '#38bdf8',
             marginBottom: 10,
             padding: '3px 12px',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
-            background: 'rgba(8, 18, 32, 0.84)',
+            border: '1px solid rgba(56, 189, 248, 0.42)',
+            background: 'rgba(8, 18, 32, 0.88)',
           }}
         />
 
@@ -879,7 +943,7 @@ export const KineticEngine: React.FC<{
             gap: `${Math.round(metricSize * 0.14)}px ${Math.round(metricSize * 0.24)}px`,
           }}
         >
-          {spokenCues.map((wordCue) => {
+          {spokenCues.map((wordCue, idx) => {
             const wordHot = isEmphasis(wordCue.text);
             const isCurrent = wordCue.globalIndex === cue.globalIndex;
             const chromaShadow =
@@ -890,32 +954,24 @@ export const KineticEngine: React.FC<{
                   : '0 12px 34px rgba(0, 0, 0, 0.72)';
 
             return (
-              <span
+              <StaggeredTextItem
                 key={wordCue.globalIndex}
+                text={wordCue.text}
+                delay={wordCue.startFrame - owningScene.from}
+                profile="telemetry-flicker"
+                variantSeed={wordCue.globalIndex + idx}
+                frameOverride={frameOverride}
+                dataAttrs={{'data-hero-word-index': wordCue.globalIndex}}
                 style={{
-                  display: 'inline-block',
-                  opacity: isCurrent ? kin.flickerOpacity : 1,
-                  transform: isCurrent
-                    ? `translateX(${(kin.slideTranslateX * (isSingleMetric ? 1 : 0.38)).toFixed(1)}px) skewX(${skewDeg}deg)`
-                    : undefined,
+                  fontSize: metricSize,
+                  fontWeight: 800,
+                  letterSpacing: '-0.036em',
+                  lineHeight: 0.98,
+                  color: wordHot ? ORANGE : WHITE,
+                  textShadow: chromaShadow,
+                  whiteSpace: 'nowrap',
                 }}
-              >
-                <StaggeredTextItem
-                  text={wordCue.text}
-                  delay={wordCue.startFrame - owningScene.from}
-                  frameOverride={frameOverride}
-                  dataAttrs={{'data-hero-word-index': wordCue.globalIndex}}
-                  style={{
-                    fontSize: metricSize,
-                    fontWeight: 800,
-                    letterSpacing: '-0.036em',
-                    lineHeight: 0.98,
-                    color: wordHot ? ORANGE : WHITE,
-                    textShadow: chromaShadow,
-                    whiteSpace: 'nowrap',
-                  }}
-                />
-              </span>
+              />
             );
           })}
 
@@ -926,10 +982,10 @@ export const KineticEngine: React.FC<{
                 position: 'absolute',
                 left: -24,
                 right: -24,
-                top: '44%',
-                height: 4,
+                top: '46%',
+                height: 3,
                 background:
-                  'linear-gradient(90deg, transparent, rgba(0,229,255,0.85), rgba(255,42,75,0.85), transparent)',
+                  'linear-gradient(90deg, transparent, rgba(0,229,255,0.88), rgba(255,42,75,0.88), transparent)',
                 pointerEvents: 'none',
               }}
             />
@@ -942,9 +998,10 @@ export const KineticEngine: React.FC<{
 
 /**
  * Connected Kinetic Typography Stage (`useCurrentFrame()`):
- * Accumulates spoken words inside each beat's HeroPhraseSpec using `StaggeredTextItem`
- * (`damping: 12, stiffness: 200`, `translateY: 20 -> 0`, `opacity: 0 -> 1`, `delay = word.startFrame - scene.from`),
- * with zero future-word previews and smooth reverse-eased phrase exits.
+ * Enforces non-repeating motion variety across all 29 Hero Phrases and 6 scenes:
+ *  - Hooks / Errors  -> Heavy, high-velocity spring pops
+ *  - Code / Prompts  -> Smooth horizontal terminal slides
+ *  - Telemetry / Data -> Sharp digital flicker-fades
  */
 export const SceneKineticStage: React.FC<{
   scene: SceneSpec;
@@ -961,7 +1018,7 @@ export const SceneKineticStage: React.FC<{
   );
   if (!phrase) return null;
 
-  // Pre-warm awaiting CLI cursor shell for code-typewriter phrases (zero future-word preview)
+  // Pre-warm awaiting CLI cursor shell via smooth horizontal terminal slide (zero future-word preview)
   if (phrase.schema === 'code-typewriter' && globalFrame < phrase.firstWordStartFrame) {
     const env = computeAssetTransition(
       globalFrame - phrase.renderStartFrame,
@@ -983,6 +1040,7 @@ export const SceneKineticStage: React.FC<{
         spokenWords={[]}
         cursorBlinkOn={blink}
         fontSize={fitMonoPhraseSize(phrase.fullCharCount)}
+        allowWrap={phrase.fullCharCount > 32}
       />
     );
   }
@@ -1006,12 +1064,23 @@ export const SceneKineticStage: React.FC<{
 
   const isPostPhraseRelease = globalFrame >= phrase.lastWordEndFrame;
   const postSpan = Math.max(1, phrase.renderEndFrame - phrase.lastWordEndFrame);
+
+  // Distinct exit profile per schema: digital shutter out for telemetry, cubic slide for terminal, crisp spring settle for hook
   const postProgress = isPostPhraseRelease
-    ? interpolate(globalFrame - phrase.lastWordEndFrame, [0, postSpan], [1, 0], {
-        easing: Easing.inOut(Easing.cubic),
-        extrapolateLeft: 'clamp',
-        extrapolateRight: 'clamp',
-      })
+    ? phrase.schema === 'metric-glitch'
+      ? (() => {
+          const t = (globalFrame - phrase.lastWordEndFrame) / postSpan;
+          if (t < 0.25) return 0.74;
+          if (t < 0.45) return 0.92;
+          if (t < 0.70) return 0.32;
+          if (t < 0.88) return 0.12;
+          return 0;
+        })()
+      : interpolate(globalFrame - phrase.lastWordEndFrame, [0, postSpan], [1, 0], {
+          easing: Easing.inOut(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
     : 1;
 
   const remainingToClear = activeEnd - globalFrame;

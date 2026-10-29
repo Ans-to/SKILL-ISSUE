@@ -1,7 +1,7 @@
 import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame} from 'remotion';
 import {CRIMSON} from './EmotionalPacing';
-import {StaggeredTextItem} from './StaggeredTextItem';
+import {StaggeredTextItem, type TextMotionProfile} from './StaggeredTextItem';
 import {TimelineGrid} from './TimelineGrid';
 import {
   FPS,
@@ -56,9 +56,16 @@ export type SceneUiClauseSpec = {
  * telemetry card enters from {opacity: 0, scale: 0.95, translateY} over 12 frames and
  * reverses cleanly back to {opacity: 0, scale: 0.95, translateY} over 12 frames before unmount.
  */
+export type UiTransitionMode =
+  | 'heavy-spring-pop'
+  | 'horizontal-terminal-slide'
+  | 'digital-flicker-fade';
+
 export type AssetTransitionEnvelope = {
+  mode: UiTransitionMode;
   opacity: number;
   scale: number;
+  translateX: number;
   translateY: number;
   enterProgress: number;
   exitProgress: number;
@@ -67,15 +74,26 @@ export type AssetTransitionEnvelope = {
 
 export const ASSET_TRANSITION_FRAMES = 12;
 
+const DIGITAL_CARD_STEPS = [
+  0, 0.24, 0.14, 0.42, 0.30, 0.58, 0.48, 0.74, 0.66, 0.88, 0.94, 0.98, 1.0,
+] as const;
+
 export const computeAssetTransition = (
   elapsedInWindow: number,
   windowDuration: number,
   options?: {
+    mode?: UiTransitionMode;
+    damping?: number;
+    stiffness?: number;
     enterFrames?: number;
     exitFrames?: number;
+    slideX?: number;
     slidePx?: number;
   },
 ): AssetTransitionEnvelope => {
+  const mode = options?.mode ?? 'horizontal-terminal-slide';
+  const damping = options?.damping ?? (mode === 'heavy-spring-pop' ? 9 : 19);
+  const stiffness = options?.stiffness ?? (mode === 'heavy-spring-pop' ? 320 : 195);
   const enterFrames = Math.min(
     options?.enterFrames ?? ASSET_TRANSITION_FRAMES,
     Math.max(4, Math.floor(windowDuration * 0.45)),
@@ -84,12 +102,15 @@ export const computeAssetTransition = (
     options?.exitFrames ?? ASSET_TRANSITION_FRAMES,
     Math.max(4, Math.floor(windowDuration * 0.45)),
   );
-  const slidePx = options?.slidePx ?? 24;
+  const slidePx = options?.slidePx ?? (mode === 'horizontal-terminal-slide' ? 0 : 24);
+  const slideX = options?.slideX ?? (mode === 'horizontal-terminal-slide' ? -44 : 0);
 
   if (elapsedInWindow < 0 || elapsedInWindow >= windowDuration) {
     return {
+      mode,
       opacity: 0,
       scale: 0.95,
+      translateX: slideX,
       translateY: slidePx,
       enterProgress: 0,
       exitProgress: 0,
@@ -97,29 +118,32 @@ export const computeAssetTransition = (
     };
   }
 
-  // Smooth 12-frame entrance using Remotion spring() + cubic interpolate()
   const rawEnterSpring = clamp(
     spring({
       frame: elapsedInWindow,
       fps: FPS,
-      config: {damping: 20, stiffness: 120, mass: 0.9, overshootClamping: true},
+      config: {damping, stiffness, mass: 0.9, overshootClamping: true},
     }),
     0,
     1,
   );
   const enterSpring = elapsedInWindow >= enterFrames + 2 ? 1 : rawEnterSpring;
-  const enterFade = interpolate(elapsedInWindow, [0, enterFrames], [0, 1], {
-    easing: Easing.out(Easing.cubic),
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+
+  const enterFade =
+    mode === 'digital-flicker-fade' && elapsedInWindow < DIGITAL_CARD_STEPS.length
+      ? DIGITAL_CARD_STEPS[Math.max(0, Math.floor(elapsedInWindow))]
+      : interpolate(elapsedInWindow, [0, enterFrames], [0, 1], {
+          easing: Easing.out(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+
   const enterSlide = interpolate(elapsedInWindow, [0, enterFrames], [1, 0], {
-    easing: Easing.out(Easing.cubic),
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  // Smooth 12-frame reversed exit easing (symmetric S-curve cushions to 0 without tail snap)
   const exitStart = windowDuration - exitFrames;
   const isExiting = elapsedInWindow >= exitStart;
   const exitElapsed = Math.max(0, elapsedInWindow - exitStart);
@@ -141,6 +165,7 @@ export const computeAssetTransition = (
   const opacity = Number(clamp(enterFade * exitProgress, 0, 1).toFixed(4));
   const combinedScaleProgress = clamp(Math.min(enterSpring, exitProgress), 0, 1);
   const scale = Number((0.95 + 0.05 * combinedScaleProgress).toFixed(4));
+  const translateX = Number(((enterSlide - exitSlide * 0.85) * slideX).toFixed(2));
   const translateY = Number(((enterSlide + exitSlide) * slidePx).toFixed(2));
 
   const phase: AssetTransitionEnvelope['phase'] = isExiting
@@ -150,8 +175,10 @@ export const computeAssetTransition = (
       : 'active';
 
   return {
+    mode,
     opacity,
     scale,
+    translateX,
     translateY,
     enterProgress: Number(enterFade.toFixed(4)),
     exitProgress: Number(exitProgress.toFixed(4)),
@@ -163,6 +190,9 @@ export type ActiveUiSimulationState = SceneUiClauseSpec & {
   globalFrame: number;
   sceneFrom: number;
   clauseStartLocal: number;
+  transitionMode: UiTransitionMode;
+  springDamping: number;
+  springStiffness: number;
   renderStartFrame: number;
   renderEndFrame: number;
   clauseElapsed: number;
@@ -434,6 +464,38 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
 
 export const CLAUSE_HANDOFF_OVERLAP_FRAMES = 2;
 
+/**
+ * Non-repeating motion & physics table across all 16 UI clauses (zero consecutive
+ * clauses share the same entrance transition mode or spring physics, even across scene cuts).
+ */
+export const CLAUSE_MOTION_SIGNATURES: Readonly<
+  Record<
+    UiClauseVariant,
+    {mode: UiTransitionMode; damping: number; stiffness: number; slideX: number; slideY: number}
+  >
+> = {
+  'agent-audit': {mode: 'heavy-spring-pop', damping: 8.5, stiffness: 325, slideX: 0, slideY: -24},
+  'template-paste': {mode: 'horizontal-terminal-slide', damping: 18, stiffness: 205, slideX: -54, slideY: 0},
+  'surface-illusion': {mode: 'digital-flicker-fade', damping: 25, stiffness: 270, slideX: 0, slideY: -16},
+  'codebase-break': {mode: 'heavy-spring-pop', damping: 7.8, stiffness: 365, slideX: 0, slideY: -26},
+  'prompt-harder': {mode: 'horizontal-terminal-slide', damping: 19, stiffness: 215, slideX: -62, slideY: 0},
+  'subsystem-graph': {mode: 'digital-flicker-fade', damping: 26, stiffness: 285, slideX: 0, slideY: -18},
+  'pretty-prompt': {mode: 'horizontal-terminal-slide', damping: 16, stiffness: 235, slideX: 58, slideY: 0},
+  'math-engine': {mode: 'digital-flicker-fade', damping: 28, stiffness: 255, slideX: 0, slideY: -14},
+  'deterministic-inputs': {mode: 'horizontal-terminal-slide', damping: 21, stiffness: 195, slideX: -50, slideY: 0},
+  'roulette-quarantine': {mode: 'heavy-spring-pop', damping: 8.8, stiffness: 340, slideX: 0, slideY: -24},
+  'intent-to-engine': {mode: 'horizontal-terminal-slide', damping: 17, stiffness: 225, slideX: -60, slideY: 0},
+  'compiler-dag': {mode: 'digital-flicker-fade', damping: 24, stiffness: 275, slideX: 0, slideY: -16},
+  'verified-pillars': {mode: 'horizontal-terminal-slide', damping: 20, stiffness: 210, slideX: 52, slideY: 0},
+  'template-deprecation': {mode: 'heavy-spring-pop', damping: 8.2, stiffness: 350, slideX: 0, slideY: -24},
+  'monolith-engine': {mode: 'horizontal-terminal-slide', damping: 15, stiffness: 240, slideX: -56, slideY: 0},
+  'toy-fatal': {mode: 'heavy-spring-pop', damping: 9.2, stiffness: 380, slideX: 0, slideY: -26},
+};
+
+export const ALL_UI_CLAUSES: readonly SceneUiClauseSpec[] = SCENE_SEQUENCES.flatMap(
+  (s) => SCENE_UI_CLAUSES[s.id],
+);
+
 const buildSimulationStateForSpec = (
   scene: SceneSpec,
   spec: SceneUiClauseSpec,
@@ -444,9 +506,6 @@ const buildSimulationStateForSpec = (
   const activeEnd =
     scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
   const renderStartFrame = spec.startFrame;
-  // Non-final clauses extend +6 frames across the clause boundary so their 12-frame
-  // reversed exit overlaps smoothly with the next clause's 12-frame entrance —
-  // eliminating both jump cuts and empty dead-space dips!
   const renderEndFrame =
     clauseIdx < totalClauses - 1
       ? Math.min(activeEnd, spec.endFrame + CLAUSE_HANDOFF_OVERLAP_FRAMES)
@@ -456,20 +515,35 @@ const buildSimulationStateForSpec = (
   const elapsed = globalFrame - renderStartFrame;
   if (elapsed < 0 || elapsed >= renderDuration) return null;
 
+  const sig = CLAUSE_MOTION_SIGNATURES[spec.variant];
+
   const envelope = computeAssetTransition(elapsed, renderDuration, {
+    mode: sig.mode,
+    damping: sig.damping,
+    stiffness: sig.stiffness,
     enterFrames: ASSET_TRANSITION_FRAMES,
     exitFrames: ASSET_TRANSITION_FRAMES,
-    slidePx: 24,
+    slideX: sig.slideX,
+    slidePx: sig.slideY || 22,
   });
+  // Upper vs Lower cards use distinct opposing slide/spring parameters so adjacent cards never mirror identically
   const upperEnvelope = computeAssetTransition(elapsed, renderDuration, {
+    mode: sig.mode,
+    damping: sig.damping,
+    stiffness: sig.stiffness,
     enterFrames: ASSET_TRANSITION_FRAMES,
     exitFrames: ASSET_TRANSITION_FRAMES,
-    slidePx: -22,
+    slideX: sig.slideX,
+    slidePx: sig.slideY || -20,
   });
   const lowerEnvelope = computeAssetTransition(elapsed, renderDuration, {
+    mode: sig.mode === 'heavy-spring-pop' ? 'horizontal-terminal-slide' : sig.mode === 'horizontal-terminal-slide' ? 'digital-flicker-fade' : 'heavy-spring-pop',
+    damping: sig.damping + 3.5,
+    stiffness: sig.stiffness - 25,
     enterFrames: ASSET_TRANSITION_FRAMES,
     exitFrames: ASSET_TRANSITION_FRAMES,
-    slidePx: 24,
+    slideX: -sig.slideX || 42,
+    slidePx: 22,
   });
 
   const logicalDuration = Math.max(1, spec.endFrame - spec.startFrame);
@@ -492,6 +566,9 @@ const buildSimulationStateForSpec = (
     globalFrame,
     sceneFrom: scene.from,
     clauseStartLocal: renderStartFrame - scene.from,
+    transitionMode: sig.mode,
+    springDamping: sig.damping,
+    springStiffness: sig.stiffness,
     renderStartFrame,
     renderEndFrame,
     clauseElapsed: elapsed,
@@ -629,9 +706,11 @@ const SciFiUiCard: React.FC<{
   return (
     <div
       data-ui-slot={slot}
+      data-transition-mode={envelope.mode}
       data-transition-phase={envelope.phase}
       data-transition-opacity={envelope.opacity}
       data-transition-scale={envelope.scale}
+      data-transition-translate-x={envelope.translateX}
       data-transition-translate-y={envelope.translateY}
       {...dataAttrs}
       style={{
@@ -651,7 +730,7 @@ const SciFiUiCard: React.FC<{
         overflow: 'hidden',
         boxSizing: 'border-box',
         opacity: envelope.opacity,
-        transform: `translate3d(0, ${envelope.translateY}px, 0) scale(${envelope.scale})`,
+        transform: `translate3d(${envelope.translateX}px, ${envelope.translateY}px, 0) scale(${envelope.scale})`,
         transformOrigin: isUpper ? '50% 0%' : '50% 100%',
       }}
     >
@@ -682,6 +761,8 @@ const SciFiUiCard: React.FC<{
           <StaggeredTextItem
             text={title}
             delay={baseDelay + 1}
+            profile="terminal-slide"
+            variantSeed={baseDelay + 1}
             frameOverride={frameOverride}
             style={{
               fontFamily: MONO,
@@ -695,6 +776,8 @@ const SciFiUiCard: React.FC<{
         <StaggeredTextItem
           text={badge}
           delay={baseDelay + 3}
+          profile="telemetry-flicker"
+          variantSeed={baseDelay + 3}
           frameOverride={frameOverride}
           style={{
             fontFamily: MONO,
@@ -972,36 +1055,59 @@ const PromptCliSimulationPair: React.FC<{
       >
         <div
           data-prompt-window="true"
+          data-interactive-chat-window="true"
+          data-live-code-input="true"
           style={{
-            background: 'rgba(6, 9, 17, 0.92)',
-            border: `1px solid ${preset.rejected ? 'rgba(225,29,72,0.58)' : 'rgba(255,69,0,0.48)'}`,
-            padding: '16px 20px',
+            background: 'rgba(6, 9, 17, 0.94)',
+            border: `1px solid ${preset.rejected ? 'rgba(225,29,72,0.58)' : 'rgba(255,69,0,0.52)'}`,
+            padding: '14px 18px',
             boxShadow: 'inset 0 0 24px rgba(0,0,0,0.65)',
             opacity: innerWindowEnv.opacity,
-            transform: `translate3d(0, ${innerWindowEnv.translateY}px, 0) scale(${innerWindowEnv.scale})`,
+            transform: `translate3d(${innerWindowEnv.translateX}px, ${innerWindowEnv.translateY}px, 0) scale(${innerWindowEnv.scale})`,
           }}
         >
           <div
             style={{
               display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
               marginBottom: 10,
+              paddingBottom: 8,
+              borderBottom: '1px solid rgba(244,247,255,0.08)',
               fontFamily: MONO,
               fontSize: 11,
-              letterSpacing: 1.8,
+              letterSpacing: 1.6,
               color: MUTED,
             }}
           >
-            <span style={{color: accent}}>{preset.promptPrefix}</span>
-            <span>UTF-8 · LIVE_INPUT_BUFFER</span>
+            <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+              <span style={{width: 7, height: 7, borderRadius: '50%', background: CRIMSON, display: 'inline-block'}} />
+              <span style={{width: 7, height: 7, borderRadius: '50%', background: ORANGE, display: 'inline-block'}} />
+              <span style={{width: 7, height: 7, borderRadius: '50%', background: '#34d399', display: 'inline-block'}} />
+              <span style={{color: accent, marginLeft: 6, fontWeight: 700}}>{preset.promptPrefix}</span>
+            </div>
+            <span
+              data-chat-send-btn="true"
+              style={{
+                padding: '2px 10px',
+                fontWeight: 700,
+                fontSize: 10.5,
+                color: typeRatio >= 0.96 ? WHITE : accent,
+                background: typeRatio >= 0.96 ? accent : 'rgba(255,69,0,0.12)',
+                border: `1px solid ${accent}`,
+                boxShadow: typeRatio >= 0.96 ? `0 0 12px ${accent}` : 'none',
+              }}
+            >
+              {typeRatio >= 0.96 ? 'SENT ⏎' : 'TYPING...'}
+            </span>
           </div>
           <div
             style={{
               fontFamily: MONO,
-              fontSize: 18,
-              lineHeight: 1.4,
+              fontSize: 17.5,
+              lineHeight: 1.38,
               color: WHITE,
-              minHeight: 52,
+              minHeight: 46,
               wordBreak: 'break-word',
             }}
           >
@@ -1011,7 +1117,7 @@ const PromptCliSimulationPair: React.FC<{
               style={{
                 display: 'inline-block',
                 width: 11,
-                height: 21,
+                height: 20,
                 marginLeft: 5,
                 verticalAlign: 'text-bottom',
                 background: accent,
@@ -1019,6 +1125,28 @@ const PromptCliSimulationPair: React.FC<{
                 boxShadow: state.cursorVisible ? `0 0 12px ${accent}` : 'none',
               }}
             />
+          </div>
+          <div
+            style={{
+              marginTop: 10,
+              paddingTop: 8,
+              borderTop: '1px dashed rgba(244,247,255,0.10)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: MONO,
+              fontSize: 11.5,
+              color: typeRatio >= 0.65 ? '#38bdf8' : MUTED,
+            }}
+          >
+            <span>
+              agent-stream &gt;{' '}
+              {preset.rejected
+                ? 'ERR: missing deterministic timing_graph.ts'
+                : 'parsing AST -> compiling live code buffer...'}
+            </span>
+            <span style={{color: accent, fontWeight: 700}}>
+              {Math.round(typeRatio * 100)}% STREAMED
+            </span>
           </div>
         </div>
 
@@ -1073,6 +1201,8 @@ const PromptCliSimulationPair: React.FC<{
                   <StaggeredTextItem
                     text={tok.val}
                     delay={state.clauseStartLocal + 3 + idx * 3}
+                    profile={idx % 2 === 0 ? 'terminal-slide' : 'telemetry-flicker'}
+                    variantSeed={state.clauseStartLocal + idx}
                     frameOverride={frameOverride}
                     style={{color: WHITE}}
                   />
@@ -1111,6 +1241,8 @@ const PromptCliSimulationPair: React.FC<{
                 <StaggeredTextItem
                   text={st.value}
                   delay={state.clauseStartLocal + 4 + idx * 3}
+                  profile={st.status === 'err' ? 'hook-pop' : idx % 2 === 0 ? 'telemetry-flicker' : 'terminal-slide'}
+                  variantSeed={state.clauseStartLocal + 10 + idx}
                   frameOverride={frameOverride}
                   style={{color: statusCol, fontWeight: 700}}
                 />
@@ -1206,6 +1338,8 @@ const PromptCliSimulationPair: React.FC<{
                 <StaggeredTextItem
                   text={row.line}
                   delay={state.clauseStartLocal + 2 + idx * 4}
+                  profile={row.alert ? 'hook-pop' : idx % 2 === 0 ? 'terminal-slide' : 'telemetry-flicker'}
+                  variantSeed={state.clauseStartLocal + 20 + idx}
                   frameOverride={frameOverride}
                   style={{color: row.alert ? '#ffd6df' : WHITE}}
                 />
@@ -1511,27 +1645,34 @@ const EnginePipelineSimulationPair: React.FC<{
           'data-ui-sim-kind': 'engine-pipeline',
           'data-ui-variant': state.variant,
           'data-connected-nodes': connectedCount,
+          'data-live-code-compiler': 'true',
         }}
       >
-        {'showInlinePromptBar' in graphConfig && graphConfig.showInlinePromptBar && (
+        {!hasMathSub && (
           <div
             data-inline-prompt-compiler="true"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 14px',
-              background: 'rgba(6, 9, 17, 0.9)',
-              border: '1px solid rgba(255,69,0,0.45)',
+              padding: '9px 14px',
+              background: 'rgba(6, 9, 17, 0.92)',
+              border: `1px solid ${graphConfig.alert ? 'rgba(225,29,72,0.48)' : 'rgba(255,69,0,0.45)'}`,
               fontFamily: MONO,
-              fontSize: 13,
+              fontSize: 12.5,
               opacity: inlineBarEnv.opacity,
-              transform: `translate3d(0, ${inlineBarEnv.translateY}px, 0) scale(${inlineBarEnv.scale})`,
+              transform: `translate3d(${inlineBarEnv.translateX}px, ${inlineBarEnv.translateY}px, 0) scale(${inlineBarEnv.scale})`,
             }}
           >
             <div>
-              <span style={{color: ORANGE, fontWeight: 700}}>prompt://ast $ </span>
-              <span style={{color: WHITE}}>compile(prompt) -&gt; tsx -&gt; frames[1547] -&gt; mp4</span>
+              <span style={{color: graphConfig.alert ? CRIMSON : ORANGE, fontWeight: 700}}>
+                engine://src $ {' '}
+              </span>
+              <span style={{color: WHITE}}>
+                {'showInlinePromptBar' in graphConfig && graphConfig.showInlinePromptBar
+                  ? 'compile(prompt) -> tsx -> frames[1547] -> mp4'
+                  : `run(${state.variant}) --fps=30 --nodes=${connectedCount}/${graphConfig.nodes.length}`}
+              </span>
               <span
                 style={{
                   display: 'inline-block',
@@ -1539,12 +1680,20 @@ const EnginePipelineSimulationPair: React.FC<{
                   height: 15,
                   marginLeft: 6,
                   verticalAlign: 'middle',
-                  background: ORANGE,
+                  background: graphConfig.alert ? CRIMSON : ORANGE,
                   opacity: state.cursorVisible ? 1 : 0.14,
                 }}
               />
             </div>
-            <span style={{color: '#34d399', fontWeight: 700, fontSize: 11.5}}>TOKENIZED</span>
+            <span
+              style={{
+                color: graphConfig.alert ? '#ff8fa3' : '#34d399',
+                fontWeight: 700,
+                fontSize: 11,
+              }}
+            >
+              {graphConfig.alert ? 'AUDIT_FAULT' : 'LIVE_ENGINE'}
+            </span>
           </div>
         )}
 
@@ -1744,6 +1893,8 @@ const EnginePipelineSimulationPair: React.FC<{
                     <StaggeredTextItem
                       text={m.v}
                       delay={state.clauseStartLocal + 3 + idx * 3}
+                      profile={graphConfig.alert && m.k === 'STATE_ISOLATION' ? 'hook-pop' : idx % 2 === 0 ? 'telemetry-flicker' : 'terminal-slide'}
+                      variantSeed={state.clauseStartLocal + 30 + idx}
                       frameOverride={frameOverride}
                       style={{
                         fontSize: 14,
@@ -1768,7 +1919,10 @@ const EnginePipelineSimulationPair: React.FC<{
         envelope={state.lowerEnvelope}
         baseDelay={state.clauseStartLocal + 2}
         frameOverride={frameOverride}
-        dataAttrs={{'data-ui-lower-kind': 'execution-terminal'}}
+        dataAttrs={{
+          'data-ui-lower-kind': 'execution-terminal',
+          'data-active-engine-terminal': 'true',
+        }}
       >
         <div style={{display: 'flex', flexDirection: 'column', gap: 15, flex: 1, justifyContent: 'center'}}>
           {graphConfig.logs.map((row, idx) => {
@@ -1793,6 +1947,8 @@ const EnginePipelineSimulationPair: React.FC<{
                 <StaggeredTextItem
                   text={row.cmd}
                   delay={state.clauseStartLocal + 2 + idx * 4}
+                  profile={isErr ? 'hook-pop' : idx % 2 === 0 ? 'terminal-slide' : 'telemetry-flicker'}
+                  variantSeed={state.clauseStartLocal + 40 + idx}
                   frameOverride={frameOverride}
                   style={{color: isErr ? '#ffd6df' : WHITE}}
                 />
@@ -1980,6 +2136,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{
           <StaggeredTextItem
             text={diag.headline}
             delay={state.clauseStartLocal + 2}
+            profile="hook-pop"
+            variantSeed={state.clauseStartLocal + 2}
             frameOverride={frameOverride}
             style={{
               fontFamily: MONO,
@@ -2031,6 +2189,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{
                 <StaggeredTextItem
                   text={m.v}
                   delay={state.clauseStartLocal + 3 + idx * 3}
+                  profile={idx % 2 === 0 ? 'telemetry-flicker' : 'hook-pop'}
+                  variantSeed={state.clauseStartLocal + 50 + idx}
                   frameOverride={frameOverride}
                   style={{fontSize: 13.5, fontWeight: 700, color: WHITE}}
                 />
@@ -2084,6 +2244,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{
                 <StaggeredTextItem
                   text={line}
                   delay={state.clauseStartLocal + 2 + idx * 4}
+                  profile={isHeader ? 'hook-pop' : idx % 2 === 0 ? 'terminal-slide' : 'telemetry-flicker'}
+                  variantSeed={state.clauseStartLocal + 60 + idx}
                   frameOverride={frameOverride}
                   style={{
                     color: isHeader ? '#ffe4e8' : '#fda4af',
@@ -2183,23 +2345,35 @@ export const ContextualUiSimulationLayer: React.FC<{
                 <StaggeredTextItem
                   text="SYNCING_CLAUSE_LOCK..."
                   delay={state.clauseStartLocal + 1}
+                  profile="telemetry-flicker"
+                  variantSeed={state.clauseStartLocal + 1}
                   frameOverride={frameOverride}
                   style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}
                 />
               ) : (
-                state.spokenClauseWords.map((w) => (
-                  <StaggeredTextItem
-                    key={w.index}
-                    text={w.text}
-                    delay={SCRIPT_CUES[w.index].startFrame - scene.from}
-                    frameOverride={frameOverride}
-                    dataAttrs={{'data-clause-word-index': w.index}}
-                    style={{
-                      color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : 'rgba(244, 247, 255, 0.80)',
-                      fontWeight: w.isCurrent ? 800 : 500,
-                    }}
-                  />
-                ))
+                state.spokenClauseWords.map((w, wordPos) => {
+                  const profiles: readonly TextMotionProfile[] = [
+                    'hook-pop',
+                    'terminal-slide',
+                    'telemetry-flicker',
+                  ];
+                  const wordProfile = profiles[w.index % profiles.length];
+                  return (
+                    <StaggeredTextItem
+                      key={w.index}
+                      text={w.text}
+                      delay={SCRIPT_CUES[w.index].startFrame - scene.from}
+                      profile={wordProfile}
+                      variantSeed={w.index}
+                      frameOverride={frameOverride}
+                      dataAttrs={{'data-clause-word-index': w.index}}
+                      style={{
+                        color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : 'rgba(244, 247, 255, 0.82)',
+                        fontWeight: w.isCurrent ? 800 : 500,
+                      }}
+                    />
+                  );
+                })
               )}
             </div>
           </div>

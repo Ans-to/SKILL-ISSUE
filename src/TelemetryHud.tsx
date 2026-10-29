@@ -14,6 +14,7 @@ import {
   findSceneCue,
   isSceneCleared,
   sceneForFrame,
+  type SceneKey,
   type SceneSpec,
   type ScriptCue,
 } from './engine/agentEngineModel';
@@ -63,40 +64,80 @@ export type TelemetryHudProps = {
 
 export const HUD_TRANSITION_FRAMES = 12;
 
-export type HudEnvelope = {
-  opacity: number;
-  scale: number;
-  translateY: number;
+export type SceneHudMotionSpec = {
+  mode: 'digital-flicker' | 'terminal-slide-x' | 'spring-pop' | 'aperture-glide' | 'cascade-lock' | 'monolith-snap';
+  damping: number;
+  stiffness: number;
+  slideX: number;
+  slideY: number;
 };
 
 /**
- * Smooth 12-frame spring + cubic entrance (opacity 0 -> 1, scale 0.95 -> 1.0, translateY)
- * paired with a reversed 12-frame cubic exit before scene unmount.
+ * Distinct HUD motion & physics per scene — consecutive scenes never reuse the same
+ * entrance animation, transition vector, or spring config.
  */
+export const SCENE_HUD_PROFILES: Readonly<Record<SceneKey, SceneHudMotionSpec>> = {
+  hook: {mode: 'spring-pop', damping: 9, stiffness: 310, slideX: 0, slideY: -18},
+  twist: {mode: 'terminal-slide-x', damping: 17, stiffness: 205, slideX: -32, slideY: 0},
+  shift: {mode: 'digital-flicker', damping: 24, stiffness: 260, slideX: 0, slideY: -10},
+  mechanism: {mode: 'aperture-glide', damping: 28, stiffness: 145, slideX: 24, slideY: -14},
+  payoff: {mode: 'cascade-lock', damping: 14, stiffness: 245, slideX: -28, slideY: 0},
+  outro: {mode: 'monolith-snap', damping: 10, stiffness: 355, slideX: 0, slideY: -22},
+};
+
+export type HudEnvelope = {
+  mode: SceneHudMotionSpec['mode'];
+  opacity: number;
+  scale: number;
+  translateX: number;
+  translateY: number;
+};
+
+const DIGITAL_HUD_STEPS = [
+  0, 0.25, 0.14, 0.42, 0.30, 0.56, 0.46, 0.72, 0.64, 0.88, 0.94, 0.98, 1.0,
+] as const;
+
 export const getHudEnvelope = (scene: SceneSpec, localFrame: number): HudEnvelope => {
+  const spec = SCENE_HUD_PROFILES[scene.id];
   if (localFrame < 0 || isSceneCleared(scene, localFrame)) {
-    return {opacity: 0, scale: 0.95, translateY: -18};
+    return {
+      mode: spec.mode,
+      opacity: 0,
+      scale: 0.95,
+      translateX: spec.slideX,
+      translateY: spec.slideY || -16,
+    };
   }
   const activeFrames =
     scene.id === 'outro'
       ? Math.max(1, OUTRO_CUT_FRAME - scene.from)
       : Math.max(1, scene.durationInFrames - scene.clearFrames);
+
   const enterSpring = clamp(
     spring({
       frame: Math.max(0, localFrame),
       fps: FPS,
-      config: {damping: 20, stiffness: 120, mass: 0.9, overshootClamping: true},
+      config: {damping: spec.damping, stiffness: spec.stiffness, overshootClamping: true},
     }),
     0,
     1,
   );
-  const enterFade = interpolate(localFrame, [0, HUD_TRANSITION_FRAMES], [0, 1], {
-    easing: Easing.out(Easing.cubic),
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+
+  const enterFade =
+    spec.mode === 'digital-flicker' && localFrame < DIGITAL_HUD_STEPS.length
+      ? DIGITAL_HUD_STEPS[Math.max(0, Math.floor(localFrame))]
+      : interpolate(localFrame, [0, HUD_TRANSITION_FRAMES], [0, 1], {
+          easing: Easing.out(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+
   const enterBlend =
-    localFrame === 0 ? 0 : clamp(enterSpring * 0.35 + enterFade * 0.65, 0, 1);
+    localFrame === 0
+      ? 0
+      : spec.mode === 'digital-flicker'
+        ? enterFade
+        : clamp(enterSpring * 0.32 + enterFade * 0.68, 0, 1);
 
   const exitStart = Math.max(0, activeFrames - HUD_TRANSITION_FRAMES);
   const exitProgress =
@@ -110,8 +151,9 @@ export const getHudEnvelope = (scene: SceneSpec, localFrame: number): HudEnvelop
 
   const opacity = Number(clamp(Math.min(enterBlend, exitProgress), 0, 1).toFixed(4));
   const scale = Number((0.95 + 0.05 * opacity).toFixed(4));
-  const translateY = Number(((1 - opacity) * -18).toFixed(2));
-  return {opacity, scale, translateY};
+  const translateX = Number(((1 - opacity) * spec.slideX).toFixed(2));
+  const translateY = Number(((1 - opacity) * (spec.slideY || -16)).toFixed(2));
+  return {mode: spec.mode, opacity, scale, translateX, translateY};
 };
 
 export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number =>
@@ -129,6 +171,7 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   return (
     <svg
       data-scene-graph={scene.id}
+      data-hud-motion={env.mode}
       data-active-cue={activeCueId}
       data-hot-node={hotNode}
       viewBox="0 0 1080 1920"
@@ -176,25 +219,30 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
 }) => {
   const globalFrame = scene.from + localFrame;
   const activeCueId = activeCue?.globalIndex ?? -1;
-  const reveal = getHudLifecycle(scene, localFrame);
-  const hudScale = 0.95 + 0.05 * reveal;
+  const env = getHudEnvelope(scene, localFrame);
   const activeSim = getActiveUiSimulation(scene, localFrame);
   const isAlert = activeSim?.kind === 'error-diagnostic';
   const accent = isAlert ? CRIMSON : ORANGE;
 
+  // Sharp digital telemetry flicker on new active token onset
+  const cueElapsed = activeCue ? Math.max(0, globalFrame - activeCue.startFrame) : 99;
+  const tokenDigitalFlicker =
+    cueElapsed === 0 ? 0.54 : cueElapsed === 1 ? 0.94 : cueElapsed === 2 ? 0.72 : 1.0;
+
   return (
     <div
       data-scene-telemetry={scene.id}
+      data-hud-motion={env.mode}
       data-active-cue={activeCueId}
-      data-hud-opacity={reveal}
-      data-hud-scale={hudScale.toFixed(4)}
+      data-hud-opacity={env.opacity}
+      data-hud-scale={env.scale.toFixed(4)}
       style={{
         position: 'absolute',
         inset: 0,
         pointerEvents: 'none',
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
         color: WHITE,
-        opacity: reveal,
+        opacity: env.opacity,
       }}
     >
       {/* Top Viewport Telemetry Header */}
@@ -209,7 +257,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           justifyContent: 'space-between',
           paddingBottom: 12,
           borderBottom: '1px solid rgba(244,247,255,0.10)',
-          transform: `translate3d(0, ${((1 - reveal) * -18).toFixed(2)}px, 0) scale(${hudScale.toFixed(4)})`,
+          transform: `translate3d(${env.translateX}px, ${env.translateY}px, 0) scale(${env.scale.toFixed(4)})`,
           transformOrigin: '50% 0%',
         }}
       >
@@ -228,7 +276,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
             fontSize: 11.5,
             letterSpacing: 1.8,
             color: WHITE,
-            opacity: 0.72,
+            opacity: 0.78,
             fontVariantNumeric: 'tabular-nums',
           }}
         >
@@ -248,7 +296,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           justifyContent: 'space-between',
           paddingTop: 12,
           borderTop: '1px solid rgba(244,247,255,0.10)',
-          transform: `translate3d(0, ${((1 - reveal) * 18).toFixed(2)}px, 0) scale(${hudScale.toFixed(4)})`,
+          transform: `translate3d(${(-env.translateX).toFixed(2)}px, ${(-env.translateY).toFixed(2)}px, 0) scale(${env.scale.toFixed(4)})`,
           transformOrigin: '50% 100%',
         }}
       >
@@ -256,7 +304,13 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           <span style={{fontSize: 11, letterSpacing: 2, color: accent, fontWeight: 700}}>CUE</span>
           <span
             data-current-token="true"
-            style={{fontSize: 12.5, fontWeight: 700, letterSpacing: 0.6, color: activeCue ? WHITE : MUTED}}
+            style={{
+              fontSize: 12.5,
+              fontWeight: 700,
+              letterSpacing: 0.6,
+              color: activeCue ? WHITE : MUTED,
+              opacity: tokenDigitalFlicker,
+            }}
           >
             {activeCue ? activeCue.text : '—'}
           </span>
