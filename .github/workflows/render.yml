@@ -1,4 +1,4 @@
-name: Render 16x9 Bretton Woods YouTube documentary
+name: Render Dual-Format Bretton Woods Documentary (16x9 + 9x16)
 
 on:
   push:
@@ -12,8 +12,8 @@ env:
   REMOTION_TELEMETRY_DISABLED: "1"
 
 jobs:
-  render:
-    name: Render 16x9 60s Bretton Woods documentary
+  render-landscape:
+    name: Render 16x9 Landscape (1920x1080)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -48,12 +48,58 @@ jobs:
         run: mkdir -p out && rm -f out/Bretton-Woods-Global-Dollar.mp4
 
       - name: Render 1920x1080 60s MP4 in GitHub Actions
-        run: npx remotion render src/index.ts BrettonWoodsDocumentary out/Bretton-Woods-Global-Dollar.mp4 --props=./props.json --codec=h264 --crf=18 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
+        run: npx remotion render src/index.ts BrettonWoodsLandscape out/Bretton-Woods-Global-Dollar.mp4 --props=./props.json --codec=h264 --crf=20 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
 
-      - name: Upload downloadable MP4 artifact
+      - name: Upload 16x9 MP4 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bretton-woods-global-dollar-${{ github.sha }}
+          name: bretton-woods-16x9-${{ github.sha }}
           path: out/Bretton-Woods-Global-Dollar.mp4
+          if-no-files-found: error
+          retention-days: 30
+
+  render-vertical:
+    name: Render 9x16 Vertical Shorts (1080x1920)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and verify absolute frame sync
+        run: npm run typecheck && npm run verify:sync
+
+      - name: Cache Remotion browser
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.remotion
+          key: ${{ runner.os }}-remotion-browser-v2-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-remotion-browser-v2-
+
+      - name: Clear Remotion bundle cache
+        run: rm -rf node_modules/.cache/webpack
+
+      - name: Prepare output directory
+        run: mkdir -p out && rm -f out/Bretton-Woods-Shorts-9x16.mp4
+
+      - name: Render 1080x1920 60s MP4 in GitHub Actions
+        run: npx remotion render src/index.ts BrettonWoodsVertical out/Bretton-Woods-Shorts-9x16.mp4 --props=./props.json --codec=h264 --crf=20 --pixel-format=yuv420p --gl=swangle --concurrency=100% --bundle-cache=false
+
+      - name: Upload 9x16 MP4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bretton-woods-9x16-${{ github.sha }}
+          path: out/Bretton-Woods-Shorts-9x16.mp4
           if-no-files-found: error
           retention-days: 30

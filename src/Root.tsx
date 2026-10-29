@@ -9,6 +9,8 @@ import {
   BW_DURATION_FRAMES,
   BW_FPS,
   BW_HEIGHT,
+  BW_VERTICAL_HEIGHT,
+  BW_VERTICAL_WIDTH,
   BW_WIDTH,
 } from './bretton-woods/brettonWoodsModel';
 import {
@@ -74,8 +76,18 @@ export const Root = BrettonWoodsDocumentary;
 
 export const RemotionRoot: React.FC = () => (
   <>
+    {/* Primary 16:9 Landscape YouTube Composition (1920x1080) */}
     <Composition
       id="Root"
+      component={BrettonWoodsDocumentary}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_WIDTH}
+      height={BW_HEIGHT}
+      defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
+    />
+    <Composition
+      id="BrettonWoodsLandscape"
       component={BrettonWoodsDocumentary}
       durationInFrames={BW_DURATION_FRAMES}
       fps={BW_FPS}
@@ -92,6 +104,28 @@ export const RemotionRoot: React.FC = () => (
       height={BW_HEIGHT}
       defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
     />
+
+    {/* Proportional 9:16 Vertical Shorts Composition (1080x1920) */}
+    <Composition
+      id="BrettonWoodsVertical"
+      component={BrettonWoodsDocumentary}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_VERTICAL_WIDTH}
+      height={BW_VERTICAL_HEIGHT}
+      defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
+    />
+    <Composition
+      id="BrettonWoodsShorts"
+      component={BrettonWoodsDocumentary}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_VERTICAL_WIDTH}
+      height={BW_VERTICAL_HEIGHT}
+      defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
+    />
+
+    {/* Preserved Legacy Compositions */}
     <Composition
       id="EngineFirstExplainer"
       component={EngineFirstExplainer}

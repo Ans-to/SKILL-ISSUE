@@ -10,11 +10,11 @@ import {BrettonWoodsUiSimulation} from '../BrettonWoodsUiSimulation';
 
 const SCENE = BW_SCENES[3];
 
-export const HeavyCrownConclusionScene: React.FC<{localFrameOverride?: number}> = ({
-  localFrameOverride,
-}) => {
-  const seqFrame = useCurrentFrame();
-  const localFrame = localFrameOverride ?? seqFrame;
+const SceneBody: React.FC<{
+  localFrame: number;
+  widthOverride?: number;
+  heightOverride?: number;
+}> = ({localFrame, widthOverride, heightOverride}) => {
   const globalFrame = SCENE.sequenceFrom + localFrame;
   const spatialEnvelope = computeSpatialSceneEnvelope(SCENE, localFrame);
   const rig = getContinuousCameraRig(globalFrame);
@@ -26,13 +26,39 @@ export const HeavyCrownConclusionScene: React.FC<{localFrameOverride?: number}> 
         globalFrame={globalFrame}
         spatialEnvelope={spatialEnvelope}
         cameraPanX={rig.camX}
+        widthOverride={widthOverride}
+        heightOverride={heightOverride}
       />
       <BrettonWoodsHeroKineticLayer
         sceneId={SCENE.id}
         globalFrame={globalFrame}
         spatialEnvelope={spatialEnvelope}
         cameraPanX={rig.camX}
+        widthOverride={widthOverride}
+        heightOverride={heightOverride}
       />
     </>
   );
+};
+
+const ConnectedScene: React.FC = () => {
+  const localFrame = useCurrentFrame();
+  return <SceneBody localFrame={localFrame} />;
+};
+
+export const HeavyCrownConclusionScene: React.FC<{
+  localFrameOverride?: number;
+  widthOverride?: number;
+  heightOverride?: number;
+}> = ({localFrameOverride, widthOverride, heightOverride}) => {
+  if (localFrameOverride !== undefined) {
+    return (
+      <SceneBody
+        localFrame={localFrameOverride}
+        widthOverride={widthOverride}
+        heightOverride={heightOverride}
+      />
+    );
+  }
+  return <ConnectedScene />;
 };

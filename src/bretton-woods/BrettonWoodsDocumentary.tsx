@@ -1,18 +1,15 @@
 import React from 'react';
-import {AbsoluteFill, Sequence, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig} from 'remotion';
 import {BrettonWoodsAudioLayer} from './BrettonWoodsAudio';
 import {
   ContinuousAtmosphericGridPlane,
   ContinuousWorldThreeStage,
-  GeodeticCalibrationOverlay,
 } from './ContinuousWorldBackground';
 import {BrettonWoodsFloatingHud} from './BrettonWoodsHud';
 import {
-  BW_HEIGHT,
-  BW_NAVY_DEEP,
-  BW_ORANGE,
+  BW_GOLD_BRIGHT,
+  BW_OBSIDIAN,
   BW_SCENES,
-  BW_WIDTH,
 } from './brettonWoodsModel';
 import {BrettonWoodsOriginScene} from './scenes/BrettonWoodsOriginScene';
 import {GlobalStandardScene} from './scenes/GlobalStandardScene';
@@ -31,17 +28,17 @@ export type BrettonWoodsProps = {
 export const DEFAULT_BRETTON_WOODS_PROPS: Required<BrettonWoodsProps> = {
   title: 'Bretton Woods & The Global Dollar Standard',
   compositionId: 'Root',
-  backgroundColor: BW_NAVY_DEEP,
-  accentColor: BW_ORANGE,
+  backgroundColor: BW_OBSIDIAN,
+  accentColor: BW_GOLD_BRIGHT,
   voiceoverFile: 'bretton-woods/voiceover.wav',
   muted: false,
 };
 
 /**
- * 16:9 YouTube Long-Form Documentary (1920x1080, 30 fps, 1,800 frames / 60.0s).
- * Mounts continuous moving 3D background + drifting coordinate grid (z=1, z=10)
- * across all 60 seconds with fluid spatial scene handoffs (zero hard cuts, zero #000000 black)
- * and decoupled z-indexed foreground UI & polymorphic kinetic typography planes.
+ * Clean Cinematic Tech-Doc (Dual Format: 16:9 Landscape 1920x1080 & 9:16 Vertical 1080x1920).
+ * Deep obsidian (#0b0f19) canvas with subtle drifting gold/emerald grid lines,
+ * continuous smooth 3D isometric camera pan/drift, purposeful vector/3D visuals,
+ * and centered high-contrast kinetic typography with generous breathing room.
  */
 export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
   title = DEFAULT_BRETTON_WOODS_PROPS.title,
@@ -50,40 +47,38 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
   muted = DEFAULT_BRETTON_WOODS_PROPS.muted,
 }) => {
   const globalFrame = useCurrentFrame();
-  // Guard against accidental #000000 black override
+  const {width, height} = useVideoConfig();
+
   const safeBackground =
     backgroundColor.toLowerCase() === '#000000' || backgroundColor.toLowerCase() === '#000'
-      ? BW_NAVY_DEEP
+      ? BW_OBSIDIAN
       : backgroundColor;
 
   return (
     <AbsoluteFill
       data-root-title={title}
-      data-canvas-root="1920x1080"
-      data-layer-architecture="decoupled-absolute-z-continuous-3d"
+      data-canvas-root={`${width}x${height}`}
+      data-layer-architecture="clean-editorial-isometric-tech-doc"
       style={{
         position: 'relative',
-        width: BW_WIDTH,
-        height: BW_HEIGHT,
+        width,
+        height,
         backgroundColor: safeBackground,
         overflow: 'hidden',
       }}
     >
-      {/* Layer z=1: Unbroken Continuous Drifting Geodetic Coordinate Grid */}
+      {/* Layer z=1: Deep Obsidian (#0b0f19) + Subtle Drifting Gold/Emerald Grid */}
       <ContinuousAtmosphericGridPlane globalFrame={globalFrame} />
 
-      {/* Layer z=10: Unbroken Continuous 3D Panning & Zooming World Stage */}
+      {/* Layer z=10: Continuous Smooth 3D Isometric Camera Stage */}
       <ContinuousWorldThreeStage globalFrame={globalFrame} />
 
-      {/* Layer z=36: Unbroken Cartographic Calibration Reticle */}
-      <GeodeticCalibrationOverlay globalFrame={globalFrame} />
-
-      {/* Fluid Spatial Scene Sequences (`layout="none"` preserves single root Z-stack!) */}
+      {/* Gentle Overlapping Scene Sequences (Zero Hard Cuts) */}
       <Sequence
         from={BW_SCENES[0].sequenceFrom}
         durationInFrames={BW_SCENES[0].sequenceDuration}
         layout="none"
-        name="BW-01-Global-Standard"
+        name="01-Global-Standard"
       >
         <GlobalStandardScene />
       </Sequence>
@@ -92,7 +87,7 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
         from={BW_SCENES[1].sequenceFrom}
         durationInFrames={BW_SCENES[1].sequenceDuration}
         layout="none"
-        name="BW-02-Bretton-Woods-Origin"
+        name="02-Bretton-Woods-Origin"
       >
         <BrettonWoodsOriginScene />
       </Sequence>
@@ -101,7 +96,7 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
         from={BW_SCENES[2].sequenceFrom}
         durationInFrames={BW_SCENES[2].sequenceDuration}
         layout="none"
-        name="BW-03-Liquidity-Power-Engine"
+        name="03-Liquidity-And-Trust"
       >
         <LiquidityPowerEngineScene />
       </Sequence>
@@ -110,15 +105,15 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
         from={BW_SCENES[3].sequenceFrom}
         durationInFrames={BW_SCENES[3].sequenceDuration}
         layout="none"
-        name="BW-04-Heavy-Crown-Conclusion"
+        name="04-Heavy-Crown-Conclusion"
       >
         <HeavyCrownConclusionScene />
       </Sequence>
 
-      {/* Layers z=65, z=75, z=76: Independent Floating Geodetic HUD & 4-Chapter Progress */}
+      {/* Layers z=75 & z=76: Minimal Editorial Chapter Header & Hairline Progress */}
       <BrettonWoodsFloatingHud globalFrame={globalFrame} />
 
-      {/* Frame-Exact Voiceover & Spatial SFX Audio Layer */}
+      {/* Frame-Exact Voiceover & Gentle Cinematic Audio Layer */}
       <BrettonWoodsAudioLayer voiceoverFile={voiceoverFile} muted={muted} />
     </AbsoluteFill>
   );

@@ -1037,22 +1037,27 @@ console.log(
   `Verified vertical 1080x1920 modular file tree, 6 isolated <Sequence> scenes (${SCENE_SEQUENCES.map((s) => `${s.id}:${s.from}-${s.endFrame}`).join(', ')}), 100% zero-dead-space Contextual UI Simulation across all ${activeUiFramesVerified} active frames, and live TelemetryHud/KineticEngine updates across all ${SCRIPT_CUES.length} word onsets.`,
 );
 
-// === BRETTON WOODS 16:9 YOUTUBE LONG-FORM VERIFICATION SUITE ===
+// === BRETTON WOODS CLEAN CINEMATIC TECH-DOC (DUAL FORMAT 16:9 + 9:16) VERIFICATION SUITE ===
 const bwModel = require('../src/bretton-woods/brettonWoodsModel.ts');
 const {
   BW_HERO_WINDOWS,
   BrettonWoodsHeroKineticLayer,
 } = require('../src/bretton-woods/BrettonWoodsKineticEngine.tsx');
 const {
-  BW_UI_CLAUSES,
   BrettonWoodsUiSimulation,
 } = require('../src/bretton-woods/BrettonWoodsUiSimulation.tsx');
 const {BrettonWoodsFloatingHud} = require('../src/bretton-woods/BrettonWoodsHud.tsx');
+const {
+  ContinuousAtmosphericGridPlane,
+} = require('../src/bretton-woods/ContinuousWorldBackground.tsx');
 
-assert.equal(bwModel.BW_WIDTH, 1920, 'Bretton Woods must be 1920px wide');
-assert.equal(bwModel.BW_HEIGHT, 1080, 'Bretton Woods must be 1080px tall');
+assert.equal(bwModel.BW_WIDTH, 1920, 'Bretton Woods 16:9 must be 1920px wide');
+assert.equal(bwModel.BW_HEIGHT, 1080, 'Bretton Woods 16:9 must be 1080px tall');
+assert.equal(bwModel.BW_VERTICAL_WIDTH, 1080, 'Bretton Woods 9:16 must be 1080px wide');
+assert.equal(bwModel.BW_VERTICAL_HEIGHT, 1920, 'Bretton Woods 9:16 must be 1920px tall');
 assert.equal(bwModel.BW_FPS, 30, 'Bretton Woods must run at 30 fps');
 assert.equal(bwModel.BW_DURATION_FRAMES, 1800, 'Bretton Woods must be full 60s (1,800 frames)');
+assert.equal(bwModel.BW_OBSIDIAN, '#0b0f19', 'Background canvas must be deep obsidian #0b0f19');
 assert.equal(bwModel.BW_SCENES.length, 4, 'Bretton Woods must have 4 script scenes');
 assert.deepEqual(
   bwModel.BW_SCENES.map((s) => [s.nominalFrom, s.nominalEnd]),
@@ -1065,26 +1070,81 @@ assert.deepEqual(
   'Bretton Woods scenes must match [0:00-0:10], [0:10-0:25], [0:25-0:45], [0:45-1:00]',
 );
 
+// Verify Dual Format compositions in src/Root.tsx
+const rootTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'Root.tsx'), 'utf8');
+for (const compId of [
+  'id="Root"',
+  'id="BrettonWoodsLandscape"',
+  'id="BrettonWoodsDocumentary"',
+  'id="BrettonWoodsVertical"',
+  'id="BrettonWoodsShorts"',
+]) {
+  assert.ok(rootTsx.includes(compId), `Missing dual-format composition ${compId} in src/Root.tsx`);
+}
+
 // Verify decoupled ascending Z-index layers
 const bwZValues = Object.values(bwModel.BRETTON_Z_LAYERS);
 for (let i = 1; i < bwZValues.length; i += 1) {
   assert.ok(bwZValues[i] > bwZValues[i - 1], 'BRETTON_Z_LAYERS must be strictly ascending');
 }
 
-// Verify zero #000000 static black backgrounds across src/bretton-woods/
-const bwDir = path.join(__dirname, '..', 'src', 'bretton-woods');
-for (const entry of fs.readdirSync(bwDir)) {
-  const full = path.join(bwDir, entry);
-  if (fs.statSync(full).isFile() && /\.(ts|tsx)$/.test(entry)) {
-    const src = fs.readFileSync(full, 'utf8');
-    assert.ok(
-      !/background(?:Color)?:\s*['"]#000(?:000)?['"]/i.test(src),
-      `Static black #000000 background is prohibited in ${entry}`,
-    );
-  }
+// Verify non-colliding vertical editorial hierarchy in BOTH 16:9 (1920x1080) and 9:16 (1080x1920)
+for (const [w, h, label] of [
+  [1920, 1080, '16:9 Landscape'],
+  [1080, 1920, '9:16 Vertical'],
+]) {
+  const layout = bwModel.getBrettonLayout(w, h);
+  const estimatedHeroHeight = layout.kickerFontSize + layout.statFontSize + layout.sublineFontSize + 56;
+  assert.ok(
+    layout.heroTop > layout.chapterTop + 44,
+    `${label}: Hero typography must sit cleanly below chapter header`,
+  );
+  assert.ok(
+    layout.heroTop + estimatedHeroHeight + 24 <= layout.visualTop,
+    `${label}: Hero typography zone (${layout.heroTop + estimatedHeroHeight}) must NEVER collide with lower stage visuals (${layout.visualTop})`,
+  );
+  assert.ok(
+    layout.visualTop + layout.visualHeight + 24 <= h - layout.captionBottom - 44,
+    `${label}: Stage visuals (${layout.visualTop + layout.visualHeight}) must leave generous breathing room above spoken subtitle`,
+  );
 }
 
-// Verify continuous smooth 3D camera panning, zooming, and drifting grid across all 1,800 frames (zero frozen frames, zero hard cuts)
+// Verify zero #000000 black backgrounds AND zero debug coordinates / CLI terminal logs across src/bretton-woods/
+const bwDir = path.join(__dirname, '..', 'src', 'bretton-woods');
+const forbiddenDebugPatterns = [
+  /24\.74°/,
+  /44\.26°/,
+  /38\.89°/,
+  /°\s*[NSEW]\b/,
+  /\$ swift-fx/i,
+  /\$\s+nixon/i,
+  /VO_LVL/,
+  /BW:\/\/GLOBAL/,
+  /GeodeticCalibrationOverlay/,
+];
+const checkDirClean = (dir) => {
+  for (const entry of fs.readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (fs.statSync(full).isDirectory()) {
+      checkDirClean(full);
+    } else if (/\.(ts|tsx)$/.test(entry)) {
+      const src = fs.readFileSync(full, 'utf8');
+      assert.ok(
+        !/background(?:Color)?:\s*['"]#000(?:000)?['"]/i.test(src),
+        `Static black #000000 background is prohibited in ${entry}`,
+      );
+      for (const pat of forbiddenDebugPatterns) {
+        assert.ok(
+          !pat.test(src),
+          `Forbidden debug clutter pattern ${pat} found in ${entry}`,
+        );
+      }
+    }
+  }
+};
+checkDirClean(bwDir);
+
+// Verify continuous smooth 3D isometric camera pan/drift & drifting grid across all 1,800 frames (zero frozen frames, zero hard cuts)
 let prevRig = bwModel.getContinuousCameraRig(0);
 for (let f = 1; f < bwModel.BW_DURATION_FRAMES; f += 1) {
   const rig = bwModel.getContinuousCameraRig(f);
@@ -1097,13 +1157,26 @@ for (let f = 1; f < bwModel.BW_DURATION_FRAMES; f += 1) {
     rig.gridDriftX - prevRig.gridDriftX,
     rig.gridDriftY - prevRig.gridDriftY,
   );
-  assert.ok(camDelta > 0.0001, `3D camera froze between frames ${f - 1} and ${f}`);
-  assert.ok(camDelta < 0.35, `Hard camera cut detected between frames ${f - 1} and ${f} (delta=${camDelta})`);
+  assert.ok(camDelta > 0.00005, `3D isometric camera froze between frames ${f - 1} and ${f}`);
+  assert.ok(camDelta < 0.25, `Hard camera cut detected between frames ${f - 1} and ${f} (delta=${camDelta})`);
   assert.ok(gridDelta > 0.05, `Background grid stopped drifting between frames ${f - 1} and ${f}`);
   prevRig = rig;
 }
 
-// Verify fluid spatial overlap at all 3 scene boundaries (frames 300, 750, 1350)
+// Verify gentle 24-frame cubic cross-glides (zero 1-frame jump cuts; max opacity step <= 0.12)
+for (const scene of bwModel.BW_SCENES) {
+  let prevOp = bwModel.computeSpatialSceneEnvelope(scene, 0).opacity;
+  for (let lf = 1; lf < scene.sequenceDuration; lf += 1) {
+    const curOp = bwModel.computeSpatialSceneEnvelope(scene, lf).opacity;
+    const step = Math.abs(curOp - prevOp);
+    assert.ok(
+      step <= 0.12,
+      `Abrupt opacity jump (${step.toFixed(3)}) in ${scene.id} at localFrame=${lf}`,
+    );
+    prevOp = curOp;
+  }
+}
+
 for (const [idx, boundaryFrame] of [
   [0, 300],
   [1, 750],
@@ -1114,16 +1187,16 @@ for (const [idx, boundaryFrame] of [
   const outEnv = bwModel.computeSpatialSceneEnvelope(outgoing, boundaryFrame - outgoing.sequenceFrom);
   const inEnv = bwModel.computeSpatialSceneEnvelope(incoming, boundaryFrame - incoming.sequenceFrom);
   assert.ok(
-    outEnv.opacity > 0.15 && outEnv.opacity < 0.85,
-    `Outgoing scene ${outgoing.id} must smoothly cross-glide at frame ${boundaryFrame}`,
+    outEnv.opacity > 0.2 && outEnv.opacity < 0.8,
+    `Outgoing scene ${outgoing.id} must gently cross-fade at frame ${boundaryFrame}`,
   );
   assert.ok(
-    inEnv.opacity > 0.15 && inEnv.opacity < 0.85,
-    `Incoming scene ${incoming.id} must smoothly cross-glide at frame ${boundaryFrame}`,
+    inEnv.opacity > 0.2 && inEnv.opacity < 0.8,
+    `Incoming scene ${incoming.id} must gently cross-fade at frame ${boundaryFrame}`,
   );
 }
 
-// Verify all 10 required Kinetic Text strings & strictly alternating polymorphic motion profiles
+// Verify all 10 required Hero Kinetic Titles & strictly alternating polymorphic motion profiles
 const requiredKineticHeadlines = [
   '88%',
   'GLOBAL TRADE',
@@ -1150,22 +1223,7 @@ for (let i = 1; i < BW_HERO_WINDOWS.length; i += 1) {
   );
 }
 
-// Verify active Contextual UI Simulation & zero future-word leaks across all 1,800 frames
-assert.equal(BW_UI_CLAUSES[0].startFrame, 0);
-assert.equal(BW_UI_CLAUSES[BW_UI_CLAUSES.length - 1].endFrame, 1800);
-for (let i = 1; i < BW_UI_CLAUSES.length; i += 1) {
-  assert.notEqual(
-    BW_UI_CLAUSES[i].upperSide,
-    BW_UI_CLAUSES[i - 1].upperSide,
-    'Adjacent BW_UI_CLAUSES must alternate left/right horizontal anchors',
-  );
-  assert.notEqual(
-    BW_UI_CLAUSES[i].entranceKind,
-    BW_UI_CLAUSES[i - 1].entranceKind,
-    'Adjacent BW_UI_CLAUSES must vary entrance motion families',
-  );
-}
-
+// Verify purposeful thematic visuals & exact spoken-word sync across all 108 words in BOTH 16:9 and 9:16
 for (const cue of bwModel.BW_SCRIPT_CUES) {
   const scene = bwModel.BW_SCENES[cue.sceneIndex];
   assert.ok(
@@ -1173,53 +1231,80 @@ for (const cue of bwModel.BW_SCRIPT_CUES) {
     `Word "${cue.text}" (F${cue.startFrame}-F${cue.endFrame}) fell outside scene ${scene.id} [${scene.nominalFrom}..${scene.nominalEnd}]`,
   );
   const env = bwModel.computeSpatialSceneEnvelope(scene, cue.startFrame - scene.sequenceFrom);
-  const uiHtml = renderToStaticMarkup(
-    React.createElement(BrettonWoodsUiSimulation, {
-      sceneId: scene.id,
-      globalFrame: cue.startFrame,
-      spatialEnvelope: env,
-      cameraPanX: 0,
-    }),
-  );
-  assert.ok(uiHtml.includes('data-canvas-layer="ui-background-widget"'));
-  assert.ok(uiHtml.includes('data-canvas-layer="terminal-box"'));
-  assert.ok(uiHtml.includes('data-canvas-layer="clause-ribbon"'));
 
-  // Ensure next unspoken word in same clause does NOT leak early into clause-ribbon
-  const nextCue = bwModel.BW_SCRIPT_CUES[cue.globalIndex + 1];
-  if (nextCue && nextCue.sceneIndex === cue.sceneIndex && nextCue.text.length > 4) {
-    const ribbonSlice = uiHtml.split('data-canvas-layer="clause-ribbon"')[1] || '';
-    const uniqueFuture = !bwModel.BW_SCRIPT_CUES
-      .slice(0, cue.globalIndex + 1)
-      .some((prev) => prev.text === nextCue.text);
-    if (uniqueFuture) {
-      assert.ok(
-        !ribbonSlice.includes(`>${escapeText(nextCue.text)}<`),
-        `Future word "${nextCue.text}" leaked early into clause-ribbon at frame ${cue.startFrame}`,
-      );
+  for (const [w, h] of [
+    [1920, 1080],
+    [1080, 1920],
+  ]) {
+    const uiHtml = renderToStaticMarkup(
+      React.createElement(BrettonWoodsUiSimulation, {
+        sceneId: scene.id,
+        globalFrame: cue.startFrame,
+        spatialEnvelope: env,
+        widthOverride: w,
+        heightOverride: h,
+      }),
+    );
+    assert.ok(uiHtml.includes('data-canvas-layer="purposeful-visual"'));
+    assert.ok(uiHtml.includes(`data-bw-visual-scene="${scene.id}"`));
+    assert.ok(uiHtml.includes('data-canvas-layer="clause-ribbon"'));
+    assert.ok(!uiHtml.includes('terminal-box'), 'Legacy hacker terminal boxes must not exist');
+
+    // Ensure next unspoken word in same sentence does NOT leak early into clause-ribbon
+    const nextCue = bwModel.BW_SCRIPT_CUES[cue.globalIndex + 1];
+    if (nextCue && nextCue.sceneIndex === cue.sceneIndex && nextCue.text.length > 4) {
+      const subtitleSlice = uiHtml.split('data-canvas-layer="clause-ribbon"')[1] || '';
+      const uniqueFuture = !bwModel.BW_SCRIPT_CUES
+        .slice(0, cue.globalIndex + 1)
+        .some((prev) => prev.text === nextCue.text);
+      if (uniqueFuture) {
+        assert.ok(
+          !subtitleSlice.includes(`>${escapeText(nextCue.text)}<`),
+          `Future word "${nextCue.text}" leaked early into spoken subtitle at frame ${cue.startFrame}`,
+        );
+      }
     }
   }
 }
 
 for (const win of BW_HERO_WINDOWS) {
   const midFrame = Math.floor((win.startFrame + win.endFrame) / 2);
-  const heroHtml = renderToStaticMarkup(
-    React.createElement(BrettonWoodsHeroKineticLayer, {
-      sceneId: win.sceneId,
-      globalFrame: midFrame,
-      spatialEnvelope: {opacity: 1, translateX: 0, translateY: 0, scale: 1},
-      cameraPanX: 0,
-    }),
-  );
-  assert.ok(heroHtml.includes('data-canvas-layer="hero-kinetic-text"'));
-  assert.ok(heroHtml.includes(`data-bw-hero-profile="${win.profile}"`));
-  const hudHtml = renderToStaticMarkup(
-    React.createElement(BrettonWoodsFloatingHud, {globalFrame: midFrame}),
-  );
-  assert.ok(hudHtml.includes('data-canvas-layer="hud-header"'));
-  assert.ok(hudHtml.includes('data-canvas-layer="hud-footer"'));
+  for (const [w, h] of [
+    [1920, 1080],
+    [1080, 1920],
+  ]) {
+    const bgHtml = renderToStaticMarkup(
+      React.createElement(ContinuousAtmosphericGridPlane, {
+        globalFrame: midFrame,
+        widthOverride: w,
+        heightOverride: h,
+      }),
+    );
+    assert.ok(bgHtml.includes('data-bw-background="obsidian-gold-emerald-grid"'));
+    const heroHtml = renderToStaticMarkup(
+      React.createElement(BrettonWoodsHeroKineticLayer, {
+        sceneId: win.sceneId,
+        globalFrame: midFrame,
+        spatialEnvelope: {opacity: 1, translateX: 0, translateY: 0, scale: 1},
+        widthOverride: w,
+        heightOverride: h,
+      }),
+    );
+    assert.ok(heroHtml.includes('data-canvas-layer="hero-kinetic-text"'));
+    assert.ok(heroHtml.includes(`data-bw-hero-profile="${win.profile}"`));
+    const hudHtml = renderToStaticMarkup(
+      React.createElement(BrettonWoodsFloatingHud, {
+        globalFrame: midFrame,
+        widthOverride: w,
+        heightOverride: h,
+      }),
+    );
+    assert.ok(hudHtml.includes('data-canvas-layer="chapter-header"'));
+    assert.ok(hudHtml.includes('data-canvas-layer="progress-rule"'));
+    assert.ok(!hudHtml.includes('° N') && !hudHtml.includes('VO_LVL'));
+  }
 }
 
 console.log(
-  `Verified 16:9 YouTube Bretton Woods Documentary (1920x1080, 30 fps, 1,800 frames / 60.0s, ${bwModel.BW_SCRIPT_CUES.length} aligned words, ${BW_HERO_WINDOWS.length} alternating kinetic windows, continuous 3D camera & drifting grid, fluid spatial transitions, zero #000000 black).`,
+  `Verified Clean Cinematic Tech-Doc Dual-Format Bretton Woods Documentary (16:9 1920x1080 + 9:16 1080x1920, 30 fps, 1,800 frames / 60.0s, ${bwModel.BW_SCRIPT_CUES.length} aligned words, ${BW_HERO_WINDOWS.length} centered non-colliding hero titles, 4 purposeful thematic visuals, smooth isometric 3D camera + #0b0f19 gold/emerald grid, zero debug clutter).`,
 );
