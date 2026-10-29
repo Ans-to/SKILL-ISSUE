@@ -173,8 +173,8 @@ export const getCinematographyState = (
     }
 
     const flash =
-      interpolate(dt, [0, 1.5, 14], [0.85, 1, 0], {
-        easing: Easing.out(Easing.cubic),
+      interpolate(dt, [0, 1.5, 15], [0, 1, 0], {
+        easing: Easing.inOut(Easing.cubic),
         extrapolateLeft: 'clamp',
         extrapolateRight: 'clamp',
       }) *

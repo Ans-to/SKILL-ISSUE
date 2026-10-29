@@ -27,10 +27,19 @@ for (const extension of ['.ts', '.tsx']) {
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
-const {TelemetryHud, AtmosphericOverlays, getHudLifecycle} = require('../src/TelemetryHud.tsx');
+const {
+  TelemetryHud,
+  AtmosphericOverlays,
+  HUD_TRANSITION_FRAMES,
+  getHudEnvelope,
+  getHudLifecycle,
+} = require('../src/TelemetryHud.tsx');
 const {
   KineticEngine,
   SceneSemanticGraph,
+  SCENE_TYPEWRITER_WINDOWS,
+  TYPEWRITER_ENTER_FRAMES,
+  getTypewriterWindowEnvelope,
   classifyTokenTypographicSchema,
   resolveCueTypographicSchema,
   computeTypographicKinematics,
@@ -44,9 +53,13 @@ const {
   computeDynamicHumVolume,
 } = require('../src/SceneAudio.tsx');
 const {
+  ASSET_TRANSITION_FRAMES,
+  CLAUSE_HANDOFF_OVERLAP_FRAMES,
   SCENE_UI_CLAUSES,
+  computeAssetTransition,
   classifyUiSimulationKeyword,
   getActiveUiSimulation,
+  getActiveUiSimulations,
   ContextualUiSimulationLayer,
 } = require('../src/ContextualUiSimulation.tsx');
 const {ContextualVectorBroll} = require('../src/ContextualBroll.tsx');
@@ -240,6 +253,136 @@ for (const scene of SCENE_SEQUENCES) {
   }
 }
 assert.equal(activeUiFramesVerified, 1531, 'All 1,531 active frames must mount contextual UI simulations');
+
+// ============================================================================
+// Verify NARRATIVE-DRIVEN ASSET TRANSITION OVERRIDE (Zero Jump Cuts):
+// 1. Every UI card, HUD overlay, and terminal typewriter window enters over
+//    10–15 frames via spring()/interpolate() (scale: 0.95 -> 1.0, translateY, opacity: 0 -> 1)
+//    and reverses easing cleanly on exit (scale: 1.0 -> 0.95, translateY, opacity: 1 -> 0).
+// 2. Intra-scene clause transitions overlap smoothly (+6f cross-handoff) so no
+//    widget pops in or vanishes on a binary 1-frame cut.
+// ============================================================================
+assert.ok(
+  ASSET_TRANSITION_FRAMES >= 10 && ASSET_TRANSITION_FRAMES <= 15,
+  `ASSET_TRANSITION_FRAMES (${ASSET_TRANSITION_FRAMES}) must be 10..15 frames`,
+);
+assert.ok(
+  HUD_TRANSITION_FRAMES >= 10 && HUD_TRANSITION_FRAMES <= 15,
+  `HUD_TRANSITION_FRAMES (${HUD_TRANSITION_FRAMES}) must be 10..15 frames`,
+);
+assert.ok(
+  TYPEWRITER_ENTER_FRAMES >= 10 && TYPEWRITER_ENTER_FRAMES <= 15,
+  `TYPEWRITER_ENTER_FRAMES (${TYPEWRITER_ENTER_FRAMES}) must be 10..15 frames`,
+);
+assert.ok(CLAUSE_HANDOFF_OVERLAP_FRAMES >= 2, 'Intra-scene UI clauses must smoothly cross-handoff');
+
+const sampleTotal = 60;
+const envStart = computeAssetTransition(0, sampleTotal);
+const envMidEnter = computeAssetTransition(6, sampleTotal);
+const envSettled = computeAssetTransition(ASSET_TRANSITION_FRAMES + 4, sampleTotal);
+const envMidExit = computeAssetTransition(sampleTotal - 6, sampleTotal);
+const envEnd = computeAssetTransition(sampleTotal, sampleTotal);
+assert.equal(envStart.opacity, 0, 'Asset entrance must start at opacity 0');
+assert.equal(envStart.scale, 0.95, 'Asset entrance must start at scale 0.95');
+assert.ok(Math.abs(envStart.translateY) >= 18, 'Asset entrance must slide in via translateY');
+assert.ok(envMidEnter.opacity > 0.3 && envMidEnter.opacity < 0.95, 'Asset entrance must smoothly interpolate opacity');
+assert.ok(envMidEnter.scale > 0.96 && envMidEnter.scale <= 1.0, 'Asset entrance must smoothly spring scale 0.95 -> 1.0');
+assert.equal(envSettled.opacity, 1, 'Settled asset must reach opacity 1.0');
+assert.equal(envSettled.scale, 1, 'Settled asset must reach scale 1.0');
+assert.equal(envSettled.translateY, 0, 'Settled asset must settle at translateY 0');
+assert.ok(envMidExit.opacity > 0.1 && envMidExit.opacity < 0.9, 'Asset exit must reverse-ease opacity smoothly');
+assert.ok(envMidExit.scale > 0.95 && envMidExit.scale < 1.0, 'Asset exit must reverse-ease scale 1.0 -> 0.95');
+assert.ok(Math.abs(envMidExit.translateY) > 1, 'Asset exit must slide out via translateY');
+assert.equal(envEnd.opacity, 0, 'Asset exit must complete at opacity 0');
+assert.equal(envEnd.scale, 0.95, 'Asset exit must complete at scale 0.95');
+
+// Verify frame-by-frame continuity (no binary opacity step > 0.30) across every UI clause, HUD, and Typewriter window
+for (const scene of SCENE_SEQUENCES) {
+  const activeFrames = getSceneActiveAudioFrames(scene);
+  // HUD continuity check
+  let prevHudOp = 0;
+  for (let lf = 0; lf <= activeFrames; lf += 1) {
+    const hudEnv = getHudEnvelope(scene, lf);
+    assert.ok(
+      Math.abs(hudEnv.opacity - prevHudOp) <= 0.3,
+      `Binary HUD opacity jump detected in ${scene.id} at localFrame=${lf} (${prevHudOp} -> ${hudEnv.opacity})`,
+    );
+    if (lf === 0) {
+      assert.equal(hudEnv.scale, 0.95, `HUD in ${scene.id} must start at scale 0.95`);
+    }
+    prevHudOp = hudEnv.opacity;
+  }
+
+  // UI simulation clause continuity check across every clause in this scene
+  const clauses = SCENE_UI_CLAUSES[scene.id];
+  clauses.forEach((clause, idx) => {
+    let prevClauseOp = 0;
+    const isLast = idx === clauses.length - 1;
+    const endGlobal = isLast
+      ? clause.endFrame
+      : Math.min(scene.from + activeFrames, clause.endFrame + CLAUSE_HANDOFF_OVERLAP_FRAMES);
+    for (let gf = clause.startFrame; gf <= endGlobal; gf += 1) {
+      const sims = getActiveUiSimulations(scene, gf - scene.from);
+      const match = sims.find((s) => s.id === clause.id);
+      const curOp = match ? match.envelope.opacity : 0;
+      assert.ok(
+        Math.abs(curOp - prevClauseOp) <= 0.3,
+        `Binary UI clause jump detected on ${clause.id} at F${gf} (${prevClauseOp} -> ${curOp})`,
+      );
+      prevClauseOp = curOp;
+    }
+    assert.equal(prevClauseOp, 0, `Clause ${clause.id} must finish reverse-easing to opacity 0`);
+
+    if (!isLast) {
+      // At intra-scene clause boundary, both outgoing and incoming UI simulations cross-handoff smoothly
+      const boundarySims = getActiveUiSimulations(scene, clause.endFrame + 1 - scene.from);
+      assert.equal(
+        boundarySims.length,
+        2,
+        `Expected smooth 2-layer cross-handoff after ${clause.id} at F${clause.endFrame + 1}`,
+      );
+    }
+  });
+
+  // Terminal Typewriter window continuity check
+  for (const tw of SCENE_TYPEWRITER_WINDOWS[scene.id]) {
+    const cue = SCRIPT_CUES[tw.firstWordIndex];
+    let prevTwOp = 0;
+    for (let gf = tw.renderStartFrame; gf <= tw.renderEndFrame; gf += 1) {
+      const env =
+        gf === tw.renderEndFrame ? {opacity: 0} : getTypewriterWindowEnvelope(scene, cue, gf);
+      assert.ok(
+        Math.abs(env.opacity - prevTwOp) <= 0.35,
+        `Binary terminal box jump on ${tw.id} at F${gf} (${prevTwOp} -> ${env.opacity})`,
+      );
+      prevTwOp = env.opacity;
+    }
+  }
+}
+
+// Verify useCurrentFrame() connected transition wrappers are wired into SceneStage and all 6 scenes
+const sceneStageSource = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'scenes', 'SceneStage.tsx'),
+  'utf8',
+);
+assert.ok(
+  sceneStageSource.includes('<ConnectedContextualUiSimulation'),
+  'SceneStage must mount <ConnectedContextualUiSimulation> driven by useCurrentFrame()',
+);
+for (const sceneFile of [
+  'src/scenes/HookScene.tsx',
+  'src/scenes/TwistScene.tsx',
+  'src/scenes/ShiftScene.tsx',
+  'src/scenes/MechanismScene.tsx',
+  'src/scenes/PayoffScene.tsx',
+  'src/scenes/OutroScene.tsx',
+]) {
+  const src = fs.readFileSync(path.join(__dirname, '..', sceneFile), 'utf8');
+  assert.ok(
+    src.includes('<SceneKineticStage') && src.includes('<ConnectedAtmosphericOverlays'),
+    `${sceneFile} must mount <SceneKineticStage> and <ConnectedAtmosphericOverlays>`,
+  );
+}
 
 // Verify specific narrative UI components at key script moments:
 // A) "Prompt harder?" (F0376) & "pretty prompt." (F0616) & "Same inputs." (F0942) -> AI CLI input box + blinking cursor + tokenization

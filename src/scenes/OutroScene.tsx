@@ -1,9 +1,9 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
-import {KineticEngine} from '../KineticEngine';
+import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
-import {AtmosphericOverlays} from '../TelemetryHud';
+import {ConnectedAtmosphericOverlays} from '../TelemetryHud';
 import {
   OUTRO_BUILD_INDEX,
   SCENE_MAP,
@@ -56,15 +56,8 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44} />}
         typography={
           <>
-            <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
-            {activeCue && (
-              <KineticEngine
-                key={activeCue.globalIndex}
-                cue={activeCue}
-                variant="outro"
-                globalFrame={globalFrame}
-              />
-            )}
+            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
+            <SceneKineticStage scene={scene} activeCue={activeCue} />
           </>
         }
       />

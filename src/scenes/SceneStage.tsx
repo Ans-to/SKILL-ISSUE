@@ -1,9 +1,9 @@
 import React from 'react';
 import {ThreeCanvas} from '@remotion/three';
 import {
+  ConnectedContextualUiSimulation,
   ContextualThreeBroll,
-  ContextualVectorBroll,
-  getActiveUiSimulation,
+  getActiveUiSimulations,
 } from '../ContextualBroll';
 import {
   CrimsonConflictFlashOverlay,
@@ -20,10 +20,6 @@ import {
 } from '../engine/agentEngineModel';
 export {SceneContainer} from '../SceneContainer';
 
-/**
- * Dark sci-fi / tech documentary architectural coordinate grid on deep obsidian (#0b0f19).
- * Serves as the precision substrate behind the Contextual UI Simulation cards.
- */
 export const CleanCoordinateGrid: React.FC<{
   gridOpacity?: number;
   glowOpacity?: number;
@@ -55,12 +51,6 @@ export const CleanCoordinateGrid: React.FC<{
   </div>
 );
 
-/**
- * Full-bleed 1080x1920 stage wrapper inside <SceneContainer>.
- * Locks the Contextual UI Simulation cards (Upper Focal Card + Lower-Third Dock) into the
- * fluid vertical canvas on every active scene frame while keeping 2D typography decoupled
- * above the 3D WebGL stage.
- */
 export const SceneStage: React.FC<{
   scene: SceneSpec;
   localFrame: number;
@@ -113,7 +103,7 @@ export const SceneStage: React.FC<{
               </div>
             )}
             <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
-              <ContextualVectorBroll scene={scene} localFrame={localFrame} />
+              <ConnectedContextualUiSimulation scene={scene} />
               {typography}
             </div>
           </div>
@@ -128,10 +118,6 @@ export const SceneStage: React.FC<{
   );
 };
 
-/**
- * Decoupled 1080x1920 Three.js WebGL stage.
- * Renders strictly when an active Contextual UI Simulation is mounted.
- */
 export const SceneThreeCanvas: React.FC<{
   scene: SceneSpec;
   localFrame: number;
@@ -141,8 +127,8 @@ export const SceneThreeCanvas: React.FC<{
   opacity?: number;
   children?: React.ReactNode;
 }> = ({scene, localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.5, children}) => {
-  const activeSim = getActiveUiSimulation(scene, localFrame);
-  if (!activeSim && !children) {
+  const activeSims = getActiveUiSimulations(scene, localFrame);
+  if (activeSims.length === 0 && !children) {
     return null;
   }
 

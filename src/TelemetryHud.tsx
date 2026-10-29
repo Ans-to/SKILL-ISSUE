@@ -1,5 +1,5 @@
 import React, {useContext} from 'react';
-import {Internals, spring, useCurrentFrame} from 'remotion';
+import {Easing, Internals, interpolate, spring, useCurrentFrame} from 'remotion';
 import {getActiveUiSimulation} from './ContextualUiSimulation';
 import {CRIMSON} from './EmotionalPacing';
 import {
@@ -61,20 +61,61 @@ export type TelemetryHudProps = {
   activeCue: ScriptCue | null;
 };
 
-export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number => {
-  if (isSceneCleared(scene, localFrame)) return 0;
+export const HUD_TRANSITION_FRAMES = 12;
+
+export type HudEnvelope = {
+  opacity: number;
+  scale: number;
+  translateY: number;
+};
+
+/**
+ * Smooth 12-frame spring + cubic entrance (opacity 0 -> 1, scale 0.95 -> 1.0, translateY)
+ * paired with a reversed 12-frame cubic exit before scene unmount.
+ */
+export const getHudEnvelope = (scene: SceneSpec, localFrame: number): HudEnvelope => {
+  if (localFrame < 0 || isSceneCleared(scene, localFrame)) {
+    return {opacity: 0, scale: 0.95, translateY: -18};
+  }
   const activeFrames =
     scene.id === 'outro'
       ? Math.max(1, OUTRO_CUT_FRAME - scene.from)
       : Math.max(1, scene.durationInFrames - scene.clearFrames);
-  const enter = spring({
-    frame: Math.max(0, localFrame),
-    fps: FPS,
-    config: {damping: 14, stiffness: 190},
+  const enterSpring = clamp(
+    spring({
+      frame: Math.max(0, localFrame),
+      fps: FPS,
+      config: {damping: 20, stiffness: 120, mass: 0.9, overshootClamping: true},
+    }),
+    0,
+    1,
+  );
+  const enterFade = interpolate(localFrame, [0, HUD_TRANSITION_FRAMES], [0, 1], {
+    easing: Easing.out(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
   });
-  const exit = clamp((activeFrames - 1 - localFrame) / 9, 0, 1);
-  return clamp(enter * exit, 0, 1);
+  const enterBlend =
+    localFrame === 0 ? 0 : clamp(enterSpring * 0.35 + enterFade * 0.65, 0, 1);
+
+  const exitStart = Math.max(0, activeFrames - HUD_TRANSITION_FRAMES);
+  const exitProgress =
+    localFrame >= exitStart
+      ? interpolate(localFrame - exitStart, [0, Math.max(1, activeFrames - exitStart)], [1, 0], {
+          easing: Easing.inOut(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
+      : 1;
+
+  const opacity = Number(clamp(Math.min(enterBlend, exitProgress), 0, 1).toFixed(4));
+  const scale = Number((0.95 + 0.05 * opacity).toFixed(4));
+  const translateY = Number(((1 - opacity) * -18).toFixed(2));
+  return {opacity, scale, translateY};
 };
+
+export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number =>
+  getHudEnvelope(scene, localFrame).opacity;
 
 export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   scene,
@@ -83,7 +124,7 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
 }) => {
   const activeCueId = activeCue?.globalIndex ?? -1;
   const hotNode = activeCueId >= 0 ? activeCueId % 14 : -1;
-  const reveal = getHudLifecycle(scene, localFrame);
+  const env = getHudEnvelope(scene, localFrame);
 
   return (
     <svg
@@ -97,7 +138,9 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
         inset: 0,
         width: '100%',
         height: '100%',
-        opacity: reveal * 0.28,
+        opacity: env.opacity * 0.28,
+        transform: `scale(${env.scale.toFixed(4)})`,
+        transformOrigin: '540px 960px',
         pointerEvents: 'none',
       }}
       aria-hidden="true"
@@ -110,10 +153,22 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   );
 };
 
-/**
- * Floating sci-fi/tech documentary viewport header & footer telemetry bars
- * framing the Upper Focal Simulation Card and Lower-Third UI Simulation Dock.
- */
+export const ConnectedAtmosphericOverlays: React.FC<{
+  scene: SceneSpec;
+  energy: number;
+  activeCue: ScriptCue | null;
+}> = ({scene, energy, activeCue}) => {
+  const localFrame = useCurrentFrame();
+  return (
+    <AtmosphericOverlays
+      scene={scene}
+      localFrame={localFrame}
+      energy={energy}
+      activeCue={activeCue}
+    />
+  );
+};
+
 const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   scene,
   localFrame,
@@ -122,6 +177,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   const globalFrame = scene.from + localFrame;
   const activeCueId = activeCue?.globalIndex ?? -1;
   const reveal = getHudLifecycle(scene, localFrame);
+  const hudScale = 0.95 + 0.05 * reveal;
   const activeSim = getActiveUiSimulation(scene, localFrame);
   const isAlert = activeSim?.kind === 'error-diagnostic';
   const accent = isAlert ? CRIMSON : ORANGE;
@@ -130,6 +186,8 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
     <div
       data-scene-telemetry={scene.id}
       data-active-cue={activeCueId}
+      data-hud-opacity={reveal}
+      data-hud-scale={hudScale.toFixed(4)}
       style={{
         position: 'absolute',
         inset: 0,
@@ -151,7 +209,8 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           justifyContent: 'space-between',
           paddingBottom: 12,
           borderBottom: '1px solid rgba(244,247,255,0.10)',
-          transform: `translate3d(0, ${(1 - reveal) * -14}px, 0)`,
+          transform: `translate3d(0, ${((1 - reveal) * -18).toFixed(2)}px, 0) scale(${hudScale.toFixed(4)})`,
+          transformOrigin: '50% 0%',
         }}
       >
         <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
@@ -189,7 +248,8 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           justifyContent: 'space-between',
           paddingTop: 12,
           borderTop: '1px solid rgba(244,247,255,0.10)',
-          transform: `translate3d(0, ${(1 - reveal) * 14}px, 0)`,
+          transform: `translate3d(0, ${((1 - reveal) * 18).toFixed(2)}px, 0) scale(${hudScale.toFixed(4)})`,
+          transformOrigin: '50% 100%',
         }}
       >
         <div style={{display: 'flex', alignItems: 'center', gap: 10}}>

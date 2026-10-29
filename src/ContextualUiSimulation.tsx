@@ -1,5 +1,5 @@
 import React from 'react';
-import {Easing, interpolate, spring} from 'remotion';
+import {Easing, interpolate, spring, useCurrentFrame} from 'remotion';
 import {CRIMSON} from './EmotionalPacing';
 import {TimelineGrid} from './TimelineGrid';
 import {
@@ -17,14 +17,6 @@ import {
   type SceneSpec,
 } from './engine/agentEngineModel';
 
-/**
- * Contextual UI Simulation Override modes:
- * - 'prompt-cli':       Animated AI command-line / chat input box with syntax tokenization,
- *                       cursor blinking, and real-time prompt compilation.
- * - 'engine-pipeline':  Live node-graph pipeline & execution terminal showing blocks
- *                       connecting in real time.
- * - 'error-diagnostic': Red diagnostic warning overlay with stack-trace logs.
- */
 export type UiSimulationKind = 'prompt-cli' | 'engine-pipeline' | 'error-diagnostic';
 
 export type UiClauseVariant =
@@ -57,19 +49,130 @@ export type SceneUiClauseSpec = {
   moduleCode: string;
 };
 
+/**
+ * Smooth 10–15 frame spring + fade + slide transition envelope with reversed exit easing.
+ * Guarantees zero binary jump cuts: every UI widget, prompt window, terminal box, and
+ * telemetry card enters from {opacity: 0, scale: 0.95, translateY} over 12 frames and
+ * reverses cleanly back to {opacity: 0, scale: 0.95, translateY} over 12 frames before unmount.
+ */
+export type AssetTransitionEnvelope = {
+  opacity: number;
+  scale: number;
+  translateY: number;
+  enterProgress: number;
+  exitProgress: number;
+  phase: 'entering' | 'active' | 'exiting' | 'hidden';
+};
+
+export const ASSET_TRANSITION_FRAMES = 12;
+
+export const computeAssetTransition = (
+  elapsedInWindow: number,
+  windowDuration: number,
+  options?: {
+    enterFrames?: number;
+    exitFrames?: number;
+    slidePx?: number;
+  },
+): AssetTransitionEnvelope => {
+  const enterFrames = Math.min(
+    options?.enterFrames ?? ASSET_TRANSITION_FRAMES,
+    Math.max(4, Math.floor(windowDuration * 0.45)),
+  );
+  const exitFrames = Math.min(
+    options?.exitFrames ?? ASSET_TRANSITION_FRAMES,
+    Math.max(4, Math.floor(windowDuration * 0.45)),
+  );
+  const slidePx = options?.slidePx ?? 24;
+
+  if (elapsedInWindow < 0 || elapsedInWindow >= windowDuration) {
+    return {
+      opacity: 0,
+      scale: 0.95,
+      translateY: slidePx,
+      enterProgress: 0,
+      exitProgress: 0,
+      phase: 'hidden',
+    };
+  }
+
+  // Smooth 12-frame entrance using Remotion spring() + cubic interpolate()
+  const rawEnterSpring = clamp(
+    spring({
+      frame: elapsedInWindow,
+      fps: FPS,
+      config: {damping: 20, stiffness: 120, mass: 0.9, overshootClamping: true},
+    }),
+    0,
+    1,
+  );
+  const enterSpring = elapsedInWindow >= enterFrames + 2 ? 1 : rawEnterSpring;
+  const enterFade = interpolate(elapsedInWindow, [0, enterFrames], [0, 1], {
+    easing: Easing.out(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const enterSlide = interpolate(elapsedInWindow, [0, enterFrames], [1, 0], {
+    easing: Easing.out(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // Smooth 12-frame reversed exit easing (symmetric S-curve cushions to 0 without tail snap)
+  const exitStart = windowDuration - exitFrames;
+  const isExiting = elapsedInWindow >= exitStart;
+  const exitElapsed = Math.max(0, elapsedInWindow - exitStart);
+  const exitProgress = isExiting
+    ? interpolate(exitElapsed, [0, exitFrames], [1, 0], {
+        easing: Easing.inOut(Easing.cubic),
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      })
+    : 1;
+  const exitSlide = isExiting
+    ? interpolate(exitElapsed, [0, exitFrames], [0, 1], {
+        easing: Easing.inOut(Easing.cubic),
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      })
+    : 0;
+
+  const opacity = Number(clamp(enterFade * exitProgress, 0, 1).toFixed(4));
+  const combinedScaleProgress = clamp(Math.min(enterSpring, exitProgress), 0, 1);
+  const scale = Number((0.95 + 0.05 * combinedScaleProgress).toFixed(4));
+  const translateY = Number(((enterSlide + exitSlide) * slidePx).toFixed(2));
+
+  const phase: AssetTransitionEnvelope['phase'] = isExiting
+    ? 'exiting'
+    : elapsedInWindow < enterFrames
+      ? 'entering'
+      : 'active';
+
+  return {
+    opacity,
+    scale,
+    translateY,
+    enterProgress: Number(enterFade.toFixed(4)),
+    exitProgress: Number(exitProgress.toFixed(4)),
+    phase,
+  };
+};
+
 export type ActiveUiSimulationState = SceneUiClauseSpec & {
   globalFrame: number;
+  renderStartFrame: number;
+  renderEndFrame: number;
   clauseElapsed: number;
   clauseDuration: number;
   clauseProgress: number;
   cardReveal: number;
+  envelope: AssetTransitionEnvelope;
+  upperEnvelope: AssetTransitionEnvelope;
+  lowerEnvelope: AssetTransitionEnvelope;
   cursorVisible: boolean;
   spokenClauseWords: ReadonlyArray<{index: number; text: string; isCurrent: boolean}>;
 };
 
-/**
- * Deterministic narrative keyword -> UI simulation classifier.
- */
 export const classifyUiSimulationKeyword = (rawWord: string): UiSimulationKind | null => {
   const token = normalize(rawWord);
   if (
@@ -126,11 +229,6 @@ export const classifyUiSimulationKeyword = (rawWord: string): UiSimulationKind |
   return null;
 };
 
-/**
- * Gap-free clause schedule across all 6 isolated scenes.
- * Every active frame [scene.from .. activeEnd) resolves to an active high-tech UI
- * simulation corresponding directly to the spoken script clause — zero empty dead space.
- */
 export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseSpec[]>> = (() => {
   const sHook = SCENE_SEQUENCES[0];
   const sTwist = SCENE_SEQUENCES[1];
@@ -147,7 +245,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'agent-audit',
         startFrame: sHook.from,
-        endFrame: SCRIPT_CUES[6].startFrame, // F0000..F0105 ("Your AI agent didn't build anything.")
+        endFrame: SCRIPT_CUES[6].startFrame,
         firstWordIndex: 0,
         lastWordIndex: 5,
         moduleCode: 'AGENT_DAG // ZERO_BUILD_AUDIT',
@@ -158,7 +256,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'prompt-cli',
         variant: 'template-paste',
         startFrame: SCRIPT_CUES[6].startFrame,
-        endFrame: sHook.endFrame - sHook.clearFrames, // F0105..F0151 ("It pasted a template.")
+        endFrame: sHook.endFrame - sHook.clearFrames,
         firstWordIndex: 6,
         lastWordIndex: 9,
         moduleCode: 'PROMPT_CLI // BOILERPLATE_CLONE',
@@ -171,7 +269,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'surface-illusion',
         startFrame: sTwist.from,
-        endFrame: SCRIPT_CUES[19].startFrame, // F0153..F0310 ("It looks finished. That's the trick. Boilerplate demos clean.")
+        endFrame: SCRIPT_CUES[19].startFrame,
         firstWordIndex: 10,
         lastWordIndex: 18,
         moduleCode: 'DEMO_PIPELINE // MOCK_STRESS_TEST',
@@ -182,7 +280,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'error-diagnostic',
         variant: 'codebase-break',
         startFrame: SCRIPT_CUES[19].startFrame,
-        endFrame: sTwist.endFrame - sTwist.clearFrames, // F0310..F0364 ("Real codebases break.")
+        endFrame: sTwist.endFrame - sTwist.clearFrames,
         firstWordIndex: 19,
         lastWordIndex: 21,
         moduleCode: 'ERR_DIAGNOSTIC // CONSTRAINT_BREAK',
@@ -195,7 +293,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'prompt-cli',
         variant: 'prompt-harder',
         startFrame: sShift.from,
-        endFrame: SCRIPT_CUES[25].startFrame, // F0366..F0438 ("Prompt harder? No.")
+        endFrame: SCRIPT_CUES[25].startFrame,
         firstWordIndex: 22,
         lastWordIndex: 24,
         moduleCode: 'AI_PROMPT_CLI // COMPILE_REJECTED',
@@ -206,7 +304,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'subsystem-graph',
         startFrame: SCRIPT_CUES[25].startFrame,
-        endFrame: SCRIPT_CUES[38].startFrame, // F0438..F0594 ("It still can't infer your codebase's timing model, render graph, or hard constraints")
+        endFrame: SCRIPT_CUES[38].startFrame,
         firstWordIndex: 25,
         lastWordIndex: 37,
         moduleCode: 'ENGINE_GRAPH // UNBOUND_SUBSYSTEMS',
@@ -217,7 +315,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'prompt-cli',
         variant: 'pretty-prompt',
         startFrame: SCRIPT_CUES[38].startFrame,
-        endFrame: sShift.endFrame - sShift.clearFrames, // F0594..F0643 ("from a pretty prompt.")
+        endFrame: sShift.endFrame - sShift.clearFrames,
         firstWordIndex: 38,
         lastWordIndex: 41,
         moduleCode: 'AI_PROMPT_CLI // SCHEMA_GAP_AUDIT',
@@ -230,7 +328,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'math-engine',
         startFrame: sMech.from,
-        endFrame: SCRIPT_CUES[54].startFrame, // F0645..F0927 ("Engine-first means physics, isolation, timing, positions, easing, transitions— defined as math.")
+        endFrame: SCRIPT_CUES[54].startFrame,
         firstWordIndex: 42,
         lastWordIndex: 53,
         moduleCode: 'ENGINE_CORE // PURE_MATH_PIPELINE',
@@ -241,7 +339,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'prompt-cli',
         variant: 'deterministic-inputs',
         startFrame: SCRIPT_CUES[54].startFrame,
-        endFrame: SCRIPT_CUES[58].startFrame, // F0927..F1000 ("Same inputs. Same frames.")
+        endFrame: SCRIPT_CUES[58].startFrame,
         firstWordIndex: 54,
         lastWordIndex: 57,
         moduleCode: 'INPUT_HASH_CLI // BIT_EXACT_FRAMES',
@@ -252,7 +350,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'error-diagnostic',
         variant: 'roulette-quarantine',
         startFrame: SCRIPT_CUES[58].startFrame,
-        endFrame: sMech.endFrame - sMech.clearFrames, // F1000..F1051 ("No template roulette.")
+        endFrame: sMech.endFrame - sMech.clearFrames,
         firstWordIndex: 58,
         lastWordIndex: 60,
         moduleCode: 'DIAGNOSTIC_GUARD // ROULETTE_PURGED',
@@ -265,7 +363,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'prompt-cli',
         variant: 'intent-to-engine',
         startFrame: sPayoff.from,
-        endFrame: SCRIPT_CUES[66].startFrame, // F1053..F1129 ("Feed intent into the engine.")
+        endFrame: SCRIPT_CUES[66].startFrame,
         firstWordIndex: 61,
         lastWordIndex: 65,
         moduleCode: 'INTENT_CLI -> ENGINE_INGEST_DAG',
@@ -276,7 +374,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'compiler-dag',
         startFrame: SCRIPT_CUES[66].startFrame,
-        endFrame: SCRIPT_CUES[78].startFrame, // F1129..F1297 ("It compiles the prompt to code, code to frames, frames to MP4.")
+        endFrame: SCRIPT_CUES[78].startFrame,
         firstWordIndex: 66,
         lastWordIndex: 77,
         moduleCode: 'ENGINE_COMPILER // PROMPT_TO_MP4',
@@ -287,7 +385,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'verified-pillars',
         startFrame: SCRIPT_CUES[78].startFrame,
-        endFrame: sPayoff.endFrame - sPayoff.clearFrames, // F1297..F1398 ("Fast. Inspectable. Repeatable.")
+        endFrame: sPayoff.endFrame - sPayoff.clearFrames,
         firstWordIndex: 78,
         lastWordIndex: 80,
         moduleCode: 'COMPILER_PROOF // VERIFIED_OUTPUT',
@@ -300,7 +398,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'error-diagnostic',
         variant: 'template-deprecation',
         startFrame: sOutro.from,
-        endFrame: SCRIPT_CUES[85].startFrame, // F1400..F1466 ("Stop playing with templates.")
+        endFrame: SCRIPT_CUES[85].startFrame,
         firstWordIndex: 81,
         lastWordIndex: 84,
         moduleCode: 'ERR_DEPRECATED // TEMPLATE_PURGE',
@@ -311,7 +409,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'engine-pipeline',
         variant: 'monolith-engine',
         startFrame: SCRIPT_CUES[85].startFrame,
-        endFrame: SCRIPT_CUES[88].startFrame, // F1466..F1509 ("Build the engine—")
+        endFrame: SCRIPT_CUES[88].startFrame,
         firstWordIndex: 85,
         lastWordIndex: 87,
         moduleCode: 'ENGINE_MONOLITH // PRODUCTION_DAG',
@@ -322,7 +420,7 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
         kind: 'error-diagnostic',
         variant: 'toy-fatal',
         startFrame: SCRIPT_CUES[88].startFrame,
-        endFrame: OUTRO_CUT_FRAME, // F1509..F1541 ("or ship toys.")
+        endFrame: OUTRO_CUT_FRAME,
         firstWordIndex: 88,
         lastWordIndex: 90,
         moduleCode: 'FATAL_DIAGNOSTIC // TOY_BUILD_REJECT',
@@ -331,40 +429,50 @@ export const SCENE_UI_CLAUSES: Readonly<Record<SceneKey, readonly SceneUiClauseS
   };
 })();
 
-/**
- * Resolves the active Contextual UI Simulation for any scene frame.
- * Returns null ONLY during the scene's pre-unmount hard-cut clear window.
- */
-export const getActiveUiSimulation = (
+export const CLAUSE_HANDOFF_OVERLAP_FRAMES = 2;
+
+const buildSimulationStateForSpec = (
   scene: SceneSpec,
-  localFrame: number,
+  spec: SceneUiClauseSpec,
+  clauseIdx: number,
+  totalClauses: number,
+  globalFrame: number,
 ): ActiveUiSimulationState | null => {
-  if (localFrame < 0 || localFrame >= scene.durationInFrames || isSceneCleared(scene, localFrame)) {
-    return null;
-  }
-  const globalFrame = scene.from + localFrame;
-  const clauses = SCENE_UI_CLAUSES[scene.id];
-  const spec =
-    clauses.find((c) => globalFrame >= c.startFrame && globalFrame < c.endFrame) ??
-    clauses[clauses.length - 1];
-
-  const clauseElapsed = Math.max(0, globalFrame - spec.startFrame);
-  const clauseDuration = Math.max(1, spec.endFrame - spec.startFrame);
-  const clauseProgress = clamp(clauseElapsed / clauseDuration, 0, 1);
-
   const activeEnd =
     scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
-  const sceneExit = clamp((activeEnd - globalFrame) / 6, 0, 1);
-  const clauseEnter = spring({
-    frame: clauseElapsed,
-    fps: FPS,
-    config: {damping: 16, stiffness: 210},
+  const renderStartFrame = spec.startFrame;
+  // Non-final clauses extend +6 frames across the clause boundary so their 12-frame
+  // reversed exit overlaps smoothly with the next clause's 12-frame entrance —
+  // eliminating both jump cuts and empty dead-space dips!
+  const renderEndFrame =
+    clauseIdx < totalClauses - 1
+      ? Math.min(activeEnd, spec.endFrame + CLAUSE_HANDOFF_OVERLAP_FRAMES)
+      : activeEnd;
+
+  const renderDuration = renderEndFrame - renderStartFrame;
+  const elapsed = globalFrame - renderStartFrame;
+  if (elapsed < 0 || elapsed >= renderDuration) return null;
+
+  const envelope = computeAssetTransition(elapsed, renderDuration, {
+    enterFrames: ASSET_TRANSITION_FRAMES,
+    exitFrames: ASSET_TRANSITION_FRAMES,
+    slidePx: 24,
+  });
+  const upperEnvelope = computeAssetTransition(elapsed, renderDuration, {
+    enterFrames: ASSET_TRANSITION_FRAMES,
+    exitFrames: ASSET_TRANSITION_FRAMES,
+    slidePx: -22,
+  });
+  const lowerEnvelope = computeAssetTransition(elapsed, renderDuration, {
+    enterFrames: ASSET_TRANSITION_FRAMES,
+    exitFrames: ASSET_TRANSITION_FRAMES,
+    slidePx: 24,
   });
 
-  // Deterministic 30fps terminal block cursor blink (8 frames ON, 7 frames OFF)
+  const logicalDuration = Math.max(1, spec.endFrame - spec.startFrame);
+  const clauseProgress = clamp(elapsed / logicalDuration, 0, 1);
   const cursorVisible = globalFrame % 15 < 9;
 
-  // Strictly spoken-so-far words in the current clause (never previews future narration!)
   const spokenClauseWords: Array<{index: number; text: string; isCurrent: boolean}> = [];
   for (let i = spec.firstWordIndex; i <= spec.lastWordIndex; i += 1) {
     const cue = SCRIPT_CUES[i];
@@ -379,14 +487,93 @@ export const getActiveUiSimulation = (
   return {
     ...spec,
     globalFrame,
-    clauseElapsed,
-    clauseDuration,
+    renderStartFrame,
+    renderEndFrame,
+    clauseElapsed: elapsed,
+    clauseDuration: renderDuration,
     clauseProgress,
-    cardReveal: clamp(clauseEnter * sceneExit, 0, 1),
+    cardReveal: envelope.opacity,
+    envelope,
+    upperEnvelope,
+    lowerEnvelope,
     cursorVisible,
     spokenClauseWords,
   };
 };
+
+/**
+ * Returns all currently transitioning or active UI simulation clauses for a scene frame
+ * (1 during steady hold, 2 during a smooth 6-frame cross-handoff, 0 during clear window).
+ */
+export const getActiveUiSimulations = (
+  scene: SceneSpec,
+  localFrame: number,
+): ActiveUiSimulationState[] => {
+  if (localFrame < 0 || localFrame >= scene.durationInFrames || isSceneCleared(scene, localFrame)) {
+    return [];
+  }
+  const globalFrame = scene.from + localFrame;
+  const clauses = SCENE_UI_CLAUSES[scene.id];
+  const states: ActiveUiSimulationState[] = [];
+  clauses.forEach((spec, idx) => {
+    const built = buildSimulationStateForSpec(scene, spec, idx, clauses.length, globalFrame);
+    if (built) states.push(built);
+  });
+  return states;
+};
+
+/**
+ * Returns the primary owning UI simulation state for a scene frame.
+ */
+export const getActiveUiSimulation = (
+  scene: SceneSpec,
+  localFrame: number,
+): ActiveUiSimulationState | null => {
+  const all = getActiveUiSimulations(scene, localFrame);
+  if (all.length === 0) return null;
+  const globalFrame = scene.from + localFrame;
+  return (
+    all.find((s) => globalFrame >= s.startFrame && globalFrame < s.endFrame) ??
+    all[all.length - 1]
+  );
+};
+
+/**
+ * Evaluates smooth entrance/exit transition for sub-widgets, rows, and token badges inside cards.
+ */
+const computeRowReveal = (
+  clauseElapsed: number,
+  staggerIndex: number,
+  staggerStep = 4,
+): {opacity: number; translateY: number; scale: number} => {
+  const local = Math.max(0, clauseElapsed - staggerIndex * staggerStep);
+  const fade = interpolate(local, [0, 11], [0, 1], {
+    easing: Easing.out(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const sp = clamp(
+    spring({
+      frame: local,
+      fps: FPS,
+      config: {damping: 20, stiffness: 135, overshootClamping: true},
+    }),
+    0,
+    1,
+  );
+  return {
+    opacity: Number((0.18 + fade * 0.82).toFixed(4)),
+    translateY: Number(((1 - sp) * 12).toFixed(2)),
+    scale: Number((0.96 + sp * 0.04).toFixed(4)),
+  };
+};
+
+const computeTriggerMix = (globalFrame: number, triggerFrame: number, span = 10): number =>
+  interpolate(globalFrame - triggerFrame, [0, span], [0, 1], {
+    easing: Easing.inOut(Easing.cubic),
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
@@ -402,33 +589,32 @@ const HARMONIC_SPRING_CURVE_PATH: string = (() => {
   return pts.join(' ');
 })();
 
-/**
- * Shared dark sci-fi / tech documentary card shell for Upper Focal Cards (y: 120..676)
- * and Lower-Third UI Simulation Docks (y: 1144..1780).
- */
 const SciFiUiCard: React.FC<{
   slot: 'upper-focal' | 'lower-third';
   title: string;
   badge: string;
   accentColor: string;
   alertMode?: boolean;
-  reveal: number;
+  envelope: AssetTransitionEnvelope;
   children: React.ReactNode;
   dataAttrs?: Record<string, string | number | boolean>;
-}> = ({slot, title, badge, accentColor, alertMode = false, reveal, children, dataAttrs}) => {
+}> = ({slot, title, badge, accentColor, alertMode = false, envelope, children, dataAttrs}) => {
   const isUpper = slot === 'upper-focal';
   const top = isUpper ? 120 : 1144;
   const height = isUpper ? 552 : 632;
-  const slideY = isUpper ? (1 - reveal) * -22 : (1 - reveal) * 24;
 
   const borderColor = alertMode ? 'rgba(225, 29, 72, 0.66)' : 'rgba(244, 247, 255, 0.16)';
   const bgGradient = alertMode
-    ? 'linear-gradient(180deg, rgba(44, 10, 22, 0.92) 0%, rgba(15, 9, 18, 0.95) 100%)'
-    : 'linear-gradient(180deg, rgba(15, 22, 37, 0.90) 0%, rgba(9, 13, 23, 0.94) 100%)';
+    ? 'linear-gradient(180deg, rgba(44, 10, 22, 0.97) 0%, rgba(15, 9, 18, 0.99) 100%)'
+    : 'linear-gradient(180deg, rgba(15, 22, 37, 0.97) 0%, rgba(9, 13, 23, 0.99) 100%)';
 
   return (
     <div
       data-ui-slot={slot}
+      data-transition-phase={envelope.phase}
+      data-transition-opacity={envelope.opacity}
+      data-transition-scale={envelope.scale}
+      data-transition-translate-y={envelope.translateY}
       {...dataAttrs}
       style={{
         position: 'absolute',
@@ -446,11 +632,11 @@ const SciFiUiCard: React.FC<{
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        opacity: 0.18 + reveal * 0.82,
-        transform: `translate3d(0, ${slideY.toFixed(1)}px, 0) scale(${(0.982 + reveal * 0.018).toFixed(3)})`,
+        opacity: envelope.opacity,
+        transform: `translate3d(0, ${envelope.translateY}px, 0) scale(${envelope.scale})`,
+        transformOrigin: isUpper ? '50% 0%' : '50% 100%',
       }}
     >
-      {/* Hazard / telemetry header chrome */}
       <div
         style={{
           height: 48,
@@ -503,7 +689,6 @@ const SciFiUiCard: React.FC<{
         </span>
       </div>
 
-      {/* Body container */}
       <div
         style={{
           flex: 1,
@@ -542,7 +727,7 @@ const getPromptPreset = (state: ActiveUiSimulationState): PromptPreset => {
   const gf = state.globalFrame;
   switch (state.variant) {
     case 'template-paste': {
-      const pastedHit = gf >= SCRIPT_CUES[7].startFrame; // "pasted"
+      const pastedHit = computeTriggerMix(gf, SCRIPT_CUES[7].startFrame, 10) > 0.35;
       return {
         upperTitle: 'AI_CHAT_INPUT // TEMPLATE_CLIPBOARD_PASTE',
         upperBadge: pastedHit ? 'CLONE_STAMPED' : 'PROMPT_PARSED',
@@ -573,7 +758,7 @@ const getPromptPreset = (state: ActiveUiSimulationState): PromptPreset => {
     }
 
     case 'prompt-harder': {
-      const noHit = gf >= SCRIPT_CUES[24].startFrame; // "No." at F0415
+      const noHit = computeTriggerMix(gf, SCRIPT_CUES[24].startFrame, 10) > 0.35;
       return {
         upperTitle: 'AI_COMMAND_INPUT // PROMPT_TOKENIZER_V4',
         upperBadge: noHit ? 'COMPILE_REJECTED' : 'TYPING_PROMPT',
@@ -645,7 +830,7 @@ const getPromptPreset = (state: ActiveUiSimulationState): PromptPreset => {
     }
 
     case 'deterministic-inputs': {
-      const sameFramesHit = gf >= SCRIPT_CUES[56].startFrame; // "Same frames."
+      const sameFramesHit = computeTriggerMix(gf, SCRIPT_CUES[56].startFrame, 10) > 0.35;
       return {
         upperTitle: 'DETERMINISTIC_CLI_INPUT // REPRODUCIBLE_SEED',
         upperBadge: sameFramesHit ? 'FRAME_HASH_LOCKED' : 'INPUT_LOCKED',
@@ -680,8 +865,7 @@ const getPromptPreset = (state: ActiveUiSimulationState): PromptPreset => {
     }
 
     default: {
-      // 'intent-to-engine': "Feed intent into the engine." (F1053..F1129)
-      const engineHit = gf >= SCRIPT_CUES[65].startFrame - 4;
+      const engineHit = computeTriggerMix(gf, SCRIPT_CUES[65].startFrame - 4, 10) > 0.35;
       return {
         upperTitle: 'STRUCTURED_INTENT_INPUT // PROMPT_COMPILER',
         upperBadge: engineHit ? 'INGESTED_BY_ENGINE' : 'TOKENIZING_INTENT',
@@ -721,8 +905,7 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
   const preset = getPromptPreset(state);
   const accent = preset.rejected ? CRIMSON : ORANGE;
 
-  // Progressive character typing across the first 58% of the clause
-  const typeRatio = clamp(state.clauseElapsed / Math.max(8, state.clauseDuration * 0.56), 0.18, 1);
+  const typeRatio = clamp(state.clauseElapsed / Math.max(8, state.clauseDuration * 0.52), 0.15, 1);
   const typedChars = Math.max(1, Math.round(preset.rawInput.length * typeRatio));
   const visibleInput = preset.rawInput.slice(0, typedChars);
 
@@ -731,13 +914,20 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
     Math.min(
       preset.tokens.length,
       Math.ceil(
-        interpolate(state.clauseElapsed, [0, Math.max(8, state.clauseDuration * 0.62)], [1, preset.tokens.length], {
+        interpolate(state.clauseElapsed, [0, Math.max(10, state.clauseDuration * 0.56)], [1, preset.tokens.length], {
           extrapolateLeft: 'clamp',
           extrapolateRight: 'clamp',
         }),
       ),
     ),
   );
+
+  // Smooth spring entrance for inner prompt input window
+  const innerWindowEnv = computeAssetTransition(state.clauseElapsed, state.clauseDuration, {
+    enterFrames: 11,
+    exitFrames: 11,
+    slidePx: 14,
+  });
 
   return (
     <>
@@ -747,7 +937,7 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
         badge={preset.upperBadge}
         accentColor={accent}
         alertMode={Boolean(preset.rejected)}
-        reveal={state.cardReveal}
+        envelope={state.upperEnvelope}
         dataAttrs={{
           'data-ui-sim-kind': 'prompt-cli',
           'data-ui-variant': state.variant,
@@ -755,13 +945,15 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
           'data-token-count': visibleTokenCount,
         }}
       >
-        {/* Animated AI CLI / Chat Input Box */}
         <div
+          data-prompt-window="true"
           style={{
             background: 'rgba(6, 9, 17, 0.92)',
             border: `1px solid ${preset.rejected ? 'rgba(225,29,72,0.58)' : 'rgba(255,69,0,0.48)'}`,
             padding: '16px 20px',
             boxShadow: 'inset 0 0 24px rgba(0,0,0,0.65)',
+            opacity: innerWindowEnv.opacity,
+            transform: `translate3d(0, ${innerWindowEnv.translateY}px, 0) scale(${innerWindowEnv.scale})`,
           }}
         >
           <div
@@ -798,14 +990,13 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                 marginLeft: 5,
                 verticalAlign: 'text-bottom',
                 background: accent,
-                opacity: state.cursorVisible ? 1 : 0.12,
+                opacity: state.cursorVisible ? 1 : 0.14,
                 boxShadow: state.cursorVisible ? `0 0 12px ${accent}` : 'none',
               }}
             />
           </div>
         </div>
 
-        {/* Syntax Tokenization Stream */}
         <div>
           <div
             style={{
@@ -825,7 +1016,7 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
           </div>
           <div style={{display: 'flex', flexWrap: 'wrap', gap: 10}}>
             {preset.tokens.map((tok, idx) => {
-              const active = idx < visibleTokenCount;
+              const tokReveal = computeRowReveal(state.clauseElapsed, idx, 4);
               const borderCol = tok.err
                 ? CRIMSON
                 : tok.hot
@@ -839,15 +1030,14 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                     alignItems: 'center',
                     gap: 8,
                     padding: '7px 12px',
-                    border: `1px solid ${active ? borderCol : 'rgba(244,247,255,0.08)'}`,
-                    background: active
-                      ? tok.err
-                        ? 'rgba(225,29,72,0.18)'
-                        : tok.hot
-                          ? 'rgba(255,69,0,0.14)'
-                          : 'rgba(244,247,255,0.05)'
-                      : 'rgba(244,247,255,0.015)',
-                    opacity: active ? 1 : 0.28,
+                    border: `1px solid ${borderCol}`,
+                    background: tok.err
+                      ? 'rgba(225,29,72,0.18)'
+                      : tok.hot
+                        ? 'rgba(255,69,0,0.14)'
+                        : 'rgba(244,247,255,0.05)',
+                    opacity: tokReveal.opacity,
+                    transform: `translate3d(0, ${tokReveal.translateY}px, 0) scale(${tokReveal.scale})`,
                     fontFamily: MONO,
                     fontSize: 13,
                   }}
@@ -862,7 +1052,6 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
           </div>
         </div>
 
-        {/* Real-Time Prompt Compilation Status Rows */}
         <div
           style={{
             display: 'flex',
@@ -872,7 +1061,8 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
             paddingTop: 14,
           }}
         >
-          {preset.compileStages.map((st) => {
+          {preset.compileStages.map((st, idx) => {
+            const stReveal = computeRowReveal(state.clauseElapsed, idx + 1, 3);
             const statusCol =
               st.status === 'err' ? CRIMSON : st.status === 'warn' ? ORANGE : '#34d399';
             return (
@@ -884,6 +1074,8 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                   alignItems: 'center',
                   fontFamily: MONO,
                   fontSize: 13,
+                  opacity: stReveal.opacity,
+                  transform: `translate3d(0, ${stReveal.translateY}px, 0)`,
                 }}
               >
                 <span style={{color: MUTED, letterSpacing: 1.4}}>{st.label}</span>
@@ -894,14 +1086,13 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
         </div>
       </SciFiUiCard>
 
-      {/* Lower-Third Coupled Execution / Prompt Compilation Console */}
       <SciFiUiCard
         slot="lower-third"
         title={preset.lowerTitle}
         badge={preset.lowerBadge}
         accentColor={accent}
         alertMode={Boolean(preset.rejected)}
-        reveal={state.cardReveal}
+        envelope={state.lowerEnvelope}
         dataAttrs={{
           'data-ui-lower-kind': state.variant === 'intent-to-engine' ? 'engine-pipeline' : 'prompt-cli',
         }}
@@ -917,17 +1108,22 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
               {x: 458, label: '03 SCENE_DAG', sub: '6 SEQ'},
               {x: 678, label: '04 ENGINE_CORE', sub: 'READY'},
             ].map((node, i) => {
-              const reached = state.clauseProgress >= i * 0.22;
+              const nodeMix = interpolate(
+                state.clauseProgress,
+                [i * 0.18, i * 0.18 + 0.18],
+                [0, 1],
+                {easing: Easing.out(Easing.cubic), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+              );
               return (
-                <g key={node.label}>
+                <g key={node.label} opacity={(0.32 + nodeMix * 0.68).toFixed(3)}>
                   {i < 3 && (
                     <line
                       x1={node.x + 184}
                       y1={74}
                       x2={node.x + 220}
                       y2={74}
-                      stroke={reached ? ORANGE : WHITE}
-                      strokeOpacity={reached ? 0.95 : 0.2}
+                      stroke={nodeMix > 0.5 ? ORANGE : WHITE}
+                      strokeOpacity={(0.22 + nodeMix * 0.73).toFixed(3)}
                       strokeWidth="2.5"
                     />
                   )}
@@ -936,14 +1132,14 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                     y={24}
                     width={184}
                     height={100}
-                    fill={reached ? 'rgba(255,69,0,0.12)' : 'rgba(244,247,255,0.03)'}
-                    stroke={reached ? ORANGE : 'rgba(244,247,255,0.2)'}
+                    fill={`rgba(255,69,0,${(0.03 + nodeMix * 0.11).toFixed(3)})`}
+                    stroke={nodeMix > 0.4 ? ORANGE : 'rgba(244,247,255,0.2)'}
                     strokeWidth="1.5"
                   />
                   <text x={node.x + 16} y={64} fill={WHITE} fontFamily={MONO} fontSize="13" fontWeight="700">
                     {node.label}
                   </text>
-                  <text x={node.x + 16} y={96} fill={reached ? ORANGE : MUTED} fontFamily={MONO} fontSize="12">
+                  <text x={node.x + 16} y={96} fill={nodeMix > 0.4 ? ORANGE : MUTED} fontFamily={MONO} fontSize="12">
                     {node.sub}
                   </text>
                 </g>
@@ -954,8 +1150,7 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
 
         <div style={{display: 'flex', flexDirection: 'column', gap: 15, flex: 1, justifyContent: 'center'}}>
           {preset.compilerLogs.map((row, idx) => {
-            const rowVisible =
-              idx <= Math.floor(state.clauseProgress * preset.compilerLogs.length) + 1;
+            const rowEnv = computeRowReveal(state.clauseElapsed, idx, 5);
             return (
               <div
                 key={row.line}
@@ -965,8 +1160,9 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                   alignItems: 'center',
                   padding: '10px 14px',
                   background: row.alert ? 'rgba(225,29,72,0.12)' : 'rgba(244,247,255,0.03)',
-                  borderLeft: `3px solid ${row.alert ? CRIMSON : rowVisible ? ORANGE : 'rgba(244,247,255,0.15)'}`,
-                  opacity: rowVisible ? 1 : 0.25,
+                  borderLeft: `3px solid ${row.alert ? CRIMSON : ORANGE}`,
+                  opacity: rowEnv.opacity,
+                  transform: `translate3d(0, ${rowEnv.translateY}px, 0) scale(${rowEnv.scale})`,
                   fontFamily: MONO,
                   fontSize: 14,
                 }}
@@ -988,7 +1184,6 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
           })}
         </div>
 
-        {/* Compilation Progress Bar */}
         <div style={{display: 'flex', alignItems: 'center', gap: 16}}>
           <span style={{fontFamily: MONO, fontSize: 11.5, letterSpacing: 1.8, color: MUTED}}>
             PROMPT_COMPILER_BUS
@@ -1018,11 +1213,10 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
 const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({state}) => {
   const gf = state.globalFrame;
 
-  // Determine 4-block live node-graph configuration per scene clause
   const graphConfig = (() => {
     switch (state.variant) {
       case 'agent-audit': {
-        const failed = gf >= SCRIPT_CUES[3].startFrame; // "didn't"
+        const failed = computeTriggerMix(gf, SCRIPT_CUES[3].startFrame, 10) > 0.35;
         return {
           upperTitle: 'AGENT_EXECUTION_PIPELINE // BUILD_VERIFIER',
           upperBadge: failed ? '0_ARTIFACTS_BUILT' : 'AGENT_DISPATCH',
@@ -1046,8 +1240,8 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
       }
 
       case 'surface-illusion': {
-        const trickHit = gf >= SCRIPT_CUES[13].startFrame; // "That's the trick."
-        const boilerplateHit = gf >= SCRIPT_CUES[16].startFrame; // "Boilerplate demos clean."
+        const trickHit = computeTriggerMix(gf, SCRIPT_CUES[13].startFrame, 10) > 0.35;
+        const boilerplateHit = computeTriggerMix(gf, SCRIPT_CUES[16].startFrame, 10) > 0.35;
         return {
           upperTitle: 'DEMO_SURFACE_PIPELINE // XRAY_INSPECTOR',
           upperBadge: boilerplateHit ? 'MOCK_FIXTURE_ONLY' : trickHit ? 'ILLUSION_DETECTED' : 'SURFACE_200_OK',
@@ -1071,16 +1265,22 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
       }
 
       case 'subsystem-graph': {
-        const timingHit = gf >= SCRIPT_CUES[31].startFrame; // "timing" (F0496)
-        const renderHit = gf >= SCRIPT_CUES[33].startFrame; // "render" (F0533)
-        const hardHit = gf >= SCRIPT_CUES[36].startFrame; // "hard" (F0563)
+        const timingHit = gf >= SCRIPT_CUES[31].startFrame;
+        const renderHit = gf >= SCRIPT_CUES[33].startFrame;
+        const hardHit = gf >= SCRIPT_CUES[36].startFrame;
+        // Smooth 10-frame sub-widget transition window for TimelineGrid [F0492..F0540]
+        const timingSubEnv = computeAssetTransition(
+          gf - (SCRIPT_CUES[31].startFrame - 4),
+          SCRIPT_CUES[33].startFrame + 8 - (SCRIPT_CUES[31].startFrame - 4),
+          {enterFrames: 10, exitFrames: 10, slidePx: 14},
+        );
         return {
           upperTitle: 'CODEBASE_ENGINE_GRAPH // REQUIRED_INVARIANTS',
           upperBadge: hardHit ? '3/3_UNRESOLVED_BY_PROSE' : timingHit ? 'INSPECTING_MODEL' : 'INFERENCE_GAP',
           lowerTitle: 'RUNTIME_ARCHITECTURE_TERMINAL // SUBSYSTEM_PROBE',
           lowerBadge: 'PROSE_CANNOT_INFER',
           alert: false,
-          showTimingGrid: timingHit && !renderHit,
+          timingSubEnv: timingSubEnv.opacity > 0.01 ? timingSubEnv : null,
           nodes: [
             {id: 'N1', title: 'CODEBASE_AST', sub: 'PROD_REPO', active: true},
             {id: 'N2', title: 'TIMING_MODEL', sub: timingHit ? '30HZ_CLOCK' : 'LOCKED_SPEC', active: timingHit},
@@ -1105,22 +1305,41 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
         const easingHit = gf >= SCRIPT_CUES[49].startFrame;
         const mathHit = gf >= SCRIPT_CUES[51].startFrame;
 
-        const mathSub =
-          easingHit && !mathHit
+        // Smoothly transitioned sub-widget windows (zero binary pop-in/out!)
+        const physicsEnv = computeAssetTransition(
+          gf - (SCRIPT_CUES[45].startFrame - 4),
+          SCRIPT_CUES[46].startFrame + 6 - (SCRIPT_CUES[45].startFrame - 4),
+          {enterFrames: 10, exitFrames: 10, slidePx: 14},
+        );
+        const timingEnv = computeAssetTransition(
+          gf - (SCRIPT_CUES[47].startFrame - 4),
+          SCRIPT_CUES[48].startFrame + 6 - (SCRIPT_CUES[47].startFrame - 4),
+          {enterFrames: 10, exitFrames: 10, slidePx: 14},
+        );
+        const easingEnv = computeAssetTransition(
+          gf - (SCRIPT_CUES[49].startFrame - 4),
+          SCRIPT_CUES[51].startFrame + 6 - (SCRIPT_CUES[49].startFrame - 4),
+          {enterFrames: 10, exitFrames: 10, slidePx: 14},
+        );
+
+        const activeSubKind =
+          easingEnv.opacity >= Math.max(physicsEnv.opacity, timingEnv.opacity) && easingEnv.opacity > 0.01
             ? 'easing'
-            : timingHit && !positionsHit
+            : timingEnv.opacity >= physicsEnv.opacity && timingEnv.opacity > 0.01
               ? 'timing'
-              : physicsHit && !isolationHit
+              : physicsEnv.opacity > 0.01
                 ? 'physics'
                 : 'dag';
 
         return {
           upperTitle: 'ENGINE_FIRST_SOLVER // MATHEMATICAL_LAWS',
-          upperBadge: mathHit ? 'DEFINED_AS_PURE_MATH' : `SOLVING_${mathSub.toUpperCase()}`,
+          upperBadge: mathHit ? 'DEFINED_AS_PURE_MATH' : `SOLVING_${activeSubKind.toUpperCase()}`,
           lowerTitle: 'LIVE_ENGINE_NODE_PIPELINE // PRIMITIVES_CONNECTING',
           lowerBadge: `${[physicsHit, isolationHit, timingHit, positionsHit, easingHit, mathHit].filter(Boolean).length || 1}/6_LOCKED`,
           alert: false,
-          mathVisual: mathSub,
+          physicsSubEnv: physicsEnv.opacity > 0.01 ? physicsEnv : null,
+          timingSubEnv: timingEnv.opacity > 0.01 ? timingEnv : null,
+          easingSubEnv: easingEnv.opacity > 0.01 ? easingEnv : null,
           nodes: [
             {id: 'N1', title: 'PHYSICS_LAW', sub: 'damping:8 k:300', active: true},
             {id: 'N2', title: 'ISOLATION', sub: 'SEQ_UNMOUNT', active: isolationHit || physicsHit},
@@ -1138,10 +1357,10 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
       }
 
       case 'compiler-dag': {
-        const promptStage = gf >= SCRIPT_CUES[67].startFrame; // "compiles" / "prompt"
-        const codeStage = gf >= SCRIPT_CUES[71].startFrame; // "code,"
-        const framesStage = gf >= SCRIPT_CUES[74].startFrame; // "frames,"
-        const mp4Stage = gf >= SCRIPT_CUES[77].startFrame; // "MP4."
+        const promptStage = gf >= SCRIPT_CUES[67].startFrame;
+        const codeStage = gf >= SCRIPT_CUES[71].startFrame;
+        const framesStage = gf >= SCRIPT_CUES[74].startFrame;
+        const mp4Stage = gf >= SCRIPT_CUES[77].startFrame;
         return {
           upperTitle: 'ENGINE_COMPILER_DAG // REALTIME_BUILD_PIPELINE',
           upperBadge: mp4Stage
@@ -1198,7 +1417,6 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
       }
 
       default: {
-        // 'monolith-engine': "Build the engine—" (F1466..F1509)
         return {
           upperTitle: 'ENGINE_ARCHITECTURE_MONOLITH // LIVE_CORE_DAG',
           upperBadge: 'ENGINE_ONLINE',
@@ -1223,6 +1441,16 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
   })();
 
   const connectedCount = graphConfig.nodes.filter((n) => n.active).length;
+  const hasMathSub = Boolean(
+    ('timingSubEnv' in graphConfig && graphConfig.timingSubEnv) ||
+      ('physicsSubEnv' in graphConfig && graphConfig.physicsSubEnv) ||
+      ('easingSubEnv' in graphConfig && graphConfig.easingSubEnv),
+  );
+  const inlineBarEnv = computeAssetTransition(state.clauseElapsed, state.clauseDuration, {
+    enterFrames: 11,
+    exitFrames: 11,
+    slidePx: 12,
+  });
 
   return (
     <>
@@ -1232,15 +1460,14 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
         badge={graphConfig.upperBadge}
         accentColor={graphConfig.alert ? CRIMSON : ORANGE}
         alertMode={graphConfig.alert}
-        reveal={state.cardReveal}
+        envelope={state.upperEnvelope}
         dataAttrs={{
           'data-ui-sim-kind': 'engine-pipeline',
           'data-ui-variant': state.variant,
           'data-connected-nodes': connectedCount,
         }}
       >
-        {/* Inline Prompt Tokenizer Bar when compiling "prompt to code..." */}
-        {graphConfig.showInlinePromptBar && (
+        {'showInlinePromptBar' in graphConfig && graphConfig.showInlinePromptBar && (
           <div
             data-inline-prompt-compiler="true"
             style={{
@@ -1252,6 +1479,8 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
               border: '1px solid rgba(255,69,0,0.45)',
               fontFamily: MONO,
               fontSize: 13,
+              opacity: inlineBarEnv.opacity,
+              transform: `translate3d(0, ${inlineBarEnv.translateY}px, 0) scale(${inlineBarEnv.scale})`,
             }}
           >
             <div>
@@ -1273,10 +1502,9 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
           </div>
         )}
 
-        {/* Live Connecting Node-Graph Pipeline */}
         <svg
           viewBox="0 0 888 220"
-          style={{width: '100%', height: graphConfig.mathVisual || graphConfig.showTimingGrid ? 168 : 230, flexShrink: 0}}
+          style={{width: '100%', height: hasMathSub ? 168 : 230, flexShrink: 0}}
         >
           {graphConfig.nodes.map((node, idx) => {
             const x = 12 + idx * 224;
@@ -1284,9 +1512,10 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
             const linkActive = node.active && Boolean(nextNode?.active);
             const linkFault = Boolean(nextNode && 'fault' in nextNode && nextNode.fault);
             const pulseX = x + 192 + ((state.clauseElapsed * 3.5) % 32);
+            const nodeReveal = computeRowReveal(state.clauseElapsed, idx, 3);
 
             return (
-              <g key={node.id}>
+              <g key={node.id} opacity={nodeReveal.opacity}>
                 {idx < 3 && (
                   <>
                     <line
@@ -1299,9 +1528,7 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                       strokeWidth={linkActive ? 3 : 1.5}
                       strokeDasharray={linkActive ? undefined : '4 4'}
                     />
-                    {linkActive && (
-                      <circle cx={pulseX} cy={110} r="4.5" fill={WHITE} />
-                    )}
+                    {linkActive && <circle cx={pulseX} cy={110} r="4.5" fill={WHITE} />}
                   </>
                 )}
 
@@ -1340,7 +1567,8 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                   fontSize="11"
                   letterSpacing="1.6"
                 >
-                  {node.id} // {node.active ? 'ONLINE' : 'fault' in node && node.fault ? 'FAULT' : 'STANDBY'}
+                  {node.id} //{' '}
+                  {node.active ? 'ONLINE' : 'fault' in node && node.fault ? 'FAULT' : 'STANDBY'}
                 </text>
                 <text
                   x={x + 18}
@@ -1367,51 +1595,76 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
           })}
         </svg>
 
-        {/* Contextual Math / Keyframe Sub-Visualizer inside Engine Focal Card */}
-        {(graphConfig.showTimingGrid || graphConfig.mathVisual === 'timing') && (
-          <div style={{position: 'relative', height: 214, width: '100%'}}>
-            <TimelineGrid
-              embedded
-              progress={clamp((state.clauseElapsed % 42) / 36, 0.25, 1)}
-              opacity={1}
-              scale={1}
-              triggerText="timing"
-              startFrame={state.globalFrame}
-            />
-          </div>
-        )}
+        {/* Sub-widget bay with smooth 10-frame spring/fade/slide entrance & reversed exit */}
+        <div style={{position: 'relative', height: hasMathSub ? 214 : 96, width: '100%'}}>
+          {'timingSubEnv' in graphConfig && graphConfig.timingSubEnv && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: graphConfig.timingSubEnv.opacity,
+                transform: `translate3d(0, ${graphConfig.timingSubEnv.translateY}px, 0) scale(${graphConfig.timingSubEnv.scale})`,
+              }}
+            >
+              <TimelineGrid
+                embedded
+                progress={clamp((state.clauseElapsed % 42) / 36, 0.25, 1)}
+                opacity={1}
+                scale={1}
+                triggerText="timing"
+                startFrame={state.globalFrame}
+              />
+            </div>
+          )}
 
-        {graphConfig.mathVisual === 'physics' && (
-          <svg viewBox="0 0 888 235" style={{width: '100%', height: 215}}>
-            <text x="48" y="24" fill={ORANGE} fontFamily={MONO} fontSize="11.5" letterSpacing="2">
-              DAMPED_HARMONIC_SPRING // x(t) = 1 - exp(-zeta*w*t)cos(wd*t)
-            </text>
-            <line x1="48" y1="44" x2="48" y2="218" stroke={WHITE} strokeOpacity="0.35" />
-            <line x1="48" y1="218" x2="848" y2="218" stroke={WHITE} strokeOpacity="0.35" />
-            <line x1="48" y1="130" x2="848" y2="130" stroke={WHITE} strokeOpacity="0.16" strokeDasharray="5 5" />
-            <path d={HARMONIC_SPRING_CURVE_PATH} fill="none" stroke={ORANGE} strokeWidth="3.2" />
-          </svg>
-        )}
+          {'physicsSubEnv' in graphConfig && graphConfig.physicsSubEnv && (
+            <svg
+              viewBox="0 0 888 214"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                opacity: graphConfig.physicsSubEnv.opacity,
+                transform: `translate3d(0, ${graphConfig.physicsSubEnv.translateY}px, 0) scale(${graphConfig.physicsSubEnv.scale})`,
+              }}
+            >
+              <text x="48" y="22" fill={ORANGE} fontFamily={MONO} fontSize="11.5" letterSpacing="2">
+                DAMPED_HARMONIC_SPRING // x(t) = 1 - exp(-zeta*w*t)cos(wd*t)
+              </text>
+              <line x1="48" y1="40" x2="48" y2="200" stroke={WHITE} strokeOpacity="0.35" />
+              <line x1="48" y1="200" x2="848" y2="200" stroke={WHITE} strokeOpacity="0.35" />
+              <line x1="48" y1="120" x2="848" y2="120" stroke={WHITE} strokeOpacity="0.16" strokeDasharray="5 5" />
+              <path d={HARMONIC_SPRING_CURVE_PATH} fill="none" stroke={ORANGE} strokeWidth="3.2" />
+            </svg>
+          )}
 
-        {graphConfig.mathVisual === 'easing' && (
-          <svg viewBox="0 0 888 235" style={{width: '100%', height: 215}}>
-            <text x="48" y="24" fill={ORANGE} fontFamily={MONO} fontSize="11.5" letterSpacing="2">
-              CUBIC_BEZIER_SOLVER // C(t) = cubic-bezier(0.65, 0.00, 0.35, 1.00)
-            </text>
-            <line x1="48" y1="44" x2="48" y2="216" stroke={WHITE} strokeOpacity="0.35" />
-            <line x1="48" y1="216" x2="848" y2="216" stroke={WHITE} strokeOpacity="0.35" />
-            <line x1="48" y1="212" x2="380" y2="212" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
-            <line x1="516" y1="54" x2="848" y2="54" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
-            <circle cx="380" cy="212" r="5" fill={WHITE} />
-            <circle cx="516" cy="54" r="5" fill={WHITE} />
-            <path d="M48 212 C380 212, 516 54, 848 54" fill="none" stroke={ORANGE} strokeWidth="3.4" />
-          </svg>
-        )}
+          {'easingSubEnv' in graphConfig && graphConfig.easingSubEnv && (
+            <svg
+              viewBox="0 0 888 214"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                opacity: graphConfig.easingSubEnv.opacity,
+                transform: `translate3d(0, ${graphConfig.easingSubEnv.translateY}px, 0) scale(${graphConfig.easingSubEnv.scale})`,
+              }}
+            >
+              <text x="48" y="22" fill={ORANGE} fontFamily={MONO} fontSize="11.5" letterSpacing="2">
+                CUBIC_BEZIER_SOLVER // C(t) = cubic-bezier(0.65, 0.00, 0.35, 1.00)
+              </text>
+              <line x1="48" y1="40" x2="48" y2="200" stroke={WHITE} strokeOpacity="0.35" />
+              <line x1="48" y1="200" x2="848" y2="200" stroke={WHITE} strokeOpacity="0.35" />
+              <line x1="48" y1="196" x2="380" y2="196" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+              <line x1="516" y1="50" x2="848" y2="50" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+              <circle cx="380" cy="196" r="5" fill={WHITE} />
+              <circle cx="516" cy="50" r="5" fill={WHITE} />
+              <path d="M48 196 C380 196, 516 50, 848 50" fill="none" stroke={ORANGE} strokeWidth="3.4" />
+            </svg>
+          )}
 
-        {!graphConfig.showTimingGrid &&
-          graphConfig.mathVisual !== 'timing' &&
-          graphConfig.mathVisual !== 'physics' &&
-          graphConfig.mathVisual !== 'easing' && (
+          {!hasMathSub && (
             <div
               style={{
                 display: 'grid',
@@ -1425,47 +1678,52 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                 {k: 'PIPELINE_CLOCK', v: `F${String(gf).padStart(4, '0')} @ 30HZ`},
                 {k: 'CONNECTED_BLOCKS', v: `${connectedCount} / ${graphConfig.nodes.length} NODES`},
                 {k: 'STATE_ISOLATION', v: graphConfig.alert ? 'FAULT_DETECTED' : 'DETERMINISTIC'},
-              ].map((m) => (
-                <div
-                  key={m.k}
-                  style={{
-                    padding: '12px 14px',
-                    background: 'rgba(244,247,255,0.03)',
-                    border: '1px solid rgba(244,247,255,0.09)',
-                    fontFamily: MONO,
-                  }}
-                >
-                  <div style={{fontSize: 10.5, letterSpacing: 1.6, color: MUTED, marginBottom: 6}}>
-                    {m.k}
-                  </div>
+              ].map((m, idx) => {
+                const mr = computeRowReveal(state.clauseElapsed, idx, 3);
+                return (
                   <div
+                    key={m.k}
                     style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: graphConfig.alert && m.k === 'STATE_ISOLATION' ? CRIMSON : WHITE,
+                      padding: '12px 14px',
+                      background: 'rgba(244,247,255,0.03)',
+                      border: '1px solid rgba(244,247,255,0.09)',
+                      fontFamily: MONO,
+                      opacity: mr.opacity,
+                      transform: `translate3d(0, ${mr.translateY}px, 0) scale(${mr.scale})`,
                     }}
                   >
-                    {m.v}
+                    <div style={{fontSize: 10.5, letterSpacing: 1.6, color: MUTED, marginBottom: 6}}>
+                      {m.k}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: graphConfig.alert && m.k === 'STATE_ISOLATION' ? CRIMSON : WHITE,
+                      }}
+                    >
+                      {m.v}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </div>
       </SciFiUiCard>
 
-      {/* Lower-Third Live Execution Terminal */}
       <SciFiUiCard
         slot="lower-third"
         title={graphConfig.lowerTitle}
         badge={graphConfig.lowerBadge}
         accentColor={graphConfig.alert ? CRIMSON : ORANGE}
         alertMode={graphConfig.alert}
-        reveal={state.cardReveal}
+        envelope={state.lowerEnvelope}
         dataAttrs={{'data-ui-lower-kind': 'execution-terminal'}}
       >
         <div style={{display: 'flex', flexDirection: 'column', gap: 15, flex: 1, justifyContent: 'center'}}>
           {graphConfig.logs.map((row, idx) => {
-            const reached = idx <= Math.floor(state.clauseProgress * graphConfig.logs.length) + 1;
+            const rowEnv = computeRowReveal(state.clauseElapsed, idx, 5);
             const isErr = Boolean('err' in row && row.err);
             return (
               <div
@@ -1476,8 +1734,9 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                   alignItems: 'center',
                   padding: '11px 16px',
                   background: isErr ? 'rgba(225,29,72,0.13)' : 'rgba(244,247,255,0.03)',
-                  borderLeft: `3px solid ${isErr ? CRIMSON : reached ? ORANGE : 'rgba(244,247,255,0.16)'}`,
-                  opacity: reached ? 1 : 0.28,
+                  borderLeft: `3px solid ${isErr ? CRIMSON : ORANGE}`,
+                  opacity: rowEnv.opacity,
+                  transform: `translate3d(0, ${rowEnv.translateY}px, 0) scale(${rowEnv.scale})`,
                   fontFamily: MONO,
                   fontSize: 14,
                 }}
@@ -1531,7 +1790,7 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
   const diag = (() => {
     switch (state.variant) {
       case 'codebase-break': {
-        const breakHit = gf >= SCRIPT_CUES[21].startFrame; // "break." at F0343
+        const breakHit = computeTriggerMix(gf, SCRIPT_CUES[21].startFrame, 8) > 0.35;
         return {
           upperTitle: 'CRITICAL_RUNTIME_ERROR // PRODUCTION_CODEBASE_BREAK',
           upperBadge: breakHit ? 'FATAL_SIGABRT_134' : 'STRESS_FRACTURE',
@@ -1602,8 +1861,7 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
       }
 
       default: {
-        // 'toy-fatal': "or ship toys." (F1509..F1541)
-        const toysHit = gf >= SCRIPT_CUES[90].startFrame;
+        const toysHit = computeTriggerMix(gf, SCRIPT_CUES[90].startFrame, 8) > 0.35;
         return {
           upperTitle: 'FATAL_SHIP_DIAGNOSTIC // TOY_ARTIFACT_REJECTED',
           upperBadge: toysHit ? 'ERR_TOY_BUILD' : 'RELEASE_GATE_ALERT',
@@ -1627,7 +1885,6 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
     }
   })();
 
-  // Fault waveform SVG points
   const wavePoints = Array.from({length: 38}, (_, i) => {
     const x = 24 + i * 22.5;
     const spike =
@@ -1646,14 +1903,13 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
         badge={diag.upperBadge}
         accentColor={CRIMSON}
         alertMode
-        reveal={state.cardReveal}
+        envelope={state.upperEnvelope}
         dataAttrs={{
           'data-ui-sim-kind': 'error-diagnostic',
           'data-ui-variant': state.variant,
           'data-stack-frames': diag.stackTrace.length,
         }}
       >
-        {/* Red Diagnostic Warning Banner */}
         <div
           style={{
             padding: '16px 20px',
@@ -1678,7 +1934,6 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
           </div>
         </div>
 
-        {/* Live Crimson Fault Telemetry Waveform */}
         <svg viewBox="0 0 888 124" style={{width: '100%', height: 124, flexShrink: 0}}>
           <rect
             x="0"
@@ -1695,35 +1950,38 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
           </text>
         </svg>
 
-        {/* 3 Diagnostic Fault Counters */}
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14}}>
-          {diag.metrics.map((m) => (
-            <div
-              key={m.k}
-              style={{
-                padding: '12px 14px',
-                background: 'rgba(225,29,72,0.10)',
-                border: '1px solid rgba(225,29,72,0.38)',
-                fontFamily: MONO,
-              }}
-            >
-              <div style={{fontSize: 10.5, letterSpacing: 1.5, color: '#fda4af', marginBottom: 6}}>
-                {m.k}
+          {diag.metrics.map((m, idx) => {
+            const mr = computeRowReveal(state.clauseElapsed, idx, 3);
+            return (
+              <div
+                key={m.k}
+                style={{
+                  padding: '12px 14px',
+                  background: 'rgba(225,29,72,0.10)',
+                  border: '1px solid rgba(225,29,72,0.38)',
+                  fontFamily: MONO,
+                  opacity: mr.opacity,
+                  transform: `translate3d(0, ${mr.translateY}px, 0) scale(${mr.scale})`,
+                }}
+              >
+                <div style={{fontSize: 10.5, letterSpacing: 1.5, color: '#fda4af', marginBottom: 6}}>
+                  {m.k}
+                </div>
+                <div style={{fontSize: 13.5, fontWeight: 700, color: WHITE}}>{m.v}</div>
               </div>
-              <div style={{fontSize: 13.5, fontWeight: 700, color: WHITE}}>{m.v}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </SciFiUiCard>
 
-      {/* Lower-Third Red Stack-Trace Log Overlay */}
       <SciFiUiCard
         slot="lower-third"
         title="STDERR_DIAGNOSTIC_STREAM // LIVE_STACK_TRACE"
         badge="STACK_TRACE_DUMP"
         accentColor={CRIMSON}
         alertMode
-        reveal={state.cardReveal}
+        envelope={state.lowerEnvelope}
         dataAttrs={{'data-ui-lower-kind': 'stack-trace-logs'}}
       >
         <div
@@ -1740,7 +1998,7 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
           }}
         >
           {diag.stackTrace.map((line, idx) => {
-            const visible = idx <= Math.floor(state.clauseProgress * diag.stackTrace.length) + 1;
+            const rowEnv = computeRowReveal(state.clauseElapsed, idx, 4);
             const isHeader = idx === 0 || idx === diag.stackTrace.length - 1;
             return (
               <div
@@ -1754,7 +2012,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
                   borderLeft: `3px solid ${isHeader ? CRIMSON : 'rgba(225,29,72,0.45)'}`,
                   color: isHeader ? '#ffe4e8' : '#fda4af',
                   fontWeight: isHeader ? 700 : 400,
-                  opacity: visible ? 1 : 0.22,
+                  opacity: rowEnv.opacity,
+                  transform: `translate3d(0, ${rowEnv.translateY}px, 0)`,
                 }}
               >
                 {line}
@@ -1776,84 +2035,99 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
 };
 
 /**
- * Full-canvas Contextual UI Simulation Layer (Upper Focal Card + Spoken Clause Strip + Lower-Third UI Dock).
- * Eliminates 100% of empty dead space while leaving the hero center band (y: 680..1136)
- * wide open for the monumental KineticEngine typography.
+ * Pure view layer for SSR static assertions & frame-driven rendering.
+ * Renders every active/transitioning clause smoothly via AssetTransitionEnvelope
+ * so outgoing cards reverse-ease out while incoming cards spring/fade/slide in.
  */
 export const ContextualUiSimulationLayer: React.FC<{
   scene: SceneSpec;
   localFrame: number;
 }> = ({scene, localFrame}) => {
-  const state = getActiveUiSimulation(scene, localFrame);
-  if (!state) return null;
+  const states = getActiveUiSimulations(scene, localFrame);
+  if (states.length === 0) return null;
 
-  const isAlert = state.kind === 'error-diagnostic';
+  const primary = getActiveUiSimulation(scene, localFrame) ?? states[states.length - 1];
 
   return (
     <div
       data-contextual-ui-scene={scene.id}
-      data-contextual-ui-kind={state.kind}
-      data-contextual-ui-clause={state.id}
+      data-contextual-ui-kind={primary.kind}
+      data-contextual-ui-clause={primary.id}
       style={{position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden'}}
     >
-      {state.kind === 'prompt-cli' && <PromptCliSimulationPair state={state} />}
-      {state.kind === 'engine-pipeline' && <EnginePipelineSimulationPair state={state} />}
-      {state.kind === 'error-diagnostic' && <ErrorDiagnosticSimulationPair state={state} />}
+      {states.map((state) => {
+        const isAlert = state.kind === 'error-diagnostic';
+        return (
+          <div key={state.id} style={{position: 'absolute', inset: 0}}>
+            {state.kind === 'prompt-cli' && <PromptCliSimulationPair state={state} />}
+            {state.kind === 'engine-pipeline' && <EnginePipelineSimulationPair state={state} />}
+            {state.kind === 'error-diagnostic' && <ErrorDiagnosticSimulationPair state={state} />}
 
-      {/* Spoken-So-Far Clause Telemetry Strip directly below Hero Kinetic Word (y: 1034px) */}
-      <div
-        data-spoken-clause-strip={state.id}
-        style={{
-          position: 'absolute',
-          left: 60,
-          right: 60,
-          top: 1030,
-          height: 54,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          padding: '0 20px',
-          background: 'rgba(11, 15, 25, 0.78)',
-          borderTop: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
-          borderBottom: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
-          fontFamily: MONO,
-          fontSize: 14,
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          opacity: 0.3 + state.cardReveal * 0.7,
-        }}
-      >
-        <span
-          style={{
-            color: isAlert ? CRIMSON : ORANGE,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: 1.8,
-            marginRight: 6,
-          }}
-        >
-          {state.moduleCode} //
-        </span>
-        {state.spokenClauseWords.length === 0 ? (
-          <span style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}>
-            SYNCING_CLAUSE_LOCK...
-          </span>
-        ) : (
-          state.spokenClauseWords.map((w) => (
-            <span
-              key={w.index}
+            <div
+              data-spoken-clause-strip={state.id}
               style={{
-                color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : WHITE,
-                fontWeight: w.isCurrent ? 800 : 500,
-                opacity: w.isCurrent ? 1 : 0.76,
+                position: 'absolute',
+                left: 60,
+                right: 60,
+                top: 1030,
+                height: 54,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                padding: '0 20px',
+                background: 'rgba(11, 15, 25, 0.82)',
+                borderTop: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
+                borderBottom: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
+                fontFamily: MONO,
+                fontSize: 14,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                opacity: state.envelope.opacity,
+                transform: `translate3d(0, ${(state.envelope.translateY * 0.55).toFixed(1)}px, 0) scale(${state.envelope.scale})`,
               }}
             >
-              {w.text}
-            </span>
-          ))
-        )}
-      </div>
+              <span
+                style={{
+                  color: isAlert ? CRIMSON : ORANGE,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 1.8,
+                  marginRight: 6,
+                }}
+              >
+                {state.moduleCode} //
+              </span>
+              {state.spokenClauseWords.length === 0 ? (
+                <span style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}>
+                  SYNCING_CLAUSE_LOCK...
+                </span>
+              ) : (
+                state.spokenClauseWords.map((w) => (
+                  <span
+                    key={w.index}
+                    style={{
+                      color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : WHITE,
+                      fontWeight: w.isCurrent ? 800 : 500,
+                      opacity: w.isCurrent ? 1 : 0.76,
+                    }}
+                  >
+                    {w.text}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
+};
+
+/**
+ * Connected Remotion hook component reading `useCurrentFrame()` directly per scene <Sequence>.
+ */
+export const ConnectedContextualUiSimulation: React.FC<{scene: SceneSpec}> = ({scene}) => {
+  const localFrame = useCurrentFrame();
+  return <ContextualUiSimulationLayer scene={scene} localFrame={localFrame} />;
 };
