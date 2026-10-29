@@ -156,6 +156,7 @@ assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
 for (const cleanRel of [
   'src/ContextualBroll.tsx',
   'src/TelemetryHud.tsx',
+  'src/TimelineGrid.tsx',
   'src/scenes/SceneStage.tsx',
   'src/scenes/HookScene.tsx',
   'src/scenes/TwistScene.tsx',
@@ -168,6 +169,21 @@ for (const cleanRel of [
   assert.ok(!src.includes('torusGeometry'), `${cleanRel} must not contain generic floating orbital rings`);
   assert.ok(!src.includes('SCENE_CONSTELLATIONS'), `${cleanRel} must not render random spiderweb constellations`);
   assert.ok(!src.includes('1.3px'), `${cleanRel} must not render random dot-matrix background clutter`);
+}
+
+for (const sceneOnlyRel of [
+  'src/scenes/HookScene.tsx',
+  'src/scenes/TwistScene.tsx',
+  'src/scenes/ShiftScene.tsx',
+  'src/scenes/MechanismScene.tsx',
+  'src/scenes/PayoffScene.tsx',
+  'src/scenes/OutroScene.tsx',
+]) {
+  const src = fs.readFileSync(path.join(__dirname, '..', sceneOnlyRel), 'utf8');
+  assert.ok(!src.includes('<Panel'), `${sceneOnlyRel} must not mount permanent background Panel clutter`);
+  assert.ok(!src.includes('VIEWPORT A'), `${sceneOnlyRel} must not mount permanent split wireframe clutter`);
+  assert.ok(!src.includes('AXIS 0'), `${sceneOnlyRel} must not mount permanent 6-box matrix clutter`);
+  assert.ok(!src.includes('DEMO SURFACE'), `${sceneOnlyRel} must not mount permanent fake dashboard clutter`);
 }
 
 // 2. Strictly narrative-driven semantic keyword mapping:
@@ -222,9 +238,16 @@ for (const scene of SCENE_SEQUENCES) {
   }
 }
 assert.ok(totalBrollBursts >= 8, 'Expected semantic B-roll bursts across neural, syntax, and math keywords');
-// Verify non-matching frames render zero B-roll (clean subtle coordinate grid only)
-assert.equal(getActiveBrollBursts(SCENE_SEQUENCES[0], 10).length, 0, '"Your" frame must stay clutter-free');
-assert.equal(getActiveBrollBursts(SCENE_SEQUENCES[5], 125).length, 0, '"toys." frame must stay clutter-free');
+// Verify non-matching spoken words across all 6 scenes render ZERO B-roll (clean subtle coordinate grid only)
+for (const nonMatchingIdx of [0, 3, 5, 7, 12, 16, 19, 21, 24, 33, 37, 43, 46, 48, 50, 53, 60, 62, 67, 74, 77, 78, 79, 80, 81, 85, 90]) {
+  const cue = SCRIPT_CUES[nonMatchingIdx];
+  const sc = sceneForFrame(cue.startFrame);
+  assert.equal(
+    getActiveBrollBursts(sc, cue.startFrame - sc.from).length,
+    0,
+    `Unrelated word #${nonMatchingIdx} ("${cue.text}") at F${cue.startFrame} must keep background 100% clutter-free`,
+  );
+}
 
 // Verify Emotional Pacing & Dynamic Cinematography rules.
 assert.equal(TENSION_SPRING_CONFIG.damping, 8);

@@ -4,7 +4,6 @@ import {KineticEngine} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
 import {AtmosphericOverlays} from '../TelemetryHud';
-import {TimelineGrid} from '../TimelineGrid';
 import {
   SCENE_MAP,
   WORD_START_FRAMES,
@@ -25,7 +24,7 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
   const codeCue = cueAfter('code,', promptCue.globalIndex);
   const framesCue = cueAfter('frames,', codeCue.globalIndex);
   const mp4Cue = cueAfter('MP4.', framesCue.globalIndex);
-  const subtleGridBreath = 0.075 + 0.045 * (0.5 + 0.5 * Math.sin(localFrame * 0.09));
+  const subtleGridBreath = 0.07 + 0.025 * (0.5 + 0.5 * Math.sin(localFrame * 0.08));
 
   return (
     <SceneContainer>
@@ -53,12 +52,11 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
         scene={scene}
         localFrame={localFrame}
         activeCue={activeCue}
-        background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.045} />}
+        background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.04} />}
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.42} />}
         typography={
           <>
             <AtmosphericOverlays scene={scene} localFrame={localFrame} energy={energy} activeCue={activeCue} />
-            <TimelineGrid localFrame={localFrame} globalFrame={globalFrame} energy={energy} />
             {activeCue && (
               <KineticEngine
                 key={activeCue.globalIndex}

@@ -6,12 +6,12 @@ This Remotion project contains two separate, word-synchronized films. Each uses 
 
 The new film contrasts template-shaped agent demos with deterministic, code-driven production:
 
-- **Hook:** spring-slamming electric-white words over a gridded, audio-reactive vector streak.
-- **Twist:** an intentionally generic dashboard is cut by a safety-orange vector slash on “break.”
-- **Shift:** split chat/terminal views update only with the active spoken word.
-- **Mechanism:** physics, isolation, math, and timing details snap in and out on their own narration cues.
-- **Payoff:** a fast-scrolling timeline highlights prompt, code, frames, and MP4 only as each is spoken.
-- **Outro:** the final words hit individually, then cut to black.
+- **Hook:** spring-slamming electric-white and safety-orange words over a clean coordinate grid, with a localized single-pulse synaptic lattice on `"AI agent"` and an AST syntax parser on `"template."`.
+- **Twist:** tension-paced kinetic tokens over a clean coordinate grid, invoking a localized codebase syntax parser strictly on `"codebases"` before `"break."` hits with a crimson flash and horizontal shake.
+- **Shift:** centered schema-bridge typography over a clean coordinate grid, triggering localized syntax blocks on `"Prompt"` / `"codebase’s"` / `"prompt."` and a quantized linear keyframe grid (`TimelineGrid`) on `"timing"`.
+- **Mechanism:** calm `easeInOutCubic` precision typography over a subtly breathing coordinate grid, plotting analytical harmonic spring (`"physics,"`), linear keyframe (`"timing,"`), cubic-bezier (`"easing,"`), and AST (`"template"`) visuals strictly on their spoken cues.
+- **Payoff:** clean compiler-stream typography over the coordinate grid, streaming a localized text-parsing matrix across `"prompt to code, code"` and keeping `"frames"` / `"MP4."` / `"Fast."` / `"Inspectable."` / `"Repeatable."` completely clutter-free.
+- **Outro:** final tension-paced monolith tokens over the clean coordinate grid (with a localized syntax block strictly on `"templates."`), cutting cleanly to black after `"toys."`.
 
 The palette is deep obsidian `#0b0f19`, electric white, and safety orange `#ff4500`. The selected narration stays at natural speed: its decoded WAV is about 51.56 seconds, with a 1,547-frame composition (51.57 seconds at 30 fps). The 91 canonical words have phonetic audio alignment and a reviewed correction tied to the WAV's SHA-256. `agent-engine-frame-cues.json` stores absolute start/end frame arrays; the runtime builds a direct per-frame lookup with no accumulating timers, crossfades, previous-word echoes, or future-word previews. Every aligned boundary uses the first frame at or after its timestamp, so a 30 fps render can resolve it to within one frame rather than arbitrary subframe milliseconds. Genuine pauses remain pauses.
 
@@ -22,7 +22,7 @@ The telemetry, kinetic typography layout, background grid state, node constellat
 - `src/ContextualBroll.tsx` enforces zero-clutter, strictly narrative-driven semantic background B-roll: localized background graphics only render when invoked by an explicit semantic token (`"AI"`/`"Agent"` → localized synaptic node lattice that pulses once and dissolves; `"Code"`/`"Prompt"`/`"Template"` → localized scrolling terminal syntax block / text-parsing matrix; `"Physics"`/`"Timing"`/`"Easing"` → clean mathematical curve graphs & linear keyframe grids). All generic orbital rings, dot grids, and continuous background loops are eliminated; non-matching frames render only the clean subtle coordinate grid (`CleanCoordinateGrid`).
 - `src/TelemetryHud.tsx` provides dynamic, semi-transparent floating HUD chips, tactical lower-thirds, and minimal corner calibration hairlines that animate in and out cleanly on every scene transition.
 - `src/KineticEngine.tsx` handles `{damping: 10, stiffness: 180}` spring physics and word-by-word absolute-frame snapping across distinct vertical stage layouts.
-- `src/scenes/HookScene.tsx`, `src/scenes/TwistScene.tsx`, `src/scenes/ShiftScene.tsx`, `src/scenes/MechanismScene.tsx`, `src/scenes/PayoffScene.tsx`, and `src/scenes/OutroScene.tsx` implement each isolated `<Sequence>` beat (`src/TimelineGrid.tsx` renders the Payoff timeline).
+- `src/scenes/HookScene.tsx`, `src/scenes/TwistScene.tsx`, `src/scenes/ShiftScene.tsx`, `src/scenes/MechanismScene.tsx`, `src/scenes/PayoffScene.tsx`, and `src/scenes/OutroScene.tsx` implement each isolated `<Sequence>` beat over `CleanCoordinateGrid` (`src/TimelineGrid.tsx` renders the quantized linear keyframe grid on semantic `"timing"` cues).
 - `src/engine/agentEngineModel.ts` owns cue lookup, non-overlapping `<Sequence>` boundaries, scene-scoped selectors, color, and audio-envelope data.
 
 Render the new AI-agent film:

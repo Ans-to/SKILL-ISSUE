@@ -1,5 +1,6 @@
 import React from 'react';
 import {Easing, interpolate, spring} from 'remotion';
+import {TimelineGrid} from './TimelineGrid';
 import {
   FPS,
   MUTED,
@@ -18,7 +19,7 @@ import {
 /**
  * Strictly narrative-driven semantic B-roll categories:
  * - 'neural': "AI" / "Agent" -> localized neural node lattice / synaptic graph (pulses once & dissolves)
- * - 'syntax': "Code" / "Prompt" / "Template" -> localized scrolling terminal syntax block / text-parsing matrix
+ * - 'syntax': "Code" / "Prompt" / "Template" -> scrolling terminal syntax block / clean text-parsing matrix
  * - 'math':   "Physics" / "Timing" / "Easing" -> clean mathematical curve graph / linear keyframe grid
  */
 export type BrollKind = 'neural' | 'syntax' | 'math';
@@ -57,8 +58,7 @@ export const classifyBrollKeyword = (rawWord: string): BrollKind | null => {
     token === 'prompt' ||
     token === 'prompts' ||
     token === 'template' ||
-    token === 'templates' ||
-    token === 'boilerplate'
+    token === 'templates'
   ) {
     return 'syntax';
   }
@@ -76,13 +76,18 @@ const getMathSubkind = (rawWord: string): MathSubkind | null => {
   return null;
 };
 
-const DEFAULT_BURST_FRAMES = 42; // 1.40s localized single-pulse / scroll burst
+const isImmediateSemanticCompletion = (triggerToken: string, nextToken: string): boolean =>
+  (triggerToken === 'prompt' && nextToken === 'harder') ||
+  (triggerToken === 'timing' && nextToken === 'model');
+
+const isShortBridgeConnector = (token: string, durFrames: number): boolean =>
+  durFrames <= 6 && (token === 'to' || token === 'and' || token === 'or');
 
 /**
  * Precomputed, strictly non-overlapping semantic B-roll bursts per scene.
- * Adjacent tokens of the same semantic family coalesce into a single localized burst,
- * and any burst is truncated before the next distinct semantic token or scene cut so
- * two background assets NEVER overlap.
+ * Every burst starts on its spoken semantic token and dissolves cleanly during its
+ * own breath pause BEFORE any unrelated spoken word begins — keeping non-semantic
+ * frames 100% pure coordinate grid with zero visual clutter.
  */
 export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSpec[]>> = (() => {
   const byScene: Record<SceneKey, BrollBurstSpec[]> = {
@@ -99,41 +104,86 @@ export const SCENE_BROLL_BURSTS: Readonly<Record<SceneKey, readonly BrollBurstSp
       scene.id === 'outro' ? OUTRO_CUT_FRAME - 2 : scene.endFrame - scene.clearFrames - 2;
     const rawList: BrollBurstSpec[] = [];
 
-    for (let idx = scene.firstWordIndex; idx <= scene.lastWordIndex; idx += 1) {
+    let idx = scene.firstWordIndex;
+    while (idx <= scene.lastWordIndex) {
       const cue = SCRIPT_CUES[idx];
       const kind = classifyBrollKeyword(cue.text);
-      if (!kind) continue;
-      const mathSubkind = getMathSubkind(cue.text);
-
-      const prev = rawList[rawList.length - 1];
-      if (
-        prev &&
-        prev.kind === kind &&
-        prev.mathSubkind === mathSubkind &&
-        cue.startFrame - prev.startFrame <= 32
-      ) {
-        const extendedEnd = Math.min(maxEndFrame, Math.max(prev.endFrame, cue.startFrame + 32));
-        const cappedEnd = Math.min(extendedEnd, prev.startFrame + 58); // <= 1.93s max
-        prev.endFrame = cappedEnd;
-        prev.durationFrames = cappedEnd - prev.startFrame;
+      if (!kind) {
+        idx += 1;
         continue;
       }
 
+      const mathSubkind = getMathSubkind(cue.text);
       const startFrame = cue.startFrame;
-      const endFrame = Math.min(maxEndFrame, startFrame + DEFAULT_BURST_FRAMES);
-      if (endFrame - startFrame < 14) continue;
+      let lastIncludedIdx = idx;
 
-      rawList.push({
-        id: `${scene.id}-${kind}-${idx}`,
-        sceneId: scene.id,
-        kind,
-        mathSubkind,
-        triggerWordIndex: idx,
-        triggerText: cue.text,
-        startFrame,
-        endFrame,
-        durationFrames: endFrame - startFrame,
-      });
+      // Coalesce immediately adjacent tokens of the same semantic family
+      // (e.g. "AI agent" or "prompt to code, code")
+      while (lastIncludedIdx + 1 <= scene.lastWordIndex) {
+        const nextCue = SCRIPT_CUES[lastIncludedIdx + 1];
+        const nextKind = classifyBrollKeyword(nextCue.text);
+        const nextSub = getMathSubkind(nextCue.text);
+        const nextTok = normalize(nextCue.text);
+
+        if (
+          nextKind === kind &&
+          nextSub === mathSubkind &&
+          nextCue.startFrame - SCRIPT_CUES[lastIncludedIdx].endFrame <= 14
+        ) {
+          lastIncludedIdx += 1;
+          continue;
+        }
+
+        // Allow tiny bridge connector ("prompt to code,") when followed by same semantic kind
+        if (
+          isShortBridgeConnector(nextTok, nextCue.endFrame - nextCue.startFrame) &&
+          lastIncludedIdx + 2 <= scene.lastWordIndex
+        ) {
+          const afterBridge = SCRIPT_CUES[lastIncludedIdx + 2];
+          if (
+            classifyBrollKeyword(afterBridge.text) === kind &&
+            getMathSubkind(afterBridge.text) === mathSubkind
+          ) {
+            lastIncludedIdx += 2;
+            continue;
+          }
+        }
+
+        // Include immediate 2-word semantic phrase completion ("Prompt harder?", "timing model,")
+        if (
+          lastIncludedIdx === idx &&
+          isImmediateSemanticCompletion(normalize(cue.text), nextTok)
+        ) {
+          lastIncludedIdx += 1;
+        }
+        break;
+      }
+
+      const phraseEndFrame = SCRIPT_CUES[lastIncludedIdx].endFrame;
+      const followingCue =
+        lastIncludedIdx + 1 <= scene.lastWordIndex ? SCRIPT_CUES[lastIncludedIdx + 1] : null;
+      const hardStopBeforeNextWord = followingCue ? followingCue.startFrame : maxEndFrame;
+
+      // Dissolve inside the natural breath pause after the semantic word/phrase,
+      // strictly clamped before the next spoken word and <= 56 frames total.
+      const desiredEnd = Math.min(maxEndFrame, hardStopBeforeNextWord, phraseEndFrame + 12);
+      const endFrame = Math.min(desiredEnd, startFrame + 56);
+
+      if (endFrame - startFrame >= 12) {
+        rawList.push({
+          id: `${scene.id}-${kind}-${idx}`,
+          sceneId: scene.id,
+          kind,
+          mathSubkind,
+          triggerWordIndex: idx,
+          triggerText: cue.text,
+          startFrame,
+          endFrame,
+          durationFrames: endFrame - startFrame,
+        });
+      }
+
+      idx = lastIncludedIdx + 1;
     }
 
     // Enforce zero overlap between sequential semantic bursts in the same scene
@@ -170,18 +220,18 @@ export const getActiveBrollBursts = (
     if (globalFrame < spec.startFrame || globalFrame >= spec.endFrame) continue;
     const elapsed = globalFrame - spec.startFrame;
     const dur = spec.durationFrames;
-    const fadeOutStart = Math.max(5, dur - 14);
+    const fadeOutStart = Math.max(4, dur - Math.min(9, Math.floor(dur * 0.35)));
 
     const enterSpring = spring({
       frame: elapsed,
       fps: FPS,
-      config: {damping: 14, stiffness: 210},
+      config: {damping: 15, stiffness: 220},
     });
 
     const opacity = interpolate(
       elapsed,
-      [0, 4, fadeOutStart, dur],
-      [0, 1, 0.85, 0],
+      [0, 3, fadeOutStart, dur],
+      [0, 1, 0.9, 0],
       {
         easing: Easing.inOut(Easing.cubic),
         extrapolateLeft: 'clamp',
@@ -189,7 +239,7 @@ export const getActiveBrollBursts = (
       },
     );
 
-    // Single monotonic 0 -> 1 pulse/scroll progression across the burst (pulses once & dissolves)
+    // Single monotonic 0 -> 1 pulse/scroll/plot progression across the burst (pulses once & dissolves)
     const pulseProgress = interpolate(elapsed, [0, dur], [0, 1], {
       easing: Easing.out(Easing.cubic),
       extrapolateLeft: 'clamp',
@@ -201,7 +251,7 @@ export const getActiveBrollBursts = (
       elapsedFrames: elapsed,
       progress: clamp(elapsed / Math.max(1, dur), 0, 1),
       opacity: clamp(opacity, 0, 1),
-      scale: 0.94 + enterSpring * 0.06,
+      scale: 0.95 + enterSpring * 0.05,
       pulseProgress,
     });
   }
@@ -209,20 +259,20 @@ export const getActiveBrollBursts = (
   return active;
 };
 
-// Localized 4-layer feed-forward synaptic node lattice inside Hook upper bay (x: 270..810, y: 398..650)
+// Localized 4-layer feed-forward synaptic node lattice inside upper focal bay (x: 270..810, y: 396..636)
 const SYNAPTIC_NODES: ReadonlyArray<{x: number; y: number; layer: number}> = [
-  {x: 270, y: 432, layer: 0},
-  {x: 270, y: 522, layer: 0},
-  {x: 270, y: 612, layer: 0},
-  {x: 450, y: 398, layer: 1},
-  {x: 450, y: 482, layer: 1},
-  {x: 450, y: 566, layer: 1},
-  {x: 450, y: 650, layer: 1},
+  {x: 270, y: 428, layer: 0},
+  {x: 270, y: 516, layer: 0},
+  {x: 270, y: 604, layer: 0},
+  {x: 450, y: 396, layer: 1},
+  {x: 450, y: 476, layer: 1},
+  {x: 450, y: 556, layer: 1},
+  {x: 450, y: 636, layer: 1},
   {x: 630, y: 428, layer: 2},
-  {x: 630, y: 522, layer: 2},
-  {x: 630, y: 616, layer: 2},
-  {x: 810, y: 478, layer: 3},
-  {x: 810, y: 568, layer: 3},
+  {x: 630, y: 516, layer: 2},
+  {x: 630, y: 604, layer: 2},
+  {x: 810, y: 472, layer: 3},
+  {x: 810, y: 560, layer: 3},
 ];
 
 const SYNAPTIC_EDGES: ReadonlyArray<readonly [number, number]> = [
@@ -231,35 +281,56 @@ const SYNAPTIC_EDGES: ReadonlyArray<readonly [number, number]> = [
   [7, 10], [8, 10], [8, 11], [9, 11],
 ];
 
-const TERMINAL_LINES: ReadonlyArray<{indent: number; cmd: string; status: string}> = [
-  {indent: 0, cmd: '$ parse_tokens --strict --ast', status: '[OK]'},
-  {indent: 1, cmd: 'lex.scan(input_stream) -> 91_cues', status: '0.4ms'},
-  {indent: 1, cmd: 'schema.bind(frame_clock, fps=30)', status: 'LOCKED'},
-  {indent: 2, cmd: 'verify(invariants, zero_drift)', status: 'PASS'},
-  {indent: 1, cmd: 'emit_render_graph(1080x1920)', status: 'READY'},
-  {indent: 0, cmd: '> deterministic_pipeline_engaged', status: 'DONE'},
-];
+// Precomputed 64-sample analytical damped harmonic spring curve: x(t) = 1 - e^(-3.4t) * cos(14.5t)
+const HARMONIC_SPRING_PATH: string = (() => {
+  const samples = 64;
+  const pts: string[] = [];
+  for (let i = 0; i <= samples; i += 1) {
+    const t = i / samples;
+    const x = 60 + t * 772;
+    const response = 1 - Math.exp(-3.4 * t) * Math.cos(14.5 * t);
+    // Equilibrium response=1 maps to y=132; t=0 response=0 maps to y=212; overshoot ~1.36 maps to y~103
+    const y = 212 - response * 80;
+    pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  return pts.join(' ');
+})();
 
-const getBurstBay = (sceneId: SceneKey, kind: BrollKind): {top: number; height: number} => {
-  if (sceneId === 'hook') {
-    return kind === 'neural' ? {top: 334, height: 356} : {top: 1190, height: 232};
+const getSyntaxLines = (
+  triggerWord: string,
+): ReadonlyArray<{indent: number; cmd: string; status: string}> => {
+  const tok = normalize(triggerWord);
+  if (tok.startsWith('template')) {
+    return [
+      {indent: 0, cmd: '$ inspect_ast --target=template.tsx', status: 'SCAN'},
+      {indent: 1, cmd: 'ast.parse(preset_layout, props={})', status: 'STATIC'},
+      {indent: 1, cmd: 'bind_timing_model(frame_clock)', status: 'MISSING'},
+      {indent: 2, cmd: 'diff(invariants, hardcoded_slots)', status: '0_CONSTRAINTS'},
+      {indent: 0, cmd: '> parser_verdict: surface_shell_only', status: 'DONE'},
+    ];
   }
-  if (sceneId === 'twist') {
-    return {top: 1090, height: 232};
+  if (tok.startsWith('prompt')) {
+    return [
+      {indent: 0, cmd: '$ tokenize_prompt --stream --utf8', status: '[OK]'},
+      {indent: 1, cmd: 'lexer.read(natural_language_tokens)', status: '0.3ms'},
+      {indent: 1, cmd: 'compile_intent -> explicit_ast_nodes', status: 'TYPED'},
+      {indent: 2, cmd: 'schema.lock(fps=30, canvas=1080x1920)', status: 'BOUND'},
+      {indent: 0, cmd: '> text_matrix_parsed: zero_ambiguity', status: 'PASS'},
+    ];
   }
-  if (sceneId === 'shift') {
-    return {top: 854, height: 240};
-  }
-  if (sceneId === 'mechanism' || sceneId === 'payoff') {
-    return {top: 420, height: 228};
-  }
-  // outro
-  return {top: 1220, height: 232};
+  return [
+    {indent: 0, cmd: '$ parse_codebase --strict --graph', status: '[OK]'},
+    {indent: 1, cmd: 'module.resolve(src/Root.tsx, sequences=6)', status: 'LOCKED'},
+    {indent: 1, cmd: 'verify_cues(words=91, frames=1547)', status: 'EXACT'},
+    {indent: 2, cmd: 'typecheck(invariants, zero_drift)', status: '0_ERR'},
+    {indent: 0, cmd: '> deterministic_code_graph_ready', status: 'PASS'},
+  ];
 };
 
 /**
  * Localized, clutter-free 2D semantic B-roll graphics rendered strictly inside the
- * background layer ONLY when a semantic keyword ('neural' | 'syntax' | 'math') is spoken.
+ * upper focal bay (y: 344..648) ONLY when a semantic keyword ('neural' | 'syntax' | 'math')
+ * is spoken. Zero background clutter on all other frames.
  */
 export const ContextualVectorBroll: React.FC<{
   scene: SceneSpec;
@@ -275,8 +346,6 @@ export const ContextualVectorBroll: React.FC<{
       style={{position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden'}}
     >
       {bursts.map((burst) => {
-        const bay = getBurstBay(scene.id, burst.kind);
-
         if (burst.kind === 'neural') {
           // Single synaptic wave traveling left -> right across layers 0..3 once, then dissolving
           const waveLayer = burst.pulseProgress * 3.4;
@@ -292,24 +361,24 @@ export const ContextualVectorBroll: React.FC<{
                 inset: 0,
                 width: '100%',
                 height: '100%',
-                opacity: burst.opacity * 0.88,
+                opacity: burst.opacity * 0.9,
                 transform: `scale(${burst.scale})`,
-                transformOrigin: '540px 512px',
+                transformOrigin: '540px 516px',
               }}
             >
               <rect
-                x="216"
-                y={bay.top}
-                width="648"
-                height={bay.height}
+                x="204"
+                y="338"
+                width="672"
+                height="340"
                 rx="10"
-                fill="rgba(11,15,25,.74)"
-                stroke="rgba(244,247,255,.16)"
+                fill="rgba(8,12,21,.74)"
+                stroke="rgba(244,247,255,.15)"
                 strokeWidth="1.2"
               />
               <text
-                x="244"
-                y={bay.top + 30}
+                x="236"
+                y="368"
                 fill={ORANGE}
                 fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                 fontSize="11"
@@ -332,8 +401,8 @@ export const ContextualVectorBroll: React.FC<{
                     x2={nb.x}
                     y2={nb.y}
                     stroke={pulse > 0.35 ? ORANGE : WHITE}
-                    strokeOpacity={0.16 + pulse * 0.74}
-                    strokeWidth={1.2 + pulse * 1.8}
+                    strokeOpacity={0.16 + pulse * 0.76}
+                    strokeWidth={1.2 + pulse * 1.9}
                   />
                 );
               })}
@@ -348,14 +417,14 @@ export const ContextualVectorBroll: React.FC<{
                         r={8 + pulse * 13}
                         fill="none"
                         stroke={ORANGE}
-                        strokeOpacity={pulse * 0.65}
+                        strokeOpacity={pulse * 0.68}
                         strokeWidth="1.5"
                       />
                     )}
                     <circle
                       r={4.2 + pulse * 3}
                       fill={pulse > 0.3 ? ORANGE : WHITE}
-                      fillOpacity={0.42 + pulse * 0.58}
+                      fillOpacity={0.44 + pulse * 0.56}
                     />
                   </g>
                 );
@@ -365,15 +434,9 @@ export const ContextualVectorBroll: React.FC<{
         }
 
         if (burst.kind === 'syntax') {
-          // Clean localized scrolling terminal syntax block / text-parsing matrix
-          const revealedRows = Math.max(2, Math.ceil(burst.pulseProgress * TERMINAL_LINES.length));
-          const scrollOffset =
-            revealedRows > 5
-              ? interpolate(burst.pulseProgress, [0.78, 1], [0, 26], {
-                  extrapolateLeft: 'clamp',
-                  extrapolateRight: 'clamp',
-                })
-              : 0;
+          const lines = getSyntaxLines(burst.triggerText);
+          const revealedRows = Math.max(2, Math.ceil(burst.pulseProgress * lines.length));
+          const upwardSlide = (1 - burst.pulseProgress) * 14;
 
           return (
             <div
@@ -382,20 +445,20 @@ export const ContextualVectorBroll: React.FC<{
               data-broll-trigger={burst.triggerWordIndex}
               style={{
                 position: 'absolute',
-                left: 84,
-                right: 84,
-                top: bay.top,
-                height: bay.height,
-                border: '1px solid rgba(244,247,255,.16)',
+                left: 96,
+                right: 96,
+                top: 350,
+                height: 268,
+                border: '1px solid rgba(244,247,255,.15)',
                 borderLeft: `3px solid ${ORANGE}`,
                 background: 'rgba(8,12,21,.78)',
                 borderRadius: 8,
-                padding: '15px 24px',
+                padding: '16px 26px',
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                opacity: burst.opacity * 0.88,
+                opacity: burst.opacity * 0.9,
                 transform: `scale(${burst.scale})`,
               }}
             >
@@ -403,13 +466,13 @@ export const ContextualVectorBroll: React.FC<{
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: 10,
+                  marginBottom: 12,
                   borderBottom: '1px solid rgba(244,247,255,.09)',
-                  paddingBottom: 8,
+                  paddingBottom: 9,
                   flexShrink: 0,
                   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                   fontSize: 11,
-                  letterSpacing: 2,
+                  letterSpacing: 2.2,
                   color: ORANGE,
                 }}
               >
@@ -422,12 +485,12 @@ export const ContextualVectorBroll: React.FC<{
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 9,
-                    paddingTop: 4,
-                    transform: `translateY(${-scrollOffset}px)`,
+                    gap: 11,
+                    paddingTop: 2,
+                    transform: `translateY(${upwardSlide.toFixed(1)}px)`,
                   }}
                 >
-                  {TERMINAL_LINES.slice(0, revealedRows).map((row, idx) => {
+                  {lines.slice(0, revealedRows).map((row, idx) => {
                     const isActiveRow = idx === revealedRows - 1;
                     return (
                       <div
@@ -437,7 +500,7 @@ export const ContextualVectorBroll: React.FC<{
                           justifyContent: 'space-between',
                           paddingLeft: row.indent * 20,
                           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                          fontSize: 14,
+                          fontSize: 14.5,
                           color: isActiveRow ? WHITE : 'rgba(244,247,255,.58)',
                         }}
                       >
@@ -452,114 +515,94 @@ export const ContextualVectorBroll: React.FC<{
           );
         }
 
-        // 'math' -> Clean mathematical curve graph or linear keyframe grid ("Physics / Timing / Easing")
+        // 'math' -> Clean mathematical curve graph ("Physics / Easing") or Linear Keyframe Grid ("Timing")
         const sub = burst.mathSubkind ?? 'easing';
-        const drawDashOffset = (1 - burst.pulseProgress) * 680;
+        if (sub === 'timing') {
+          return (
+            <TimelineGrid
+              key={burst.id}
+              progress={burst.pulseProgress}
+              opacity={burst.opacity}
+              scale={burst.scale}
+              triggerText={burst.triggerText}
+              startFrame={burst.startFrame}
+            />
+          );
+        }
+
+        const drawDashOffset = (1 - burst.pulseProgress) * 720;
 
         return (
           <svg
             key={burst.id}
             data-broll-kind="math"
             data-broll-subkind={sub}
-            viewBox="0 0 912 240"
+            viewBox="0 0 888 264"
             preserveAspectRatio="none"
             style={{
               position: 'absolute',
-              left: 84,
-              width: 912,
-              top: bay.top,
-              height: bay.height,
-              opacity: burst.opacity * 0.88,
+              left: 96,
+              width: 888,
+              top: 356,
+              height: 264,
+              opacity: burst.opacity * 0.9,
               transform: `scale(${burst.scale})`,
+              transformOrigin: '444px 132px',
             }}
           >
             <rect
               x="0"
               y="0"
-              width="912"
-              height="240"
+              width="888"
+              height="264"
               rx="8"
               fill="rgba(8,12,21,.76)"
-              stroke="rgba(244,247,255,.16)"
+              stroke="rgba(244,247,255,.15)"
               strokeWidth="1.2"
             />
-            {/* Orthogonal coordinate axes */}
-            <line x1="56" y1="42" x2="56" y2="206" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
-            <line x1="56" y1="206" x2="860" y2="206" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
-            <line x1="56" y1="124" x2="860" y2="124" stroke={WHITE} strokeOpacity="0.1" strokeDasharray="4 6" />
-
             <text
-              x="72"
-              y="28"
+              x="32"
+              y="32"
               fill={ORANGE}
               fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
               fontSize="11"
               letterSpacing="2.2"
             >
-              {sub === 'timing'
-                ? 'LINEAR_KEYFRAME_GRID // QUANTIZED_30FPS'
-                : sub === 'physics'
-                  ? 'HARMONIC_SPRING_CURVE // x(t) = 1 - exp(-zeta*w*t)cos(wd*t)'
-                  : 'CUBIC_BEZIER_CURVE // EASE_IN_OUT_CUBIC'}
+              {sub === 'physics'
+                ? 'HARMONIC_SPRING_CURVE // x(t) = 1 - exp(-zeta*w*t)cos(wd*t)'
+                : 'CUBIC_BEZIER_CURVE // C(t) = cubic-bezier(0.65, 0, 0.35, 1)'}
             </text>
 
-            {sub === 'timing' && (
-              <g>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((kf) => {
-                  const x = 88 + kf * 62;
-                  const lit = kf / 12 <= burst.pulseProgress;
-                  return (
-                    <g key={kf}>
-                      <line
-                        x1={x}
-                        y1={kf % 3 === 0 ? 64 : 94}
-                        x2={x}
-                        y2={206}
-                        stroke={lit ? ORANGE : WHITE}
-                        strokeOpacity={lit ? 0.88 : 0.22}
-                        strokeWidth={kf % 3 === 0 ? 2.2 : 1.2}
-                      />
-                      {kf % 3 === 0 && (
-                        <rect
-                          x={x - 5}
-                          y={56}
-                          width="10"
-                          height="10"
-                          transform={`rotate(45 ${x} 61)`}
-                          fill={lit ? ORANGE : 'none'}
-                          stroke={lit ? ORANGE : WHITE}
-                          strokeOpacity="0.78"
-                        />
-                      )}
-                    </g>
-                  );
-                })}
-              </g>
-            )}
+            {/* Orthogonal coordinate axes */}
+            <line x1="60" y1="54" x2="60" y2="222" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
+            <line x1="60" y1="222" x2="836" y2="222" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
+            <line x1="60" y1="132" x2="836" y2="132" stroke={WHITE} strokeOpacity="0.1" strokeDasharray="4 6" />
 
             {sub === 'physics' && (
               <path
-                d="M56 196 C134 44, 210 176, 294 92 C372 140, 456 110, 550 126 C648 120, 748 124, 856 124"
+                d={HARMONIC_SPRING_PATH}
                 fill="none"
                 stroke={ORANGE}
                 strokeWidth="3.2"
-                strokeDasharray="680"
-                strokeDashoffset={drawDashOffset}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="920"
+                strokeDashoffset={(1 - burst.pulseProgress) * 920}
               />
             )}
 
             {sub === 'easing' && (
               <g>
-                <line x1="56" y1="198" x2="380" y2="198" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
-                <line x1="536" y1="54" x2="856" y2="54" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
-                <circle cx="380" cy="198" r="4.5" fill={WHITE} fillOpacity="0.68" />
-                <circle cx="536" cy="54" r="4.5" fill={WHITE} fillOpacity="0.68" />
+                <line x1="60" y1="214" x2="376" y2="214" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+                <line x1="520" y1="62" x2="832" y2="62" stroke={WHITE} strokeOpacity="0.28" strokeDasharray="4 4" />
+                <circle cx="376" cy="214" r="4.5" fill={WHITE} fillOpacity="0.7" />
+                <circle cx="520" cy="62" r="4.5" fill={WHITE} fillOpacity="0.7" />
                 <path
-                  d="M56 198 C380 198, 536 54, 856 54"
+                  d="M60 214 C376 214, 520 62, 832 62"
                   fill="none"
                   stroke={ORANGE}
                   strokeWidth="3.2"
-                  strokeDasharray="680"
+                  strokeDasharray="720"
                   strokeDashoffset={drawDashOffset}
                 />
               </g>
@@ -573,8 +616,8 @@ export const ContextualVectorBroll: React.FC<{
 
 /**
  * Localized, semantic-only 3D WebGL depth backplane inside <SceneThreeCanvas>.
- * Registered directly behind each active semantic card bay — zero duplicate ghost dots,
- * zero orbital rings, zero continuous unscripted geometric loops.
+ * Registered directly behind the upper semantic bay — zero orbital rings,
+ * zero random spheres, zero continuous unscripted geometric loops.
  */
 export const ContextualThreeBroll: React.FC<{
   scene: SceneSpec;
@@ -586,11 +629,10 @@ export const ContextualThreeBroll: React.FC<{
   return (
     <group>
       {bursts.map((burst) => {
-        const bay = getBurstBay(scene.id, burst.kind);
-        const bayCenterY = bay.top + bay.height * 0.5;
+        const bayCenterY = burst.kind === 'neural' ? 508 : 488;
         const worldY = ((960 - bayCenterY) / 960) * 5.25;
-        const planeW = burst.kind === 'neural' ? 3.55 : 4.95;
-        const planeH = (bay.height / 1920) * 10.5;
+        const planeW = burst.kind === 'neural' ? 3.65 : 4.8;
+        const planeH = burst.kind === 'neural' ? 1.85 : 1.44;
         const s = burst.scale;
 
         return (
@@ -600,7 +642,7 @@ export const ContextualThreeBroll: React.FC<{
               <meshBasicMaterial
                 color={ORANGE}
                 transparent
-                opacity={burst.opacity * 0.055}
+                opacity={burst.opacity * 0.05}
               />
             </mesh>
           </group>

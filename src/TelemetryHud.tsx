@@ -9,7 +9,6 @@ import {
   WHITE,
   clamp,
   energyAt,
-  envelope,
   findSceneCue,
   isSceneCleared,
   sceneForFrame,
@@ -133,11 +132,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   const spokenInScene = sceneSpokenCues(scene, localFrame);
   const recentTokens = spokenInScene.slice(-3);
   const progress = clamp((localFrame + 1) / Math.max(1, scene.durationInFrames), 0, 1);
-
-  const waveBars = Array.from({length: 16}, (_, idx) => {
-    const sampleFrame = clamp(globalFrame - 15 + idx, 0, DURATION_FRAMES - 1);
-    return envelope[sampleFrame] ?? 0;
-  });
+  const meterPct = clamp(Math.round(energy * 100), 6, 100);
 
   const sfxTag =
     activeCue && globalFrame - activeCue.startFrame < 3
@@ -296,28 +291,22 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           </div>
         </div>
 
-        {/* Right: Floating Micro-Spectrum + Spatial SFX Status */}
-        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0}}>
+        {/* Right: Clean Linear Gain Hairline + Spatial SFX Status */}
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flexShrink: 0}}>
           <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
             <span style={{fontFamily: 'monospace', fontSize: 10, color: ORANGE, letterSpacing: 1.5}}>
               {sfxTag}
             </span>
             <Micro style={{fontSize: 10, letterSpacing: 1.6}}>RMS {Math.round(energy * 100)}%</Micro>
           </div>
-          <div style={{width: 176, height: 38, display: 'flex', alignItems: 'flex-end', gap: 4}}>
-            {waveBars.map((val, idx) => {
-              const isNow = idx === waveBars.length - 1;
-              return (
-                <i
-                  key={idx}
-                  style={{
-                    flex: 1,
-                    height: `${Math.max(14, Math.round(val * 100))}%`,
-                    background: isNow ? ORANGE : val > 0.55 ? 'rgba(255,69,0,.66)' : 'rgba(244,247,255,.26)',
-                  }}
-                />
-              );
-            })}
+          <div style={{width: 156, height: 4, background: 'rgba(244,247,255,.12)', position: 'relative'}}>
+            <div
+              style={{
+                width: `${meterPct}%`,
+                height: '100%',
+                background: ORANGE,
+              }}
+            />
           </div>
         </div>
 

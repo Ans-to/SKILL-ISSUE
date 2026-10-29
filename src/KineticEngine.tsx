@@ -5,12 +5,11 @@ import {
   MUTED,
   ORANGE,
   WHITE,
-  hashText,
-  normalize,
   sceneSpokenCues,
   type SceneKey,
   type SceneSpec,
   type ScriptCue,
+  normalize,
 } from './engine/agentEngineModel';
 
 export const EMPHASIS_WORDS = new Set([
@@ -46,9 +45,8 @@ const fitWordSize = (text: string, maxPx: number, innerWidthPx: number): number 
 
 /**
  * Full-canvas 1080x1920 word-by-word timestamp-snapping kinetic engine.
- * Dynamically adapts kinematics to narrative emotional tone:
- * - Tension & Urgency ('tension'): violent spring slam ({damping: 8, stiffness: 300})
- * - Calm & Precision ('precision'): fluid easeInOutCubic glide & deliberate text fade
+ * Centered cleanly at the optical focal plane (y ~ 970) so the upper semantic bay
+ * (y: 338..678) and lower coordinate field remain 100% unobstructed and clutter-free.
  */
 export const KineticEngine: React.FC<{
   cue: ScriptCue;
@@ -63,13 +61,13 @@ export const KineticEngine: React.FC<{
   const color = hot ? ORANGE : WHITE;
   const glow =
     conflictWeight >= 0.9
-      ? `0 0 62px rgba(225,29,72,.58), 0 0 36px rgba(255,69,0,.55)`
+      ? '0 0 62px rgba(225,29,72,.58), 0 0 36px rgba(255,69,0,.55)'
       : hot
         ? '0 0 54px rgba(255,69,0,.48)'
         : '0 18px 48px rgba(0,0,0,.72)';
 
   if (variant === 'hook') {
-    const size = fitWordSize(cue.text, 166, 940);
+    const size = fitWordSize(cue.text, 168, 940);
     return (
       <div
         data-kinetic-variant="hook"
@@ -78,7 +76,7 @@ export const KineticEngine: React.FC<{
           position: 'absolute',
           left: 56,
           right: 56,
-          top: 900,
+          top: 970,
           transform: 'translateY(-50%)',
           display: 'flex',
           flexDirection: 'column',
@@ -114,22 +112,21 @@ export const KineticEngine: React.FC<{
   }
 
   if (variant === 'twist') {
-    const size = fitWordSize(cue.text, 152, 920);
+    const size = fitWordSize(cue.text, 162, 920);
     return (
       <div
         data-kinetic-variant="twist"
         data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          top: 1475,
+          left: 72,
+          right: 72,
+          top: 970,
           transform: 'translateY(-50%)',
-          padding: '28px 0',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 18,
+          gap: 20,
           pointerEvents: 'none',
           ...style,
         }}
@@ -149,13 +146,19 @@ export const KineticEngine: React.FC<{
                     : 'rgba(244,247,255,.16)',
             }}
           />
-          <Micro>{conflictWeight >= 0.9 ? 'CRITICAL ERROR // FRACTURE' : hot ? 'CRITICAL FRACTURE' : `F${String(cue.startFrame).padStart(4, '0')}`}</Micro>
+          <Micro>
+            {conflictWeight >= 0.9
+              ? 'CRITICAL ERROR // FRACTURE'
+              : hot
+                ? 'STRESS CHECK'
+                : `F${String(cue.startFrame).padStart(4, '0')}`}
+          </Micro>
         </div>
         <div
           style={{
             fontSize: size,
             fontWeight: 900,
-            letterSpacing: '-0.045em',
+            letterSpacing: '-0.046em',
             lineHeight: 0.94,
             color,
             textShadow: glow,
@@ -171,7 +174,7 @@ export const KineticEngine: React.FC<{
   }
 
   if (variant === 'shift') {
-    const size = fitWordSize(cue.text, 138, 880);
+    const size = fitWordSize(cue.text, 154, 900);
     const isTension = motion.mode === 'tension';
     return (
       <div
@@ -179,89 +182,73 @@ export const KineticEngine: React.FC<{
         data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          top: 716,
+          left: 72,
+          right: 72,
+          top: 970,
           transform: 'translateY(-50%)',
-          padding: '20px 30px',
-          boxSizing: 'border-box',
-          background: 'rgba(11,15,25,.66)',
-          backdropFilter: 'blur(12px)',
-          borderTop: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
-          borderBottom: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.22)'}`,
+          padding: '24px 0',
+          borderTop: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.18)'}`,
+          borderBottom: `1px solid ${conflictWeight > 0 ? CRIMSON : hot ? ORANGE : 'rgba(244,247,255,.18)'}`,
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          alignItems: 'center',
+          gap: 18,
           pointerEvents: 'none',
-          overflow: 'hidden',
           ...style,
         }}
       >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div style={{width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>SCHEMA BRIDGE // TOKEN {String(cue.globalIndex + 1).padStart(2, '0')}</Micro>
           <Micro>{isTension ? 'CONFLICT // SLAM' : 'PRECISION // CUBIC'}</Micro>
         </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: 22}}>
-          <div
-            style={{
-              width: 8,
-              height: 108,
-              flexShrink: 0,
-              background: conflictWeight > 0 ? CRIMSON : hot ? ORANGE : WHITE,
-              boxShadow: hot ? `0 0 22px ${ORANGE}` : 'none',
-            }}
-          />
-          <div
-            style={{
-              fontSize: size,
-              fontWeight: 900,
-              letterSpacing: '-0.044em',
-              lineHeight: 0.94,
-              color,
-              textShadow: glow,
-              whiteSpace: 'nowrap',
-              opacity: motion.opacity,
-              transform: isTension
-                ? `translateY(${(1 - p) * 34}px) scale(${0.82 + p * 0.18})`
-                : `translateY(${(1 - p) * 14}px) scale(${0.96 + p * 0.04})`,
-              transformOrigin: 'left center',
-            }}
-          >
-            {cue.text}
-          </div>
+        <div
+          style={{
+            fontSize: size,
+            fontWeight: 900,
+            letterSpacing: '-0.046em',
+            lineHeight: 0.94,
+            color,
+            textShadow: glow,
+            whiteSpace: 'nowrap',
+            opacity: motion.opacity,
+            transform: isTension
+              ? `translateY(${(1 - p) * 34}px) scale(${0.82 + p * 0.18})`
+              : `translateY(${(1 - p) * 14}px) scale(${0.96 + p * 0.04})`,
+          }}
+        >
+          {cue.text}
         </div>
       </div>
     );
   }
 
   if (variant === 'mechanism') {
-    const size = fitWordSize(cue.text, 138, 920);
+    const size = fitWordSize(cue.text, 158, 920);
     return (
       <div
         data-kinetic-variant="mechanism"
         data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          top: 164,
-          height: 236,
-          boxSizing: 'border-box',
-          padding: '16px 6px',
-          borderBottom: `1px solid ${hot ? 'rgba(255,69,0,.55)' : 'rgba(244,247,255,.16)'}`,
+          left: 72,
+          right: 72,
+          top: 970,
+          transform: 'translateY(-50%)',
+          padding: '22px 0',
+          borderBottom: `1px solid ${hot ? 'rgba(255,69,0,.5)' : 'rgba(244,247,255,.16)'}`,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 20,
           pointerEvents: 'none',
-          overflow: 'hidden',
           ...style,
         }}
       >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div style={{width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>
             f({cue.startFrame}) // PRIMITIVE {String(cue.globalIndex + 1).padStart(2, '0')}
           </Micro>
-          <span style={{fontFamily: 'monospace', fontSize: 13, color: MUTED, letterSpacing: 1.5}}>
+          <span style={{fontFamily: 'monospace', fontSize: 12, color: MUTED, letterSpacing: 1.8}}>
             EASE // CUBIC_IN_OUT
           </span>
         </div>
@@ -269,14 +256,13 @@ export const KineticEngine: React.FC<{
           style={{
             fontSize: size,
             fontWeight: 900,
-            letterSpacing: '-0.044em',
+            letterSpacing: '-0.046em',
             lineHeight: 0.94,
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
             opacity: motion.opacity,
             transform: `translateY(${(1 - p) * 16}px) scale(${0.96 + p * 0.04})`,
-            transformOrigin: 'left center',
           }}
         >
           {cue.text}
@@ -286,29 +272,28 @@ export const KineticEngine: React.FC<{
   }
 
   if (variant === 'payoff') {
-    const size = fitWordSize(cue.text, 142, 920);
+    const size = fitWordSize(cue.text, 158, 920);
     return (
       <div
         data-kinetic-variant="payoff"
         data-kinetic-pacing={motion.mode}
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          top: 164,
-          height: 236,
-          boxSizing: 'border-box',
-          padding: '16px 6px',
-          borderBottom: `1px solid ${hot ? 'rgba(255,69,0,.55)' : 'rgba(244,247,255,.16)'}`,
+          left: 72,
+          right: 72,
+          top: 970,
+          transform: 'translateY(-50%)',
+          padding: '22px 0',
+          borderBottom: `1px solid ${hot ? 'rgba(255,69,0,.5)' : 'rgba(244,247,255,.16)'}`,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 20,
           pointerEvents: 'none',
-          overflow: 'hidden',
           ...style,
         }}
       >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div style={{width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <Micro accent>COMPILER STREAM // TOKEN {String(cue.globalIndex + 1).padStart(2, '0')}</Micro>
           <Micro>EASE // CUBIC · F{String(cue.startFrame).padStart(4, '0')}</Micro>
         </div>
@@ -316,14 +301,13 @@ export const KineticEngine: React.FC<{
           style={{
             fontSize: size,
             fontWeight: 900,
-            letterSpacing: '-0.045em',
+            letterSpacing: '-0.046em',
             lineHeight: 0.94,
             color,
             textShadow: glow,
             whiteSpace: 'nowrap',
             opacity: motion.opacity,
             transform: `translateX(${(1 - p) * 18}px) scale(${0.96 + p * 0.04})`,
-            transformOrigin: 'left center',
           }}
         >
           {cue.text}
@@ -342,7 +326,7 @@ export const KineticEngine: React.FC<{
         position: 'absolute',
         left: 56,
         right: 56,
-        top: 920,
+        top: 970,
         transform: 'translateY(-50%)',
         display: 'grid',
         placeItems: 'center',
@@ -370,7 +354,7 @@ export const KineticEngine: React.FC<{
 };
 
 /**
- * Full-width 1080x1920 floating semantic vector node path.
+ * Deterministic token progression diagnostic helper (not mounted as continuous background).
  */
 export const SceneSemanticGraph: React.FC<{
   scene: SceneSpec;
@@ -378,74 +362,23 @@ export const SceneSemanticGraph: React.FC<{
   activeCue: ScriptCue | null;
   energy: number;
   style?: React.CSSProperties;
-}> = ({scene, localFrame, activeCue, energy, style}) => {
+}> = ({scene, localFrame, activeCue, style}) => {
   const spoken = sceneSpokenCues(scene, localFrame);
-  const count = Math.max(1, scene.lastWordIndex - scene.firstWordIndex + 1);
-  const points = spoken.map((cue) => {
-    const relIdx = cue.globalIndex - scene.firstWordIndex;
-    const seed = hashText(`${scene.id}:${cue.globalIndex}`);
-    const x = 36 + (relIdx / Math.max(1, count - 1)) * 896;
-    const y =
-      36 +
-      ((seed % 150) / 150) * 168 +
-      Math.sin(localFrame * 0.05 + cue.globalIndex) * 4.5;
-    return {cue, x, y};
-  });
-
   return (
     <svg
       data-scene-semantic={scene.id}
-      viewBox="0 0 968 240"
-      style={{
-        position: 'absolute',
-        left: 56,
-        right: 56,
-        top: 190,
-        width: 968,
-        height: 240,
-        pointerEvents: 'none',
-        ...style,
-      }}
+      viewBox="0 0 968 24"
+      style={{width: 968, height: 24, pointerEvents: 'none', ...style}}
     >
-      {points.map((point, index) => {
-        const prev = points[index - 1];
-        if (!prev) return null;
-        const active = point.cue.globalIndex === activeCue?.globalIndex;
-        return (
-          <line
-            key={point.cue.globalIndex}
-            x1={prev.x}
-            y1={prev.y}
-            x2={point.x}
-            y2={point.y}
-            stroke={active ? ORANGE : WHITE}
-            strokeOpacity={active ? 0.9 : 0.26}
-            strokeWidth={active ? 2.5 : 1.4}
-          />
-        );
-      })}
-      {points.map(({cue, x, y}) => {
-        const active = cue.globalIndex === activeCue?.globalIndex;
-        const hot = isEmphasis(cue.text);
-        return (
-          <g key={cue.globalIndex} transform={`translate(${x} ${y})`}>
-            {active && (
-              <circle
-                r={17 + energy * 8}
-                fill="none"
-                stroke={ORANGE}
-                strokeOpacity={0.64}
-                strokeWidth={1.7}
-              />
-            )}
-            <circle
-              r={active ? 7 : 3.6}
-              fill={active ? ORANGE : hot ? 'rgba(255,69,0,.78)' : WHITE}
-              fillOpacity={active ? 1 : 0.65}
-            />
-          </g>
-        );
-      })}
+      {spoken.map((cue, idx) => (
+        <circle
+          key={cue.globalIndex}
+          cx={24 + idx * 18}
+          cy={12}
+          r={cue.globalIndex === activeCue?.globalIndex ? 4 : 2}
+          fill={cue.globalIndex === activeCue?.globalIndex ? ORANGE : WHITE}
+        />
+      ))}
     </svg>
   );
 };

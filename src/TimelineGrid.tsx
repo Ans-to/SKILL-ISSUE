@@ -1,224 +1,144 @@
 import React from 'react';
-import {Easing, interpolate} from 'remotion';
-import {Micro, Panel} from './TelemetryHud';
-import {
-  DURATION_FRAMES,
-  MUTED,
-  ORANGE,
-  SCENE_MAP,
-  SCENE_SEQUENCES,
-  SCRIPT_CUES,
-  WHITE,
-  clamp,
-  cueAfter,
-} from './engine/agentEngineModel';
+import {MUTED, ORANGE, WHITE, clamp} from './engine/agentEngineModel';
+
+export type LinearKeyframeGridProps = {
+  progress: number;
+  opacity: number;
+  scale: number;
+  triggerText: string;
+  startFrame: number;
+};
 
 /**
- * Full-canvas (1080x1920) floating translucent Payoff compiler & linear keyframe timeline.
- * Zero unscripted repeating loops: renders the actual 6 <Sequence> spans of the composition
- * with a deterministic playhead locked to globalFrame.
+ * Clean, narrative-triggered Linear Keyframe Grid rendered ONLY when semantic
+ * "Timing" tokens are spoken ("timing model,", "timing,").
+ * Zero continuous unscripted loops — progresses once across quantized 30fps
+ * keyframe ticks and dissolves cleanly back to the subtle coordinate grid.
  */
-export const TimelineGrid: React.FC<{
-  localFrame: number;
-  globalFrame: number;
-  energy: number;
-}> = ({localFrame, globalFrame, energy}) => {
-  const scene = SCENE_MAP.payoff;
-  const enter = interpolate(localFrame, [0, 18], [0, 1], {
-    easing: Easing.inOut(Easing.cubic),
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const activeCue =
-    SCRIPT_CUES.find(
-      (cue) =>
-        cue.globalIndex >= scene.firstWordIndex &&
-        cue.globalIndex <= scene.lastWordIndex &&
-        globalFrame >= cue.startFrame &&
-        globalFrame < cue.endFrame,
-    ) ?? null;
-
-  const promptCue = cueAfter('prompt', scene.firstWordIndex);
-  const codeCue = cueAfter('code,', promptCue.globalIndex);
-  const framesCue = cueAfter('frames,', codeCue.globalIndex);
-  const mp4Cue = cueAfter('MP4.', framesCue.globalIndex);
-  const stages = [
-    {code: '01 // PROMPT', cue: promptCue},
-    {code: '02 // CODE', cue: codeCue},
-    {code: '03 // FRAMES', cue: framesCue},
-    {code: '04 // MP4', cue: mp4Cue},
-  ];
-  const playheadPct = clamp((globalFrame / DURATION_FRAMES) * 100, 0, 100);
+export const TimelineGrid: React.FC<LinearKeyframeGridProps> = ({
+  progress,
+  opacity,
+  scale,
+  triggerText,
+  startFrame,
+}) => {
+  const p = clamp(progress, 0, 1);
+  const playheadX = 76 + p * 744;
+  const tickCount = 13;
 
   return (
-    <Panel
+    <svg
+      data-broll-kind="math"
+      data-broll-subkind="timing"
+      viewBox="0 0 888 264"
+      preserveAspectRatio="none"
       style={{
         position: 'absolute',
-        left: 56,
-        right: 56,
-        top: 668,
-        bottom: 204,
-        borderRadius: 16,
-        padding: '20px 26px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-        transform: `translateY(${(1 - enter) * 28}px) scale(${0.97 + enter * 0.03})`,
+        left: 96,
+        width: 888,
+        top: 356,
+        height: 264,
+        opacity: opacity * 0.9,
+        transform: `scale(${scale})`,
+        transformOrigin: '444px 132px',
+        pointerEvents: 'none',
       }}
     >
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Micro accent>DETERMINISTIC SEQUENCE TIMELINE // 1547 FRAMES</Micro>
-        <Micro>PLAYHEAD F{String(globalFrame).padStart(4, '0')}</Micro>
-      </div>
+      <rect
+        x="0"
+        y="0"
+        width="888"
+        height="264"
+        rx="8"
+        fill="rgba(8,12,21,.76)"
+        stroke="rgba(244,247,255,.15)"
+        strokeWidth="1.2"
+      />
 
-      {/* Exact 6-Sequence Composition Track Map (zero unscripted loop) */}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          border: '1px solid rgba(244,247,255,.13)',
-          background: 'rgba(6,9,17,.66)',
-          position: 'relative',
-          overflow: 'hidden',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}
+      <text
+        x="32"
+        y="32"
+        fill={ORANGE}
+        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+        fontSize="11"
+        letterSpacing="2.2"
       >
-        {SCENE_SEQUENCES.map((seq) => {
-          const leftPct = (seq.from / DURATION_FRAMES) * 100;
-          const widthPct = Math.max(3, (seq.durationInFrames / DURATION_FRAMES) * 100);
-          const isCurrentSeq = seq.id === 'payoff';
-          return (
-            <div
-              key={seq.id}
-              style={{
-                height: 46,
-                position: 'relative',
-                borderTop: '1px solid rgba(244,247,255,.06)',
-                borderBottom: '1px solid rgba(244,247,255,.06)',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${leftPct}%`,
-                  top: 6,
-                  width: `${widthPct}%`,
-                  height: 32,
-                  border: `1px solid ${isCurrentSeq ? ORANGE : 'rgba(244,247,255,.24)'}`,
-                  background: isCurrentSeq ? 'rgba(255,69,0,.2)' : 'rgba(244,247,255,.06)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  paddingLeft: 10,
-                  boxSizing: 'border-box',
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontSize: 11,
-                  color: isCurrentSeq ? ORANGE : MUTED,
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {seq.name}
-              </div>
-            </div>
-          );
-        })}
-        <i
-          style={{
-            position: 'absolute',
-            left: `${playheadPct}%`,
-            top: 0,
-            bottom: 0,
-            width: 2.5,
-            background: ORANGE,
-            boxShadow: `0 0 18px ${ORANGE}`,
-          }}
-        />
-      </div>
-
-      {/* Floating AST + 4 Quantized Frame Strip */}
-      <div
-        style={{
-          border: `1px solid ${globalFrame >= codeCue.startFrame ? ORANGE : 'rgba(244,247,255,.15)'}`,
-          background: 'rgba(8,12,21,.68)',
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
+        LINEAR_KEYFRAME_GRID // 30FPS_QUANTIZED [{triggerText.toUpperCase()}]
+      </text>
+      <text
+        x="856"
+        y="32"
+        textAnchor="end"
+        fill={MUTED}
+        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+        fontSize="11"
+        letterSpacing="1.8"
       >
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <Micro accent>AST // SEQUENCE COMPILER</Micro>
-          <span style={{fontFamily: 'monospace', fontSize: 12, color: MUTED}}>1080 × 1920 · 30 FPS</span>
-        </div>
+        F{String(startFrame).padStart(4, '0')}
+      </text>
 
-        <div style={{fontFamily: 'monospace', fontSize: 15, lineHeight: 1.45}}>
-          <div style={{color: ORANGE}}>{'<Sequence from={1053} durationInFrames={347}>'}</div>
-          <div style={{paddingLeft: 22, color: WHITE}}>{'<PayoffScene canvas="1080x1920" />'}</div>
-          <div style={{color: ORANGE}}>{'</Sequence>'}</div>
-        </div>
+      {/* Orthogonal horizontal reference rails */}
+      <line x1="56" y1="68" x2="836" y2="68" stroke={WHITE} strokeOpacity="0.12" strokeWidth="1" />
+      <line x1="56" y1="142" x2="836" y2="142" stroke={WHITE} strokeOpacity="0.1" strokeDasharray="4 6" strokeWidth="1" />
+      <line x1="56" y1="216" x2="836" y2="216" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
+      <line x1="56" y1="54" x2="56" y2="216" stroke={WHITE} strokeOpacity="0.34" strokeWidth="1.4" />
 
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12}}>
-          {[0, 1, 2, 3].map((slot) => (
-            <div
-              key={slot}
-              style={{
-                height: 70,
-                border: `1px solid ${globalFrame >= framesCue.startFrame ? ORANGE : 'rgba(244,247,255,.18)'}`,
-                background:
-                  globalFrame >= mp4Cue.startFrame
-                    ? `linear-gradient(135deg, rgba(255,69,0,${0.18 + energy * 0.24}), rgba(244,247,255,.04))`
-                    : 'rgba(244,247,255,.025)',
-                display: 'grid',
-                placeItems: 'center',
-                fontFamily: 'monospace',
-                fontSize: 14,
-                color: WHITE,
-              }}
-            >
-              F{String(Math.max(0, globalFrame - 3 + slot)).padStart(4, '0')}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Linear quantized keyframe divisions & diamond markers */}
+      {Array.from({length: tickCount}, (_, kf) => {
+        const x = 76 + kf * 62;
+        const isMajor = kf % 3 === 0;
+        const reached = x <= playheadX + 1;
+        return (
+          <g key={kf}>
+            <line
+              x1={x}
+              y1={isMajor ? 82 : 118}
+              x2={x}
+              y2={216}
+              stroke={reached ? ORANGE : WHITE}
+              strokeOpacity={reached ? 0.86 : 0.2}
+              strokeWidth={isMajor ? 2.1 : 1.2}
+            />
+            {isMajor && (
+              <>
+                <rect
+                  x={x - 5.5}
+                  y={62.5}
+                  width="11"
+                  height="11"
+                  transform={`rotate(45 ${x} 68)`}
+                  fill={reached ? ORANGE : 'rgba(11,15,25,.9)'}
+                  stroke={reached ? ORANGE : WHITE}
+                  strokeOpacity={reached ? 0.95 : 0.45}
+                  strokeWidth="1.4"
+                />
+                <text
+                  x={x}
+                  y="238"
+                  textAnchor="middle"
+                  fill={reached ? WHITE : MUTED}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+                  fontSize="10"
+                >
+                  +{kf * 2}f
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
 
-      {/* 4-Stage Pipeline Lock Strip */}
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12}}>
-        {stages.map((stage) => {
-          const isCurrent = activeCue?.globalIndex === stage.cue.globalIndex;
-          const isPast = globalFrame >= stage.cue.endFrame;
-          return (
-            <div
-              key={stage.code}
-              style={{
-                height: 76,
-                border: `1px solid ${isCurrent ? ORANGE : isPast ? 'rgba(244,247,255,.32)' : 'rgba(244,247,255,.14)'}`,
-                background: isCurrent
-                  ? 'rgba(255,69,0,.16)'
-                  : isPast
-                    ? 'rgba(244,247,255,.045)'
-                    : 'rgba(8,11,19,.55)',
-                padding: '10px 14px',
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                fontFamily: 'monospace',
-              }}
-            >
-              <Micro accent={isCurrent || isPast} style={{fontSize: 10, letterSpacing: 1.6}}>
-                {stage.code}
-              </Micro>
-              <span style={{fontSize: 18, fontWeight: 900, color: isCurrent || isPast ? WHITE : MUTED}}>
-                {isCurrent ? stage.cue.text : isPast ? 'LOCKED' : '—'}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </Panel>
+      {/* Single-pass linear keyframe playhead */}
+      <line
+        x1={playheadX}
+        y1="52"
+        x2={playheadX}
+        y2="216"
+        stroke={ORANGE}
+        strokeWidth="2.2"
+        strokeOpacity="0.95"
+      />
+      <circle cx={playheadX} cy="68" r="3.8" fill={WHITE} />
+    </svg>
   );
 };

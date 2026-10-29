@@ -49,8 +49,8 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
         activeCue={activeCue}
         background={
           <CleanCoordinateGrid
-            gridOpacity={0.08}
-            glowOpacity={buildPhase ? 0.09 + energy * 0.05 : 0.045}
+            gridOpacity={0.075}
+            glowOpacity={buildPhase ? 0.085 + energy * 0.045 : 0.042}
           />
         }
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44} />}
