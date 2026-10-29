@@ -3,7 +3,7 @@ import {ThreeCanvas} from '@remotion/three';
 import {
   ContextualThreeBroll,
   ContextualVectorBroll,
-  getActiveBrollBursts,
+  getActiveUiSimulation,
 } from '../ContextualBroll';
 import {
   CrimsonConflictFlashOverlay,
@@ -21,18 +21,17 @@ import {
 export {SceneContainer} from '../SceneContainer';
 
 /**
- * Clean, subtle, non-distracting two-tier architectural coordinate grid on deep obsidian (#0b0f19).
- * Zero radial blobs, zero random grid dots, zero orbital circles, zero unscripted geometric loops.
+ * Dark sci-fi / tech documentary architectural coordinate grid on deep obsidian (#0b0f19).
+ * Serves as the precision substrate behind the Contextual UI Simulation cards.
  */
 export const CleanCoordinateGrid: React.FC<{
   gridOpacity?: number;
   glowOpacity?: number;
-}> = ({gridOpacity = 0.075}) => (
+}> = ({gridOpacity = 0.08}) => (
   <div
     data-clean-coordinate-grid="true"
     style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}
   >
-    {/* Minor 90px coordinate subdivisions */}
     <div
       style={{
         position: 'absolute',
@@ -43,12 +42,11 @@ export const CleanCoordinateGrid: React.FC<{
         backgroundSize: '90px 90px',
       }}
     />
-    {/* Major 360px coordinate axes */}
     <div
       style={{
         position: 'absolute',
         inset: 0,
-        opacity: gridOpacity * 0.9,
+        opacity: gridOpacity * 0.92,
         backgroundImage:
           'linear-gradient(rgba(244,247,255,.38) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.38) 1px, transparent 1px)',
         backgroundSize: '360px 360px',
@@ -59,8 +57,9 @@ export const CleanCoordinateGrid: React.FC<{
 
 /**
  * Full-bleed 1080x1920 stage wrapper inside <SceneContainer>.
- * Keeps the background strictly clean with a subtle coordinate grid unless a
- * semantic token ('neural' | 'syntax' | 'math') explicitly invokes a localized B-roll burst.
+ * Locks the Contextual UI Simulation cards (Upper Focal Card + Lower-Third Dock) into the
+ * fluid vertical canvas on every active scene frame while keeping 2D typography decoupled
+ * above the 3D WebGL stage.
  */
 export const SceneStage: React.FC<{
   scene: SceneSpec;
@@ -107,14 +106,16 @@ export const SceneStage: React.FC<{
           >
             <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
               {background ?? <CleanCoordinateGrid gridOpacity={cinema.ambientGridOpacity} />}
-              <ContextualVectorBroll scene={scene} localFrame={localFrame} />
             </div>
             {threeD && (
               <div style={{position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none'}}>
                 {threeD}
               </div>
             )}
-            <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>{typography}</div>
+            <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
+              <ContextualVectorBroll scene={scene} localFrame={localFrame} />
+              {typography}
+            </div>
           </div>
 
           <CrimsonConflictFlashOverlay
@@ -128,9 +129,8 @@ export const SceneStage: React.FC<{
 };
 
 /**
- * Semantic-gated 1080x1920 Three.js WebGL stage.
- * Only mounts when a narrative semantic B-roll burst is active (or explicit children exist),
- * eliminating all unscripted continuous 3D background loops and random shapes.
+ * Decoupled 1080x1920 Three.js WebGL stage.
+ * Renders strictly when an active Contextual UI Simulation is mounted.
  */
 export const SceneThreeCanvas: React.FC<{
   scene: SceneSpec;
@@ -141,8 +141,8 @@ export const SceneThreeCanvas: React.FC<{
   opacity?: number;
   children?: React.ReactNode;
 }> = ({scene, localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.5, children}) => {
-  const activeBursts = getActiveBrollBursts(scene, localFrame);
-  if (activeBursts.length === 0 && !children) {
+  const activeSim = getActiveUiSimulation(scene, localFrame);
+  if (!activeSim && !children) {
     return null;
   }
 

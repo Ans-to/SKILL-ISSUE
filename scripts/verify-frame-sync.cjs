@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Verify file-level separation, decoupled <Sequence> assembly in src/Root.tsx,
-// vertical 1080x1920 framing, TelemetryHud isolation, KineticEngine snapping, and all 1,547 frames.
+// vertical 1080x1920 framing, Contextual UI Simulation Override (zero empty dead space),
+// TelemetryHud isolation, KineticEngine snapping, and all 1,547 frames.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -37,11 +38,12 @@ const {
   computeDynamicHumVolume,
 } = require('../src/SceneAudio.tsx');
 const {
-  classifyBrollKeyword,
-  SCENE_BROLL_BURSTS,
-  getActiveBrollBursts,
-  ContextualVectorBroll,
-} = require('../src/ContextualBroll.tsx');
+  SCENE_UI_CLAUSES,
+  classifyUiSimulationKeyword,
+  getActiveUiSimulation,
+  ContextualUiSimulationLayer,
+} = require('../src/ContextualUiSimulation.tsx');
+const {ContextualVectorBroll} = require('../src/ContextualBroll.tsx');
 const {
   TENSION_SPRING_CONFIG,
   getEmotionalPacingMode,
@@ -72,6 +74,7 @@ const requiredFiles = [
   'src/SceneContainer.tsx',
   'src/SceneAudio.tsx',
   'src/ContextualBroll.tsx',
+  'src/ContextualUiSimulation.tsx',
   'src/EmotionalPacing.tsx',
   'src/TelemetryHud.tsx',
   'src/KineticEngine.tsx',
@@ -148,83 +151,6 @@ for (const scene of SCENE_SEQUENCES) {
     );
     mappedAudioWordCount += 1;
   }
-}
-assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
-
-// Verify Semantic B-Roll & Background Asset Override:
-// 1. Zero random orbital rings, random grid dots, or continuous unscripted geometric loops.
-for (const cleanRel of [
-  'src/ContextualBroll.tsx',
-  'src/TelemetryHud.tsx',
-  'src/TimelineGrid.tsx',
-  'src/scenes/SceneStage.tsx',
-  'src/scenes/HookScene.tsx',
-  'src/scenes/TwistScene.tsx',
-  'src/scenes/ShiftScene.tsx',
-  'src/scenes/MechanismScene.tsx',
-  'src/scenes/PayoffScene.tsx',
-  'src/scenes/OutroScene.tsx',
-]) {
-  const src = fs.readFileSync(path.join(__dirname, '..', cleanRel), 'utf8');
-  assert.ok(!src.includes('torusGeometry'), `${cleanRel} must not contain generic floating orbital rings`);
-  assert.ok(!src.includes('SCENE_CONSTELLATIONS'), `${cleanRel} must not render random spiderweb constellations`);
-  assert.ok(!src.includes('1.3px'), `${cleanRel} must not render random dot-matrix background clutter`);
-}
-
-for (const sceneOnlyRel of [
-  'src/scenes/HookScene.tsx',
-  'src/scenes/TwistScene.tsx',
-  'src/scenes/ShiftScene.tsx',
-  'src/scenes/MechanismScene.tsx',
-  'src/scenes/PayoffScene.tsx',
-  'src/scenes/OutroScene.tsx',
-]) {
-  const src = fs.readFileSync(path.join(__dirname, '..', sceneOnlyRel), 'utf8');
-  assert.ok(!src.includes('<Panel'), `${sceneOnlyRel} must not mount permanent background Panel clutter`);
-  assert.ok(!src.includes('VIEWPORT A'), `${sceneOnlyRel} must not mount permanent split wireframe clutter`);
-  assert.ok(!src.includes('AXIS 0'), `${sceneOnlyRel} must not mount permanent 6-box matrix clutter`);
-  assert.ok(!src.includes('DEMO SURFACE'), `${sceneOnlyRel} must not mount permanent fake dashboard clutter`);
-}
-
-// 2. Strictly narrative-driven semantic keyword mapping:
-// - "AI / Agent" -> 'neural'
-// - "Code / Prompt / Template" -> 'syntax'
-// - "Physics / Timing / Easing" -> 'math'
-// - Non-matching words -> null (clean subtle coordinate grid only)
-assert.equal(classifyBrollKeyword('AI'), 'neural');
-assert.equal(classifyBrollKeyword('Agent'), 'neural');
-assert.equal(classifyBrollKeyword('Code'), 'syntax');
-assert.equal(classifyBrollKeyword('Prompt'), 'syntax');
-assert.equal(classifyBrollKeyword('Template'), 'syntax');
-assert.equal(classifyBrollKeyword('Physics'), 'math');
-assert.equal(classifyBrollKeyword('Timing'), 'math');
-assert.equal(classifyBrollKeyword('Easing'), 'math');
-assert.equal(classifyBrollKeyword('Your'), null);
-assert.equal(classifyBrollKeyword('finished.'), null);
-assert.equal(classifyBrollKeyword('Fast.'), null);
-assert.equal(classifyBrollKeyword('toys.'), null);
-
-let totalBrollBursts = 0;
-for (const scene of SCENE_SEQUENCES) {
-  const bursts = SCENE_BROLL_BURSTS[scene.id];
-  for (let i = 0; i < bursts.length; i += 1) {
-    const b = bursts[i];
-    assert.ok(b.durationFrames >= 12 && b.durationFrames <= 58, `Burst ${b.id} outside localized burst window`);
-    if (i > 0) {
-      assert.ok(b.startFrame >= bursts[i - 1].endFrame, `Overlapping semantic bursts in ${scene.id}`);
-    }
-    const peakLocal = (b.startFrame + 5) - scene.from;
-    const activeAtPeak = getActiveBrollBursts(scene, peakLocal);
-    assert.equal(activeAtPeak.length, 1, `At most one semantic B-roll asset may be active at frame ${b.startFrame + 5}`);
-    assert.ok(activeAtPeak[0].opacity > 0.7, `Burst ${b.id} failed semantic entry`);
-    const renderedBroll = renderToStaticMarkup(
-      React.createElement(ContextualVectorBroll, {scene, localFrame: peakLocal}),
-    );
-    assert.ok(renderedBroll.includes(`data-broll-kind="${b.kind}"`), `Missing vector B-roll ${b.kind}`);
-    totalBrollBursts += 1;
-  }
-  const activeAudioFrames = getSceneActiveAudioFrames(scene);
-  assert.equal(getActiveBrollBursts(scene, activeAudioFrames).length, 0, `B-roll leaked into clear window in ${scene.id}`);
 
   // Verify climax risers & heavy sub-bass drops + dynamic hum ducking
   const climaxes = getSceneClimaxAudioEvents(scene);
@@ -237,16 +163,124 @@ for (const scene of SCENE_SEQUENCES) {
     }
   }
 }
-assert.ok(totalBrollBursts >= 8, 'Expected semantic B-roll bursts across neural, syntax, and math keywords');
-// Verify non-matching spoken words across all 6 scenes render ZERO B-roll (clean subtle coordinate grid only)
-for (const nonMatchingIdx of [0, 3, 5, 7, 12, 16, 19, 21, 24, 33, 37, 43, 46, 48, 50, 53, 60, 62, 67, 74, 77, 78, 79, 80, 81, 85, 90]) {
-  const cue = SCRIPT_CUES[nonMatchingIdx];
-  const sc = sceneForFrame(cue.startFrame);
+assert.equal(mappedAudioWordCount, SCRIPT_CUES.length);
+
+// Verify zero random unscripted background shapes (no floating orbital torusGeometry or spiderweb constellations)
+for (const cleanRel of [
+  'src/ContextualBroll.tsx',
+  'src/ContextualUiSimulation.tsx',
+  'src/TelemetryHud.tsx',
+  'src/TimelineGrid.tsx',
+  'src/scenes/SceneStage.tsx',
+]) {
+  const src = fs.readFileSync(path.join(__dirname, '..', cleanRel), 'utf8');
+  assert.ok(!src.includes('torusGeometry'), `${cleanRel} must not contain generic floating orbital rings`);
+  assert.ok(!src.includes('SCENE_CONSTELLATIONS'), `${cleanRel} must not render random spiderweb constellations`);
+}
+
+// ============================================================================
+// Verify CONTEXTUAL UI SIMULATION OVERRIDE:
+// 1. Narrative UI Mapping classifiers:
+//    - "prompt" / "input" -> 'prompt-cli'
+//    - "engine" / "compiler" -> 'engine-pipeline'
+//    - "break" / "error" -> 'error-diagnostic'
+// 2. Zero Empty Dead Space: EVERY active frame across all 6 scenes mounts both
+//    Upper Focal Card + Lower-Third UI Dock (and unmounts cleanly during clearFrames).
+// ============================================================================
+assert.equal(classifyUiSimulationKeyword('prompt'), 'prompt-cli');
+assert.equal(classifyUiSimulationKeyword('input'), 'prompt-cli');
+assert.equal(classifyUiSimulationKeyword('inputs.'), 'prompt-cli');
+assert.equal(classifyUiSimulationKeyword('engine'), 'engine-pipeline');
+assert.equal(classifyUiSimulationKeyword('compiler'), 'engine-pipeline');
+assert.equal(classifyUiSimulationKeyword('compiles'), 'engine-pipeline');
+assert.equal(classifyUiSimulationKeyword('break.'), 'error-diagnostic');
+assert.equal(classifyUiSimulationKeyword('error'), 'error-diagnostic');
+
+let activeUiFramesVerified = 0;
+for (const scene of SCENE_SEQUENCES) {
+  const clauses = SCENE_UI_CLAUSES[scene.id];
+  assert.ok(clauses.length >= 2, `Scene ${scene.id} must have multi-clause contextual UI progression`);
+  const expectedActiveEnd = scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
+  assert.equal(clauses[0].startFrame, scene.from, `Scene ${scene.id} UI simulation must start at scene.from`);
   assert.equal(
-    getActiveBrollBursts(sc, cue.startFrame - sc.from).length,
-    0,
-    `Unrelated word #${nonMatchingIdx} ("${cue.text}") at F${cue.startFrame} must keep background 100% clutter-free`,
+    clauses[clauses.length - 1].endFrame,
+    expectedActiveEnd,
+    `Scene ${scene.id} UI simulation must cover full active span without dead space`,
   );
+  for (let i = 1; i < clauses.length; i += 1) {
+    assert.equal(
+      clauses[i - 1].endFrame,
+      clauses[i].startFrame,
+      `Gap or overlap between UI clauses in ${scene.id}`,
+    );
+  }
+
+  for (let localFrame = 0; localFrame < scene.durationInFrames; localFrame += 1) {
+    const globalFrame = scene.from + localFrame;
+    const sim = getActiveUiSimulation(scene, localFrame);
+    if (isSceneCleared(scene, localFrame)) {
+      assert.equal(sim, null, `UI simulation must clear during hard-cut clear window at F${globalFrame}`);
+    } else {
+      assert.ok(sim !== null, `Empty dead space detected at F${globalFrame} in ${scene.id}`);
+      // Ensure spokenClauseWords never previews future unspoken narration words
+      for (const w of sim.spokenClauseWords) {
+        assert.ok(
+          SCRIPT_CUES[w.index].startFrame <= globalFrame,
+          `Future word leaked into clause strip at F${globalFrame}`,
+        );
+      }
+      activeUiFramesVerified += 1;
+    }
+  }
+}
+assert.equal(activeUiFramesVerified, 1531, 'All 1,531 active frames must mount contextual UI simulations');
+
+// Verify specific narrative UI components at key script moments:
+// A) "Prompt harder?" (F0376) & "pretty prompt." (F0616) & "Same inputs." (F0942) -> AI CLI input box + blinking cursor + tokenization
+for (const promptFrame of [376, 384, 618, 942, 1076]) {
+  const sc = sceneForFrame(promptFrame);
+  const html = renderToStaticMarkup(
+    React.createElement(ContextualUiSimulationLayer, {scene: sc, localFrame: promptFrame - sc.from}),
+  );
+  assert.ok(html.includes('data-ui-sim-kind="prompt-cli"'), `Expected prompt-cli UI at F${promptFrame}`);
+  assert.ok(html.includes('data-blinking-cursor="true"'), `Expected blinking cursor in prompt-cli at F${promptFrame}`);
+  assert.ok(html.includes('SYNTAX_TOKENIZATION_STREAM'), `Expected syntax tokenization at F${promptFrame}`);
+  assert.ok(html.includes('data-ui-slot="upper-focal"') && html.includes('data-ui-slot="lower-third"'));
+}
+// Verify cursor deterministic blink toggles between ON and OFF across consecutive frames
+const shiftScene = SCENE_SEQUENCES[2];
+const blinkA = getActiveUiSimulation(shiftScene, 375 - shiftScene.from).cursorVisible;
+const blinkB = getActiveUiSimulation(shiftScene, 386 - shiftScene.from).cursorVisible;
+assert.notEqual(blinkA, blinkB, 'AI CLI cursor must actively blink across frames');
+
+// B) "Engine-first" (F0656), "It compiles the prompt to code, code to frames, frames to MP4." (F1135..F1270), "Build the engine—" (F1484)
+for (const engineFrame of [656, 1140, 1175, 1215, 1262, 1484]) {
+  const sc = sceneForFrame(engineFrame);
+  const html = renderToStaticMarkup(
+    React.createElement(ContextualVectorBroll, {scene: sc, localFrame: engineFrame - sc.from}),
+  );
+  assert.ok(html.includes('data-ui-sim-kind="engine-pipeline"'), `Expected engine-pipeline UI at F${engineFrame}`);
+  assert.ok(html.includes('data-ui-lower-kind="execution-terminal"'), `Expected execution terminal at F${engineFrame}`);
+}
+// Verify blocks connect progressively in Payoff compiler pipeline ("prompt" -> "code," -> "frames," -> "MP4.")
+const payoffScene = SCENE_SEQUENCES[4];
+const htmlStage1 = renderToStaticMarkup(
+  React.createElement(ContextualUiSimulationLayer, {scene: payoffScene, localFrame: 1155 - payoffScene.from}),
+);
+const htmlStage4 = renderToStaticMarkup(
+  React.createElement(ContextualUiSimulationLayer, {scene: payoffScene, localFrame: 1262 - payoffScene.from}),
+);
+assert.ok(htmlStage1.includes('data-connected-nodes="1"'), 'Stage 1 compiler pipeline should start with 1 active block');
+assert.ok(htmlStage4.includes('data-connected-nodes="4"'), 'Stage 4 compiler pipeline should connect all 4 blocks');
+
+// C) "Real codebases break." (F0345) & "or ship toys." (F1526) -> Red diagnostic warning overlay + stack-trace logs
+for (const breakFrame of [345, 1028, 1435, 1526]) {
+  const sc = sceneForFrame(breakFrame);
+  const html = renderToStaticMarkup(
+    React.createElement(ContextualUiSimulationLayer, {scene: sc, localFrame: breakFrame - sc.from}),
+  );
+  assert.ok(html.includes('data-ui-sim-kind="error-diagnostic"'), `Expected error-diagnostic UI at F${breakFrame}`);
+  assert.ok(html.includes('data-stack-trace-log="true"'), `Expected stack-trace logs at F${breakFrame}`);
 }
 
 // Verify Emotional Pacing & Dynamic Cinematography rules.
@@ -341,7 +375,7 @@ assert.equal(findCue(-1), null);
 assert.equal(findCue(DURATION_FRAMES), null);
 assert.equal(findCue(0.5), null);
 
-// 4. Verify reusable left-zone TelemetryHud, KineticEngine snapping, and node-graph updates on all 91 words.
+// 4. Verify TelemetryHud, KineticEngine snapping, and AtmosphericOverlays across all 91 words.
 const escapeText = (text) =>
   text
     .replace(/&/g, '&amp;')
@@ -376,7 +410,7 @@ for (const cue of SCRIPT_CUES) {
     telemetry.includes('data-current-token="true"') && telemetry.includes(`>${escapeText(cue.text)}</span>`),
     `Telemetry has wrong active word at cue ${cue.globalIndex}`,
   );
-  assert.ok(graph.includes(`data-scene-graph="${scene.id}"`), `Wrong graph constellation for ${scene.id}`);
+  assert.ok(graph.includes(`data-scene-graph="${scene.id}"`), `Wrong graph scope for ${scene.id}`);
   assert.ok(graph.includes(`data-active-cue="${cue.globalIndex}"`), `Graph missed cue ${cue.globalIndex}`);
   assert.ok(graph.includes(`data-hot-node="${cue.globalIndex % 14}"`), `Graph node did not update at cue ${cue.globalIndex}`);
   assert.ok(kinetic.includes(`data-kinetic-variant="${scene.id}"`), `Wrong kinetic layout variant for ${scene.id}`);
@@ -398,5 +432,5 @@ if (audioSha256 === 'fdd626ed8a3bb1af484e61588aeef72a03ae256be7171c539f53cd6b54f
 }
 
 console.log(
-  `Verified vertical 1080x1920 modular file tree, 6 isolated <Sequence> scenes (${SCENE_SEQUENCES.map((s) => `${s.id}:${s.from}-${s.endFrame}`).join(', ')}), all ${DURATION_FRAMES} frames, and live TelemetryHud/graph/KineticEngine updates across all ${SCRIPT_CUES.length} word onsets.`,
+  `Verified vertical 1080x1920 modular file tree, 6 isolated <Sequence> scenes (${SCENE_SEQUENCES.map((s) => `${s.id}:${s.from}-${s.endFrame}`).join(', ')}), 100% zero-dead-space Contextual UI Simulation across all ${activeUiFramesVerified} active frames, and live TelemetryHud/KineticEngine updates across all ${SCRIPT_CUES.length} word onsets.`,
 );

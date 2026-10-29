@@ -1,5 +1,7 @@
 import React, {useContext} from 'react';
 import {Internals, spring, useCurrentFrame} from 'remotion';
+import {getActiveUiSimulation} from './ContextualUiSimulation';
+import {CRIMSON} from './EmotionalPacing';
 import {
   DURATION_FRAMES,
   FPS,
@@ -74,10 +76,6 @@ export const getHudLifecycle = (scene: SceneSpec, localFrame: number): number =>
   return clamp(enter * exit, 0, 1);
 };
 
-/**
- * Minimal, clutter-free corner calibration marks (zero random floating nodes,
- * zero spiderweb constellations, zero unscripted geometric loops).
- */
 export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
   scene,
   localFrame,
@@ -99,22 +97,22 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
         inset: 0,
         width: '100%',
         height: '100%',
-        opacity: reveal * 0.24,
+        opacity: reveal * 0.28,
         pointerEvents: 'none',
       }}
       aria-hidden="true"
     >
-      <path d="M56 108 V94 H70" fill="none" stroke={WHITE} strokeOpacity="0.28" strokeWidth="1" />
-      <path d="M1024 108 V94 H1010" fill="none" stroke={WHITE} strokeOpacity="0.28" strokeWidth="1" />
-      <path d="M56 1812 V1826 H70" fill="none" stroke={WHITE} strokeOpacity="0.28" strokeWidth="1" />
-      <path d="M1024 1812 V1826 H1010" fill="none" stroke={WHITE} strokeOpacity="0.28" strokeWidth="1" />
+      <path d="M44 106 V90 H60" fill="none" stroke={WHITE} strokeOpacity="0.35" strokeWidth="1.2" />
+      <path d="M1036 106 V90 H1020" fill="none" stroke={WHITE} strokeOpacity="0.35" strokeWidth="1.2" />
+      <path d="M44 1814 V1830 H60" fill="none" stroke={WHITE} strokeOpacity="0.35" strokeWidth="1.2" />
+      <path d="M1036 1814 V1830 H1020" fill="none" stroke={WHITE} strokeOpacity="0.35" strokeWidth="1.2" />
     </svg>
   );
 };
 
 /**
- * Whisper-minimal, frameless corner telemetry (zero heavy boxes, zero circle dots,
- * zero bouncing bars, zero visual clutter) that animates cleanly per scene.
+ * Floating sci-fi/tech documentary viewport header & footer telemetry bars
+ * framing the Upper Focal Simulation Card and Lower-Third UI Simulation Dock.
  */
 const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   scene,
@@ -124,6 +122,9 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
   const globalFrame = scene.from + localFrame;
   const activeCueId = activeCue?.globalIndex ?? -1;
   const reveal = getHudLifecycle(scene, localFrame);
+  const activeSim = getActiveUiSimulation(scene, localFrame);
+  const isAlert = activeSim?.kind === 'error-diagnostic';
+  const accent = isAlert ? CRIMSON : ORANGE;
 
   return (
     <div
@@ -138,68 +139,70 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
         opacity: reveal,
       }}
     >
-      {/* Top-Left Minimal Coordinate Label */}
+      {/* Top Viewport Telemetry Header */}
       <div
         style={{
           position: 'absolute',
-          left: 56,
-          top: 52,
+          left: 60,
+          right: 60,
+          top: 46,
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          opacity: 0.68,
+          justifyContent: 'space-between',
+          paddingBottom: 12,
+          borderBottom: '1px solid rgba(244,247,255,0.10)',
           transform: `translate3d(0, ${(1 - reveal) * -14}px, 0)`,
         }}
       >
-        <span style={{fontSize: 11, fontWeight: 700, letterSpacing: 2.2, color: ORANGE}}>
-          {scene.code}
-        </span>
-      </div>
-
-      {/* Top-Right Minimal Frame Timecode */}
-      <div
-        style={{
-          position: 'absolute',
-          right: 56,
-          top: 52,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          opacity: 0.56,
-          fontVariantNumeric: 'tabular-nums',
-          transform: `translate3d(0, ${(1 - reveal) * -14}px, 0)`,
-        }}
-      >
-        <span style={{fontSize: 11, letterSpacing: 1.8, color: MUTED}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
+          <span style={{fontSize: 12, fontWeight: 700, letterSpacing: 2.2, color: accent}}>
+            {scene.code}
+          </span>
+          {activeSim && (
+            <span style={{fontSize: 11, letterSpacing: 1.8, color: MUTED}}>
+              // {activeSim.moduleCode}
+            </span>
+          )}
+        </div>
+        <span
+          style={{
+            fontSize: 11.5,
+            letterSpacing: 1.8,
+            color: WHITE,
+            opacity: 0.72,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           F{String(globalFrame).padStart(4, '0')} · {(globalFrame / FPS).toFixed(2)}S
         </span>
       </div>
 
-      {/* Bottom Minimal Token Coordinate Readout (frameless, non-distracting) */}
+      {/* Bottom Viewport Telemetry Footer */}
       <div
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          bottom: 52,
+          left: 60,
+          right: 60,
+          bottom: 44,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          opacity: 0.56,
+          paddingTop: 12,
+          borderTop: '1px solid rgba(244,247,255,0.10)',
           transform: `translate3d(0, ${(1 - reveal) * 14}px, 0)`,
         }}
       >
         <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-          <span style={{fontSize: 11, letterSpacing: 2, color: ORANGE}}>CUE</span>
+          <span style={{fontSize: 11, letterSpacing: 2, color: accent, fontWeight: 700}}>CUE</span>
           <span
             data-current-token="true"
-            style={{fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: activeCue ? WHITE : MUTED}}
+            style={{fontSize: 12.5, fontWeight: 700, letterSpacing: 0.6, color: activeCue ? WHITE : MUTED}}
           >
             {activeCue ? activeCue.text : '—'}
           </span>
         </div>
         <span style={{fontSize: 11, letterSpacing: 1.8, color: MUTED}}>
-          1080×1920 · 30FPS
+          1080×1920 · 30FPS · ENGINE_TELEMETRY
         </span>
       </div>
     </div>

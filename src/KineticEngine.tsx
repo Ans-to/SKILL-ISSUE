@@ -42,10 +42,9 @@ const fitWordSize = (text: string, maxPx: number, innerWidthPx: number): number 
   Math.min(maxPx, Math.floor(innerWidthPx / Math.max(4.0, text.length * 0.58)));
 
 /**
- * Full-canvas 1080x1920 word-by-word timestamp-snapping kinetic engine.
- * Zero extra decorative bars or sub-header clutter — pure monumental typography
- * centered cleanly over the coordinate grid so the semantic B-roll bay above
- * (y: 320..680) remains 100% open and unobstructed.
+ * Hero Kinetic Typography Stage locked cleanly into the central focal channel (y = 852px),
+ * framed seamlessly between the Upper Focal Simulation Card (y: 120..672) and the
+ * Spoken Clause Telemetry Strip + Lower-Third UI Simulation Dock (y: 1030..1776).
  */
 export const KineticEngine: React.FC<{
   cue: ScriptCue;
@@ -60,19 +59,19 @@ export const KineticEngine: React.FC<{
   const color = hot ? ORANGE : WHITE;
   const glow =
     conflictWeight >= 0.9
-      ? '0 0 58px rgba(225,29,72,.52), 0 0 32px rgba(255,69,0,.48)'
+      ? '0 0 58px rgba(225,29,72,.56), 0 0 32px rgba(255,69,0,.48)'
       : hot
-        ? '0 0 46px rgba(255,69,0,.42)'
-        : '0 16px 42px rgba(0,0,0,.68)';
+        ? '0 0 46px rgba(255,69,0,.44)'
+        : '0 16px 42px rgba(0,0,0,.76)';
 
   const maxFont =
     variant === 'outro'
-      ? 172
+      ? 162
       : variant === 'hook'
-        ? 168
+        ? 160
         : variant === 'twist'
-          ? 164
-          : 158;
+          ? 158
+          : 152;
   const size = fitWordSize(cue.text, maxFont, 936);
 
   const transformByVariant = (() => {
@@ -85,7 +84,7 @@ export const KineticEngine: React.FC<{
     if (motion.mode === 'precision') {
       return `translateY(${(1 - p) * 16}px) scale(${0.96 + p * 0.04})`;
     }
-    return `translateY(${(1 - p) * 46}px) scale(${0.78 + p * 0.22})`;
+    return `translateY(${(1 - p) * 42}px) scale(${0.78 + p * 0.22})`;
   })();
 
   return (
@@ -96,7 +95,7 @@ export const KineticEngine: React.FC<{
         position: 'absolute',
         left: 56,
         right: 56,
-        top: 990,
+        top: 852,
         transform: 'translateY(-50%)',
         display: 'grid',
         placeItems: 'center',
@@ -123,9 +122,6 @@ export const KineticEngine: React.FC<{
   );
 };
 
-/**
- * Deterministic token progression diagnostic helper (never mounted as continuous background).
- */
 export const SceneSemanticGraph: React.FC<{
   scene: SceneSpec;
   localFrame: number;
