@@ -793,8 +793,18 @@ assert.ok(/export const Root\b/.test(rootSource), 'src/Root.tsx must export Root
 assert.equal(model.COMP_WIDTH, 1080, 'COMP_WIDTH must be 1080');
 assert.equal(model.COMP_HEIGHT, 1920, 'COMP_HEIGHT must be 1920');
 assert.ok(
+  /id="Root"[\s\S]*?width=\{1080\}[\s\S]*?height=\{1920\}/.test(rootSource),
+  'Root composition must be configured as vertical 1080x1920 in src/Root.tsx',
+);
+assert.ok(
   /id="EngineFirstExplainer"[\s\S]*?width=\{1080\}[\s\S]*?height=\{1920\}/.test(rootSource),
   'EngineFirstExplainer must be configured as vertical 1080x1920 in src/Root.tsx',
+);
+const propsJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'props.json'), 'utf8'));
+assert.equal(propsJson.compositionId, 'Root', 'props.json must define Root composition props');
+assert.ok(
+  fs.existsSync(path.join(__dirname, '..', 'remotion.config.ts')),
+  'remotion.config.ts must exist for entry-point-less CLI invocation',
 );
 assert.equal(
   (rootSource.match(/<Sequence\b/g) || []).length,

@@ -1,0 +1,8 @@
+{
+  "title": "Engine-First AI Agent Documentary",
+  "compositionId": "Root",
+  "backgroundColor": "#0b0f19",
+  "accentColor": "#ff4500",
+  "voiceoverFile": "agent-engine/voiceover.wav",
+  "muted": false
+}

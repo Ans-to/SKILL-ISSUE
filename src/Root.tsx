@@ -13,8 +13,34 @@ import {PayoffScene} from './scenes/PayoffScene';
 import {OutroScene} from './scenes/OutroScene';
 export {SceneContainer} from './SceneContainer';
 
-export const Root: React.FC = () => (
-  <AbsoluteFill style={{backgroundColor: OBSIDIAN, overflow: 'hidden'}}>
+export type RootProps = {
+  title?: string;
+  compositionId?: string;
+  backgroundColor?: string;
+  accentColor?: string;
+  voiceoverFile?: string;
+  muted?: boolean;
+};
+
+export const DEFAULT_ROOT_PROPS: Required<RootProps> = {
+  title: 'Engine-First AI Agent Documentary',
+  compositionId: 'Root',
+  backgroundColor: OBSIDIAN,
+  accentColor: '#ff4500',
+  voiceoverFile: 'agent-engine/voiceover.wav',
+  muted: false,
+};
+
+export const Root: React.FC<RootProps> = ({
+  title = DEFAULT_ROOT_PROPS.title,
+  backgroundColor = DEFAULT_ROOT_PROPS.backgroundColor,
+  voiceoverFile = DEFAULT_ROOT_PROPS.voiceoverFile,
+  muted = DEFAULT_ROOT_PROPS.muted,
+}) => (
+  <AbsoluteFill
+    data-root-title={title}
+    style={{backgroundColor, overflow: 'hidden'}}
+  >
     <Sequence from={0} durationInFrames={153} name="01-Hook">
       <HookScene />
     </Sequence>
@@ -33,7 +59,7 @@ export const Root: React.FC = () => (
     <Sequence from={1400} durationInFrames={147} name="06-Outro">
       <OutroScene />
     </Sequence>
-    <Audio src={staticFile('agent-engine/voiceover.wav')} />
+    {!muted && <Audio src={staticFile(voiceoverFile)} />}
   </AbsoluteFill>
 );
 
@@ -42,12 +68,22 @@ export const EngineFirstExplainer = Root;
 export const RemotionRoot: React.FC = () => (
   <>
     <Composition
+      id="Root"
+      component={Root}
+      durationInFrames={DURATION_FRAMES}
+      fps={FPS}
+      width={1080}
+      height={1920}
+      defaultProps={DEFAULT_ROOT_PROPS}
+    />
+    <Composition
       id="EngineFirstExplainer"
       component={Root}
       durationInFrames={DURATION_FRAMES}
       fps={FPS}
       width={1080}
       height={1920}
+      defaultProps={DEFAULT_ROOT_PROPS}
     />
     <Composition
       id="TheCodeThatReplacedAfterEffects"
