@@ -1,12 +1,12 @@
 import React from 'react';
 import {useCurrentFrame} from 'remotion';
+import {BW_SCENES, computeSpatialSceneEnvelope} from '../brettonWoodsModel';
+import {resolveBrettonBeat} from '../BrettonWoodsKineticEngine';
 import {
-  BW_SCENES,
-  computeSpatialSceneEnvelope,
-  getContinuousCameraRig,
-} from '../brettonWoodsModel';
-import {BrettonWoodsHeroKineticLayer} from '../BrettonWoodsKineticEngine';
-import {BrettonWoodsUiSimulation} from '../BrettonWoodsUiSimulation';
+  BrettonSpokenSubtitleLayer,
+  renderBrettonVisualIllustration,
+} from '../BrettonWoodsUiSimulation';
+import {CinematicSceneMaster} from '../CinematicSceneMaster';
 
 const SCENE = BW_SCENES[1];
 
@@ -17,27 +17,34 @@ const SceneBody: React.FC<{
 }> = ({localFrame, widthOverride, heightOverride}) => {
   const globalFrame = SCENE.sequenceFrom + localFrame;
   const spatialEnvelope = computeSpatialSceneEnvelope(SCENE, localFrame);
-  const rig = getContinuousCameraRig(globalFrame);
+  const beat = resolveBrettonBeat(SCENE.id, globalFrame);
 
   return (
-    <>
-      <BrettonWoodsUiSimulation
-        sceneId={SCENE.id}
-        globalFrame={globalFrame}
-        spatialEnvelope={spatialEnvelope}
-        cameraPanX={rig.camX}
-        widthOverride={widthOverride}
-        heightOverride={heightOverride}
-      />
-      <BrettonWoodsHeroKineticLayer
-        sceneId={SCENE.id}
-        globalFrame={globalFrame}
-        spatialEnvelope={spatialEnvelope}
-        cameraPanX={rig.camX}
-        widthOverride={widthOverride}
-        heightOverride={heightOverride}
-      />
-    </>
+    <CinematicSceneMaster
+      title={beat.title}
+      subtitle={beat.subtitle}
+      metric={beat.metric}
+      metricLabel={beat.metricLabel}
+      accentColor={beat.accentColor}
+      motionProfile={beat.window.profile}
+      variantSeed={beat.window.physicsVariant}
+      beatStartFrame={beat.window.startFrame}
+      globalFrameOverride={globalFrame}
+      widthOverride={widthOverride}
+      heightOverride={heightOverride}
+      spatialEnvelope={spatialEnvelope}
+      renderBackground={false}
+      visualIllustration={renderBrettonVisualIllustration(SCENE.id, globalFrame)}
+      spokenSubtitle={
+        <BrettonSpokenSubtitleLayer
+          sceneId={SCENE.id}
+          globalFrame={globalFrame}
+          spatialEnvelope={spatialEnvelope}
+          widthOverride={widthOverride}
+          heightOverride={heightOverride}
+        />
+      }
+    />
   );
 };
 

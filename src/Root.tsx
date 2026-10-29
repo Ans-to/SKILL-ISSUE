@@ -6,6 +6,10 @@ import {
   type BrettonWoodsProps,
 } from './bretton-woods/BrettonWoodsDocumentary';
 import {
+  CinematicSceneMaster,
+  type CinematicSceneMasterProps,
+} from './bretton-woods/CinematicSceneMaster';
+import {
   BW_DURATION_FRAMES,
   BW_FPS,
   BW_HEIGHT,
@@ -25,7 +29,12 @@ import {MechanismScene} from './scenes/MechanismScene';
 import {PayoffScene} from './scenes/PayoffScene';
 import {OutroScene} from './scenes/OutroScene';
 export {SceneContainer} from './SceneContainer';
-export {BrettonWoodsDocumentary, DEFAULT_BRETTON_WOODS_PROPS};
+export {
+  BrettonWoodsDocumentary,
+  CinematicSceneMaster,
+  DEFAULT_BRETTON_WOODS_PROPS,
+};
+export type {CinematicSceneMasterProps};
 
 export type RootProps = BrettonWoodsProps;
 
@@ -123,6 +132,22 @@ export const RemotionRoot: React.FC = () => (
       width={BW_VERTICAL_WIDTH}
       height={BW_VERTICAL_HEIGHT}
       defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
+    />
+
+    {/* Direct Standalone Master Template Composition */}
+    <Composition
+      id="CinematicSceneMaster"
+      component={CinematicSceneMaster}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_WIDTH}
+      height={BW_HEIGHT}
+      defaultProps={{
+        title: 'THE KING OF CURRENCIES',
+        subtitle: 'BRETTON WOODS · GLOBAL DOLLAR STANDARD',
+        metric: '88% FX SHARE',
+        metricLabel: 'GLOBAL TRADE & TREASURY RESERVE ANCHOR',
+      }}
     />
 
     {/* Preserved Legacy Compositions */}

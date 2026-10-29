@@ -672,6 +672,138 @@ const ConnectedBrettonWoodsUiSimulation: React.FC<{
   return <BrettonWoodsUiSimulationView {...props} width={width} height={height} />;
 };
 
+export const renderBrettonVisualIllustration = (
+  sceneId: BrettonSceneId,
+  globalFrame: number,
+): React.ReactNode => {
+  switch (sceneId) {
+    case 'global-standard':
+      return <Scene1TradeConvergenceSvg globalFrame={globalFrame} />;
+    case 'bretton-woods-origin':
+      return <Scene2GoldVaultSvg globalFrame={globalFrame} />;
+    case 'liquidity-power-engine':
+      return <Scene3LiquidityNetworkSvg globalFrame={globalFrame} />;
+    case 'heavy-crown-conclusion':
+      return <Scene4CrownEquilibriumSvg globalFrame={globalFrame} />;
+  }
+};
+
+export const BrettonSpokenSubtitleView: React.FC<{
+  sceneId: BrettonSceneId;
+  globalFrame: number;
+  spatialEnvelope: SpatialSceneEnvelope;
+  width: number;
+  height: number;
+}> = ({sceneId, globalFrame, spatialEnvelope, width, height}) => {
+  const layout = getBrettonLayout(width, height);
+  const activeCue = bwFindCue(globalFrame);
+  const currentSentence = SENTENCE_RANGES.find(([lo, hi]) => {
+    const firstFrame = BW_SCRIPT_CUES[lo].startFrame;
+    const nextStart =
+      hi + 1 < BW_SCRIPT_CUES.length ? BW_SCRIPT_CUES[hi + 1].startFrame : 1800;
+    return globalFrame >= firstFrame && globalFrame < nextStart;
+  });
+
+  const spokenSentenceWords = currentSentence
+    ? BW_SCRIPT_CUES.filter(
+        (w) =>
+          w.globalIndex >= currentSentence[0] &&
+          w.globalIndex <= currentSentence[1] &&
+          w.startFrame <= globalFrame &&
+          w.sceneId === sceneId,
+      ).slice(-10)
+    : [];
+
+  if (spokenSentenceWords.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      data-canvas-layer="clause-ribbon"
+      data-layer-z={BRETTON_Z_LAYERS.spokenSubtitle}
+      style={{
+        position: 'absolute',
+        left: layout.captionHorizontalPad,
+        right: layout.captionHorizontalPad,
+        bottom: layout.captionBottom,
+        zIndex: BRETTON_Z_LAYERS.spokenSubtitle,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: spatialEnvelope.opacity,
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: '4px 8px',
+          padding: '7px 22px',
+          borderRadius: 999,
+          backgroundColor: 'rgba(15, 23, 42, 0.78)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.45)',
+          textAlign: 'center',
+        }}
+      >
+        {spokenSentenceWords.map((w) => {
+          const isCurrent = activeCue?.globalIndex === w.globalIndex;
+          const elapsed = Math.max(0, globalFrame - w.startFrame);
+          return (
+            <StaggeredTextItem
+              key={`bw-sub-${w.globalIndex}`}
+              text={w.text}
+              delay={0}
+              frameOverride={elapsed}
+              profile={SUBTITLE_PROFILES[w.globalIndex % SUBTITLE_PROFILES.length]}
+              variantSeed={w.globalIndex % 4}
+              style={{
+                fontFamily: '"Inter", system-ui, sans-serif',
+                fontSize: layout.captionFontSize,
+                fontWeight: isCurrent ? 700 : 500,
+                color: isCurrent ? '#f59e0b' : '#e2e8f0',
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const ConnectedBrettonSpokenSubtitle: React.FC<{
+  sceneId: BrettonSceneId;
+  globalFrame: number;
+  spatialEnvelope: SpatialSceneEnvelope;
+}> = (props) => {
+  const {width, height} = useVideoConfig();
+  return <BrettonSpokenSubtitleView {...props} width={width} height={height} />;
+};
+
+export const BrettonSpokenSubtitleLayer: React.FC<{
+  sceneId: BrettonSceneId;
+  globalFrame: number;
+  spatialEnvelope: SpatialSceneEnvelope;
+  widthOverride?: number;
+  heightOverride?: number;
+}> = ({widthOverride, heightOverride, ...rest}) => {
+  if (widthOverride !== undefined && heightOverride !== undefined) {
+    return (
+      <BrettonSpokenSubtitleView
+        {...rest}
+        width={widthOverride}
+        height={heightOverride}
+      />
+    );
+  }
+  return <ConnectedBrettonSpokenSubtitle {...rest} />;
+};
+
 export const BrettonWoodsUiSimulation: React.FC<{
   sceneId: BrettonSceneId;
   globalFrame: number;

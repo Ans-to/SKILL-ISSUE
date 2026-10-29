@@ -1050,6 +1050,28 @@ const {BrettonWoodsFloatingHud} = require('../src/bretton-woods/BrettonWoodsHud.
 const {
   ContinuousAtmosphericGridPlane,
 } = require('../src/bretton-woods/ContinuousWorldBackground.tsx');
+const {
+  CinematicSceneMaster,
+} = require('../src/bretton-woods/CinematicSceneMaster.tsx');
+
+// Verify standalone CinematicSceneMaster ("THE CINEMATIC ENGINE") drop-in contract
+const masterHtml16x9 = renderToStaticMarkup(
+  React.createElement(CinematicSceneMaster, {
+    title: 'THE KING OF CURRENCIES',
+    subtitle: 'GLOBAL MONETARY STANDARD',
+    metric: '88% FX SHARE',
+    metricLabel: 'WORLD SETTLEMENT BENCHMARK',
+    globalFrameOverride: 120,
+    widthOverride: 1920,
+    heightOverride: 1080,
+  }),
+);
+assert.ok(masterHtml16x9.includes('data-cinematic-scene-master="true"'));
+assert.ok(masterHtml16x9.includes('data-glassmorphic-card="true"'));
+assert.ok(masterHtml16x9.includes('data-cinematic-glow="ambient"'));
+assert.ok(masterHtml16x9.includes('rotateX(60deg) rotateZ(-45deg)'));
+assert.ok(masterHtml16x9.includes('88% FX SHARE'));
+assert.ok(masterHtml16x9.includes('WORLD SETTLEMENT BENCHMARK'));
 
 assert.equal(bwModel.BW_WIDTH, 1920, 'Bretton Woods 16:9 must be 1920px wide');
 assert.equal(bwModel.BW_HEIGHT, 1080, 'Bretton Woods 16:9 must be 1080px tall');

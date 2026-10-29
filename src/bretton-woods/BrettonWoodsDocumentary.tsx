@@ -1,15 +1,12 @@
 import React from 'react';
 import {AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig} from 'remotion';
 import {BrettonWoodsAudioLayer} from './BrettonWoodsAudio';
-import {
-  ContinuousAtmosphericGridPlane,
-  ContinuousWorldThreeStage,
-} from './ContinuousWorldBackground';
+import {ContinuousAtmosphericGridPlane} from './ContinuousWorldBackground';
 import {BrettonWoodsFloatingHud} from './BrettonWoodsHud';
 import {
-  BW_GOLD_BRIGHT,
   BW_OBSIDIAN,
   BW_SCENES,
+  bwSceneForFrame,
 } from './brettonWoodsModel';
 import {BrettonWoodsOriginScene} from './scenes/BrettonWoodsOriginScene';
 import {GlobalStandardScene} from './scenes/GlobalStandardScene';
@@ -29,16 +26,17 @@ export const DEFAULT_BRETTON_WOODS_PROPS: Required<BrettonWoodsProps> = {
   title: 'Bretton Woods & The Global Dollar Standard',
   compositionId: 'Root',
   backgroundColor: BW_OBSIDIAN,
-  accentColor: BW_GOLD_BRIGHT,
+  accentColor: '#f59e0b',
   voiceoverFile: 'bretton-woods/voiceover.wav',
   muted: false,
 };
 
 /**
- * Clean Cinematic Tech-Doc (Dual Format: 16:9 Landscape 1920x1080 & 9:16 Vertical 1080x1920).
- * Deep obsidian (#0b0f19) canvas with subtle drifting gold/emerald grid lines,
- * continuous smooth 3D isometric camera pan/drift, purposeful vector/3D visuals,
- * and centered high-contrast kinetic typography with generous breathing room.
+ * "THE CINEMATIC ENGINE" Documentary Master Assembly
+ * Supports both 16:9 Landscape (1920x1080) and 9:16 Vertical (1080x1920).
+ * Every scene runs through CinematicSceneMaster with decoupled absolute layers,
+ * continuous 3D isometric perspective drift, ambient lighting glow, kinetic titles,
+ * and frosted glassmorphic data/visual cards.
  */
 export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
   title = DEFAULT_BRETTON_WOODS_PROPS.title,
@@ -48,6 +46,7 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
 }) => {
   const globalFrame = useCurrentFrame();
   const {width, height} = useVideoConfig();
+  const activeScene = bwSceneForFrame(globalFrame);
 
   const safeBackground =
     backgroundColor.toLowerCase() === '#000000' || backgroundColor.toLowerCase() === '#000'
@@ -58,7 +57,7 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
     <AbsoluteFill
       data-root-title={title}
       data-canvas-root={`${width}x${height}`}
-      data-layer-architecture="clean-editorial-isometric-tech-doc"
+      data-layer-architecture="the-cinematic-engine"
       style={{
         position: 'relative',
         width,
@@ -67,13 +66,13 @@ export const BrettonWoodsDocumentary: React.FC<BrettonWoodsProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Layer z=1: Deep Obsidian (#0b0f19) + Subtle Drifting Gold/Emerald Grid */}
-      <ContinuousAtmosphericGridPlane globalFrame={globalFrame} />
+      {/* Layer z=1..3: Continuous 3D Isometric Perspective Grid + Ambient Lighting Glow */}
+      <ContinuousAtmosphericGridPlane
+        globalFrame={globalFrame}
+        accentColor={activeScene.accentColor}
+      />
 
-      {/* Layer z=10: Continuous Smooth 3D Isometric Camera Stage */}
-      <ContinuousWorldThreeStage globalFrame={globalFrame} />
-
-      {/* Gentle Overlapping Scene Sequences (Zero Hard Cuts) */}
+      {/* Overlapping CinematicSceneMaster Sequences (Smooth Sinusoidal Cross-Glides) */}
       <Sequence
         from={BW_SCENES[0].sequenceFrom}
         durationInFrames={BW_SCENES[0].sequenceDuration}
