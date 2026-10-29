@@ -2,6 +2,7 @@ import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame} from 'remotion';
 import {computeAssetTransition, type AssetTransitionEnvelope} from './ContextualUiSimulation';
 import {CRIMSON, TENSION_SPRING_CONFIG, getConflictImpactWeight} from './EmotionalPacing';
+import {StaggeredTextItem} from './StaggeredTextItem';
 import {
   FPS,
   MUTED,
@@ -26,6 +27,7 @@ export const EMPHASIS_WORDS = new Set([
   'anything',
   'pasted',
   'template',
+  'templates',
   'break',
   'no',
   'cant',
@@ -134,6 +136,130 @@ export const resolveCueTypographicSchema = (
   return classifyTokenTypographicSchema(cue.text);
 };
 
+// ============================================================================
+// Beat-Coherent Staggered Hero Phrases across all 91 SCRIPT_CUES & 6 Scenes
+// ============================================================================
+export type HeroPhraseSpec = {
+  id: string;
+  sceneId: SceneKey;
+  schema: TypographicSchemaKind;
+  firstWordIndex: number;
+  lastWordIndex: number;
+  firstWordStartFrame: number;
+  lastWordEndFrame: number;
+  renderStartFrame: number;
+  renderEndFrame: number;
+  fullCharCount: number;
+};
+
+const HERO_PHRASE_RANGES: Readonly<Record<SceneKey, ReadonlyArray<readonly [number, number]>>> = {
+  hook: [
+    [0, 2], // "Your AI agent"
+    [3, 5], // "didn’t build anything."
+    [6, 9], // "It pasted a template."
+  ],
+  twist: [
+    [10, 12], // "It looks finished."
+    [13, 15], // "That’s the trick."
+    [16, 18], // "Boilerplate demos clean."
+    [19, 20], // "Real codebases"
+    [21, 21], // "break."
+  ],
+  shift: [
+    [22, 23], // "Prompt harder?"
+    [24, 24], // "No."
+    [25, 27], // "It still can’t"
+    [28, 30], // "infer your codebase’s"
+    [31, 34], // "timing model, render graph,"
+    [35, 37], // "or hard constraints"
+    [38, 41], // "from a pretty prompt."
+  ],
+  mechanism: [
+    [42, 44], // "Engine- first means"
+    [45, 47], // "physics, isolation, timing,"
+    [48, 50], // "positions, easing, transitions—"
+    [51, 52], // "defined as"
+    [53, 53], // "math."
+    [54, 55], // "Same inputs."
+    [56, 57], // "Same frames."
+    [58, 60], // "No template roulette."
+  ],
+  payoff: [
+    [61, 62], // "Feed intent"
+    [63, 65], // "into the engine."
+    [66, 71], // "It compiles the prompt to code,"
+    [72, 73], // "code to"
+    [74, 76], // "frames, frames to"
+    [77, 77], // "MP4."
+    [78, 80], // "Fast. Inspectable. Repeatable."
+  ],
+  outro: [
+    [81, 83], // "Stop playing with"
+    [84, 84], // "templates."
+    [85, 87], // "Build the engine—"
+    [88, 90], // "or ship toys."
+  ],
+};
+
+export const TYPEWRITER_ENTER_FRAMES = 12;
+export const TYPEWRITER_EXIT_FRAMES = 10;
+
+export const SCENE_HERO_PHRASES: Readonly<Record<SceneKey, readonly HeroPhraseSpec[]>> = (() => {
+  const byScene: Record<SceneKey, HeroPhraseSpec[]> = {
+    hook: [],
+    twist: [],
+    shift: [],
+    mechanism: [],
+    payoff: [],
+    outro: [],
+  };
+
+  for (const scene of SCENE_SEQUENCES) {
+    const activeEnd =
+      scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
+    const ranges = HERO_PHRASE_RANGES[scene.id];
+
+    ranges.forEach(([startIdx, endIdx], pIdx) => {
+      const schema = resolveCueTypographicSchema(SCRIPT_CUES[startIdx], scene.id);
+      const firstWordStartFrame = SCRIPT_CUES[startIdx].startFrame;
+      const lastWordEndFrame = SCRIPT_CUES[endIdx].endFrame;
+      const prevEnd = pIdx > 0 ? SCRIPT_CUES[ranges[pIdx - 1][1]].endFrame : scene.from;
+      const nextStart =
+        pIdx + 1 < ranges.length ? SCRIPT_CUES[ranges[pIdx + 1][0]].startFrame : activeEnd;
+
+      const renderStartFrame =
+        schema === 'code-typewriter'
+          ? Math.max(scene.from, Math.max(prevEnd, firstWordStartFrame - 8))
+          : firstWordStartFrame;
+
+      const renderEndFrame = Math.min(
+        activeEnd,
+        nextStart,
+        lastWordEndFrame + TYPEWRITER_EXIT_FRAMES,
+      );
+
+      const fullCharCount = SCRIPT_CUES.slice(startIdx, endIdx + 1)
+        .map((c) => c.text)
+        .join(' ').length;
+
+      byScene[scene.id].push({
+        id: `${scene.id}-phrase-${startIdx}-${endIdx}`,
+        sceneId: scene.id,
+        schema,
+        firstWordIndex: startIdx,
+        lastWordIndex: endIdx,
+        firstWordStartFrame,
+        lastWordEndFrame,
+        renderStartFrame,
+        renderEndFrame,
+        fullCharCount,
+      });
+    });
+  }
+
+  return byScene;
+})();
+
 export type TypewriterWindowSpec = {
   id: string;
   sceneId: SceneKey;
@@ -144,9 +270,6 @@ export type TypewriterWindowSpec = {
   renderStartFrame: number;
   renderEndFrame: number;
 };
-
-export const TYPEWRITER_ENTER_FRAMES = 12;
-export const TYPEWRITER_EXIT_FRAMES = 10;
 
 export const SCENE_TYPEWRITER_WINDOWS: Readonly<Record<SceneKey, readonly TypewriterWindowSpec[]>> =
   (() => {
@@ -183,12 +306,10 @@ export const SCENE_TYPEWRITER_WINDOWS: Readonly<Record<SceneKey, readonly Typewr
         const nextWordStart =
           endIdx + 1 <= scene.lastWordIndex ? SCRIPT_CUES[endIdx + 1].startFrame : activeEnd;
 
-        // Pre-warm empty terminal prompt (`> _`) during silence lead-in if available; otherwise start cleanly at phrase start
         const renderStartFrame = Math.max(
           scene.from,
           Math.max(prevWordEnd, firstWordStartFrame - 8),
         );
-        // Reverse-ease out cleanly into any post-phrase silence gap, completing before the next non-typewriter hero word hits
         const renderEndFrame = Math.min(
           activeEnd,
           nextWordStart,
@@ -335,39 +456,46 @@ export const computeTypographicKinematics = (
 const fitSansWordSize = (text: string, maxPx: number, innerWidthPx: number): number =>
   Math.min(maxPx, Math.floor(innerWidthPx / Math.max(4.0, text.length * 0.58)));
 
-const fitMonoWordSize = (text: string, maxPx: number, innerWidthPx: number): number =>
-  Math.min(maxPx, Math.floor(innerWidthPx / Math.max(5.0, (text.length + 3.2) * 0.63)));
+const fitSansPhraseSize = (fullCharCount: number, wordCount: number): number => {
+  if (wordCount <= 1) return fitSansWordSize('x'.repeat(fullCharCount), 154, 936);
+  if (fullCharCount <= 15) return 90;
+  if (fullCharCount <= 22) return 72;
+  return 62;
+};
+
+const fitMonoPhraseSize = (fullCharCount: number): number =>
+  clamp(Math.floor(852 / Math.max(5.5, (fullCharCount + 3.2) * 0.62)), 40, 102);
 
 const MONO_STACK =
   '"JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace';
 
 const TerminalTypewriterBox: React.FC<{
   variant: SceneKey;
+  sceneFrom: number;
   envelope: AssetTransitionEnvelope;
   tokenAttr: string;
   charCounterLabel: string;
-  placeholderText: string;
-  visibleText: string;
-  primaryColor: string;
-  hot: boolean;
+  spokenWords: ReadonlyArray<{
+    cue: ScriptCue;
+    displayText: string;
+    isCurrent: boolean;
+  }>;
   cursorBlinkOn: boolean;
   fontSize: number;
   textOpacity?: number;
-  extraTranslateY?: number;
+  frameOverride?: number;
   style?: React.CSSProperties;
 }> = ({
   variant,
+  sceneFrom,
   envelope,
   tokenAttr,
   charCounterLabel,
-  placeholderText,
-  visibleText,
-  primaryColor,
-  hot,
+  spokenWords,
   cursorBlinkOn,
   fontSize,
   textOpacity = 1,
-  extraTranslateY = 0,
+  frameOverride,
   style,
 }) => (
   <div
@@ -382,7 +510,7 @@ const TerminalTypewriterBox: React.FC<{
       left: 60,
       right: 60,
       top: 852,
-      transform: `translateY(calc(-50% + ${(envelope.translateY + extraTranslateY).toFixed(2)}px)) scale(${envelope.scale})`,
+      transform: `translateY(calc(-50% + ${envelope.translateY.toFixed(2)}px)) scale(${envelope.scale})`,
       opacity: envelope.opacity,
       display: 'grid',
       placeItems: 'center',
@@ -394,11 +522,12 @@ const TerminalTypewriterBox: React.FC<{
       data-terminal-typewriter-box="true"
       style={{
         padding: '16px 32px 20px',
-        background: 'rgba(8, 13, 24, 0.88)',
-        border: '1px solid rgba(255, 69, 0, 0.38)',
+        background: 'rgba(8, 13, 24, 0.92)',
+        border: '1px solid rgba(255, 69, 0, 0.42)',
         borderLeft: `4px solid ${ORANGE}`,
-        boxShadow: '0 18px 48px rgba(0, 0, 0, 0.72), inset 0 0 24px rgba(255, 69, 0, 0.06)',
+        boxShadow: '0 18px 48px rgba(0, 0, 0, 0.74), inset 0 0 24px rgba(255, 69, 0, 0.06)',
         maxWidth: 948,
+        minWidth: 420,
         boxSizing: 'border-box',
       }}
     >
@@ -407,7 +536,7 @@ const TerminalTypewriterBox: React.FC<{
           display: 'flex',
           justifyContent: 'space-between',
           gap: 24,
-          marginBottom: 8,
+          marginBottom: 10,
           fontFamily: MONO_STACK,
           fontSize: 11,
           letterSpacing: 2,
@@ -420,45 +549,49 @@ const TerminalTypewriterBox: React.FC<{
 
       <div
         style={{
-          position: 'relative',
           fontFamily: MONO_STACK,
           fontSize,
           fontWeight: 700,
           letterSpacing: '-0.025em',
-          lineHeight: 1.02,
+          lineHeight: 1.08,
           whiteSpace: 'nowrap',
+          opacity: textOpacity,
+          display: 'flex',
+          alignItems: 'baseline',
         }}
       >
-        <div aria-hidden="true" style={{visibility: 'hidden', pointerEvents: 'none'}}>
-          <span style={{marginRight: 10}}>&gt;</span>
-          <span>{placeholderText}</span>
-          <span>_</span>
-        </div>
-
-        <div
+        <span style={{color: ORANGE, opacity: 0.88, marginRight: 12}}>&gt;</span>
+        <span data-typewriter-text="true" style={{display: 'inline-flex', gap: Math.round(fontSize * 0.28)}}>
+          {spokenWords.map(({cue, displayText, isCurrent}) => {
+            const hot = isEmphasis(cue.text);
+            return (
+              <StaggeredTextItem
+                key={cue.globalIndex}
+                text={displayText}
+                delay={cue.startFrame - sceneFrom}
+                frameOverride={frameOverride}
+                style={{
+                  color: hot ? ORANGE : isCurrent ? WHITE : 'rgba(244, 247, 255, 0.88)',
+                  textShadow: hot
+                    ? '0 0 26px rgba(255,69,0,0.38)'
+                    : '0 8px 24px rgba(0,0,0,0.65)',
+                }}
+              />
+            );
+          })}
+        </span>
+        <span
+          data-typewriter-cursor={cursorBlinkOn ? 'on' : 'off'}
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            color: primaryColor,
-            opacity: textOpacity,
-            textShadow: hot ? '0 0 28px rgba(255,69,0,0.35)' : '0 8px 24px rgba(0,0,0,0.65)',
+            color: ORANGE,
+            fontWeight: 800,
+            marginLeft: 2,
+            opacity: cursorBlinkOn ? 1 : 0.14,
+            textShadow: cursorBlinkOn ? '0 0 18px rgba(255,69,0,0.75)' : 'none',
           }}
         >
-          <span style={{color: ORANGE, opacity: 0.86, marginRight: 10}}>&gt;</span>
-          <span data-typewriter-text="true">{visibleText}</span>
-          <span
-            data-typewriter-cursor={cursorBlinkOn ? 'on' : 'off'}
-            style={{
-              color: ORANGE,
-              fontWeight: 800,
-              opacity: cursorBlinkOn ? 1 : 0.14,
-              textShadow: cursorBlinkOn ? '0 0 18px rgba(255,69,0,0.75)' : 'none',
-            }}
-          >
-            _
-          </span>
-        </div>
+          _
+        </span>
       </div>
     </div>
   </div>
@@ -468,6 +601,9 @@ export const KineticEngine: React.FC<{
   cue: ScriptCue;
   variant: SceneKey;
   globalFrame: number;
+  phraseCues?: readonly ScriptCue[];
+  fullPhraseCharCount?: number;
+  useLiveRemotionHooks?: boolean;
   releaseOpacity?: number;
   releaseScale?: number;
   releaseTranslateY?: number;
@@ -477,31 +613,41 @@ export const KineticEngine: React.FC<{
   cue,
   variant,
   globalFrame,
+  phraseCues,
+  fullPhraseCharCount,
+  useLiveRemotionHooks = false,
   releaseOpacity = 1,
   releaseScale = 1,
   releaseTranslateY = 0,
   terminalEnvelope,
   style,
 }) => {
-  const kin = computeTypographicKinematics(cue, variant, globalFrame);
-  const hot = isEmphasis(cue.text);
-  const conflictWeight = getConflictImpactWeight(cue.text);
-  const primaryColor = hot ? ORANGE : WHITE;
+  const owningScene = SCENE_SEQUENCES.find((s) => s.id === variant) ?? SCENE_SEQUENCES[0];
+  const localFrame = globalFrame - owningScene.from;
+  const frameOverride = useLiveRemotionHooks ? undefined : localFrame;
+  const spokenCues = phraseCues && phraseCues.length > 0 ? phraseCues : [cue];
+  const totalCharBudget =
+    fullPhraseCharCount ?? spokenCues.map((c) => c.text).join(' ').length;
 
+  const kin = computeTypographicKinematics(cue, variant, globalFrame);
+  const conflictWeight = getConflictImpactWeight(cue.text);
+
+  // ==========================================================================
+  // 1. HOOK / CLIMAX ANIMATION (Staggered Multi-Word Spring + Climax Pop/Slice)
+  // ==========================================================================
   if (kin.schema === 'hook-climax') {
-    const maxFont = variant === 'outro' ? 162 : variant === 'hook' ? 160 : 156;
-    const size = fitSansWordSize(cue.text, maxFont, 936);
-    const glowShadow = `0 0 ${Math.round(36 + kin.redGlowFlash * 42)}px rgba(225, 29, 72, ${(
-      0.24 +
-      kin.redGlowFlash * 0.62
-    ).toFixed(3)}), 0 0 34px rgba(255, 69, 0, ${hot ? '0.44' : '0.20'}), 0 16px 42px rgba(0, 0, 0, 0.78)`;
-    const shearPx = Number((kin.sliceIntensity * 12).toFixed(2));
+    const isSingle = spokenCues.length === 1 && totalCharBudget === cue.text.length;
+    const size = isSingle
+      ? fitSansWordSize(cue.text, variant === 'outro' ? 162 : 156, 936)
+      : fitSansPhraseSize(totalCharBudget, spokenCues.length);
+    const shearPx = Number((kin.sliceIntensity * 10).toFixed(2));
 
     return (
       <div
         data-kinetic-variant={variant}
         data-typography-schema="hook-climax"
         data-full-token={cue.text}
+        data-staggered-word-count={spokenCues.length}
         style={{
           position: 'absolute',
           left: 56,
@@ -519,11 +665,11 @@ export const KineticEngine: React.FC<{
           data-red-glow-flash={kin.redGlowFlash.toFixed(3)}
           style={{
             position: 'absolute',
-            width: 760,
-            height: 220,
+            width: 820,
+            height: 230,
             borderRadius: '50%',
             background: `radial-gradient(ellipse at center, rgba(225, 29, 72, ${(
-              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.56 : 0.36)
+              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.56 : 0.34)
             ).toFixed(3)}) 0%, rgba(255, 69, 0, ${(kin.redGlowFlash * 0.16).toFixed(
               3,
             )}) 46%, transparent 74%)`,
@@ -535,27 +681,44 @@ export const KineticEngine: React.FC<{
         <div
           style={{
             position: 'relative',
-            transform: `scale(${(kin.scale * releaseScale).toFixed(4)})`,
-            display: 'grid',
-            placeItems: 'center',
+            transform: `scale(${((isSingle ? kin.scale : 0.94 + 0.06 * kin.springPop) * releaseScale).toFixed(4)})`,
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'baseline',
+            gap: `${Math.round(size * 0.14)}px ${Math.round(size * 0.24)}px`,
+            maxWidth: 948,
           }}
         >
-          <div
-            style={{
-              fontSize: size,
-              fontWeight: 900,
-              letterSpacing: '-0.048em',
-              lineHeight: 0.94,
-              color: primaryColor,
-              textShadow: glowShadow,
-              whiteSpace: 'nowrap',
-              transform: shearPx > 0.4 ? `translateX(${(shearPx * -0.25).toFixed(1)}px)` : undefined,
-            }}
-          >
-            {cue.text}
-          </div>
+          {spokenCues.map((wordCue) => {
+            const wordHot = isEmphasis(wordCue.text);
+            const isCurrent = wordCue.globalIndex === cue.globalIndex;
+            const glowShadow = `0 0 ${Math.round(32 + (isCurrent ? kin.redGlowFlash * 40 : 12))}px rgba(225, 29, 72, ${(
+              0.18 +
+              (isCurrent ? kin.redGlowFlash * 0.58 : 0.08)
+            ).toFixed(3)}), 0 0 30px rgba(255, 69, 0, ${wordHot ? '0.42' : '0.16'}), 0 14px 38px rgba(0, 0, 0, 0.78)`;
 
-          {kin.sliceIntensity > 0.08 && (
+            return (
+              <StaggeredTextItem
+                key={wordCue.globalIndex}
+                text={wordCue.text}
+                delay={wordCue.startFrame - owningScene.from}
+                frameOverride={frameOverride}
+                dataAttrs={{'data-hero-word-index': wordCue.globalIndex}}
+                style={{
+                  fontSize: size,
+                  fontWeight: 900,
+                  letterSpacing: '-0.045em',
+                  lineHeight: 0.98,
+                  color: wordHot ? ORANGE : WHITE,
+                  textShadow: glowShadow,
+                  whiteSpace: 'nowrap',
+                }}
+              />
+            );
+          })}
+
+          {isSingle && kin.sliceIntensity > 0.08 && (
             <div
               aria-hidden="true"
               style={{
@@ -563,8 +726,8 @@ export const KineticEngine: React.FC<{
                 inset: 0,
                 fontSize: size,
                 fontWeight: 900,
-                letterSpacing: '-0.048em',
-                lineHeight: 0.94,
+                letterSpacing: '-0.045em',
+                lineHeight: 0.98,
                 color: WHITE,
                 whiteSpace: 'nowrap',
                 clipPath: 'inset(0 0 52% 0)',
@@ -617,47 +780,48 @@ export const KineticEngine: React.FC<{
     );
   }
 
+  // ==========================================================================
+  // 2. CODE / PROMPT ANIMATION (Staggered Multi-Word CLI Typewriter)
+  // ==========================================================================
   if (kin.schema === 'code-typewriter') {
-    const size = fitMonoWordSize(cue.text, 112, 868);
-    const owningScene = SCENE_SEQUENCES.find((s) => s.id === variant) ?? SCENE_SEQUENCES[0];
+    const size = fitMonoPhraseSize(totalCharBudget);
     const boxEnv = terminalEnvelope ?? getTypewriterWindowEnvelope(owningScene, cue, globalFrame);
+
+    const terminalWords = spokenCues.map((wordCue) => {
+      const isCurrent = wordCue.globalIndex === cue.globalIndex;
+      return {
+        cue: wordCue,
+        displayText: isCurrent ? kin.visibleText : wordCue.text,
+        isCurrent,
+      };
+    });
 
     return (
       <TerminalTypewriterBox
         variant={variant}
+        sceneFrom={owningScene.from}
         envelope={boxEnv}
         tokenAttr={cue.text}
         charCounterLabel={`${kin.visibleChars}/${kin.totalChars}`}
-        placeholderText={cue.text}
-        visibleText={kin.visibleText}
-        primaryColor={primaryColor}
-        hot={hot}
+        spokenWords={terminalWords}
         cursorBlinkOn={kin.cursorBlinkOn}
         fontSize={size}
         textOpacity={releaseOpacity}
+        frameOverride={frameOverride}
         style={style}
       />
     );
   }
 
-  const metricSize = fitSansWordSize(cue.text, 146, 916);
-  const skewDeg = Number((kin.slideTranslateX * -0.09).toFixed(2));
-  const chromaShadow =
-    kin.chromaticOffsetPx > 0.2
-      ? `-${kin.chromaticOffsetPx}px 0 0 rgba(255, 42, 75, 0.86), ${kin.chromaticOffsetPx}px 0 0 rgba(0, 229, 255, 0.86), 0 12px 34px rgba(0, 0, 0, 0.72)`
-      : hot
-        ? '0 0 38px rgba(255, 69, 0, 0.40), 0 12px 34px rgba(0, 0, 0, 0.72)'
-        : '0 12px 34px rgba(0, 0, 0, 0.72)';
-
-  const badgeEnter = clamp(
-    spring({
-      frame: kin.localCueFrame,
-      fps: FPS,
-      config: {damping: 20, stiffness: 150, overshootClamping: true},
-    }),
-    0,
-    1,
-  );
+  // ==========================================================================
+  // 3. METRIC / DATA ANIMATION (Staggered Multi-Word Metric Tokens + Glitch)
+  // ==========================================================================
+  const isSingleMetric = spokenCues.length === 1 && totalCharBudget === cue.text.length;
+  const metricSize = isSingleMetric
+    ? fitSansWordSize(cue.text, 146, 916)
+    : fitSansPhraseSize(totalCharBudget, spokenCues.length);
+  const skewDeg = Number((kin.slideTranslateX * -0.06).toFixed(2));
+  const firstPhraseDelay = spokenCues[0].startFrame - owningScene.from;
 
   return (
     <div
@@ -666,6 +830,7 @@ export const KineticEngine: React.FC<{
       data-full-token={cue.text}
       data-chromatic-aberration={kin.chromaticOffsetPx}
       data-opacity-flicker={kin.flickerOpacity}
+      data-staggered-word-count={spokenCues.length}
       style={{
         position: 'absolute',
         left: 56,
@@ -684,42 +849,75 @@ export const KineticEngine: React.FC<{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          opacity: kin.flickerOpacity,
-          transform: `translateX(${kin.slideTranslateX}px) skewX(${skewDeg}deg)`,
+          maxWidth: 948,
         }}
       >
-        <div
+        <StaggeredTextItem
+          text={`DATA_METRIC // IDX_${String(cue.globalIndex).padStart(2, '0')}`}
+          delay={firstPhraseDelay}
+          frameOverride={frameOverride}
           style={{
             fontFamily: MONO_STACK,
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: 2.4,
             color: '#38bdf8',
-            marginBottom: 8,
+            marginBottom: 10,
             padding: '3px 12px',
             border: '1px solid rgba(56, 189, 248, 0.35)',
-            background: 'rgba(8, 18, 32, 0.78)',
-            opacity: badgeEnter,
-            transform: `translateY(${((1 - badgeEnter) * 8).toFixed(1)}px) scale(${(0.95 + 0.05 * badgeEnter).toFixed(3)})`,
+            background: 'rgba(8, 18, 32, 0.84)',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'baseline',
+            gap: `${Math.round(metricSize * 0.14)}px ${Math.round(metricSize * 0.24)}px`,
           }}
         >
-          DATA_METRIC // IDX_{String(cue.globalIndex).padStart(2, '0')}
-        </div>
+          {spokenCues.map((wordCue) => {
+            const wordHot = isEmphasis(wordCue.text);
+            const isCurrent = wordCue.globalIndex === cue.globalIndex;
+            const chromaShadow =
+              isCurrent && kin.chromaticOffsetPx > 0.2
+                ? `-${kin.chromaticOffsetPx}px 0 0 rgba(255, 42, 75, 0.86), ${kin.chromaticOffsetPx}px 0 0 rgba(0, 229, 255, 0.86), 0 12px 34px rgba(0, 0, 0, 0.72)`
+                : wordHot
+                  ? '0 0 34px rgba(255, 69, 0, 0.38), 0 12px 34px rgba(0, 0, 0, 0.72)'
+                  : '0 12px 34px rgba(0, 0, 0, 0.72)';
 
-        <div style={{position: 'relative'}}>
-          <div
-            style={{
-              fontSize: metricSize,
-              fontWeight: 800,
-              letterSpacing: '-0.036em',
-              lineHeight: 0.96,
-              color: primaryColor,
-              textShadow: chromaShadow,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {cue.text}
-          </div>
+            return (
+              <span
+                key={wordCue.globalIndex}
+                style={{
+                  display: 'inline-block',
+                  opacity: isCurrent ? kin.flickerOpacity : 1,
+                  transform: isCurrent
+                    ? `translateX(${(kin.slideTranslateX * (isSingleMetric ? 1 : 0.38)).toFixed(1)}px) skewX(${skewDeg}deg)`
+                    : undefined,
+                }}
+              >
+                <StaggeredTextItem
+                  text={wordCue.text}
+                  delay={wordCue.startFrame - owningScene.from}
+                  frameOverride={frameOverride}
+                  dataAttrs={{'data-hero-word-index': wordCue.globalIndex}}
+                  style={{
+                    fontSize: metricSize,
+                    fontWeight: 800,
+                    letterSpacing: '-0.036em',
+                    lineHeight: 0.98,
+                    color: wordHot ? ORANGE : WHITE,
+                    textShadow: chromaShadow,
+                    whiteSpace: 'nowrap',
+                  }}
+                />
+              </span>
+            );
+          })}
 
           {kin.chromaticOffsetPx > 2.2 && (
             <div
@@ -744,11 +942,9 @@ export const KineticEngine: React.FC<{
 
 /**
  * Connected Kinetic Typography Stage (`useCurrentFrame()`):
- * - Smoothly scales (`0.95 -> 1.0`), slides (`translateY`), and fades (`0 -> 1`)
- *   `CLI_STDIN // LIVE_TYPEWRITER` terminal boxes in over 12 frames (with zero future-word preview)
- *   and reverses easing (`1.0 -> 0.95`, `translateY`, `1 -> 0`) out over up to 10 frames.
- * - Smoothly reverse-eases outgoing `'hook-climax'` and `'metric-glitch'` words during breath gaps
- *   and into scene clears so nothing vanishes on an abrupt binary frame cut.
+ * Accumulates spoken words inside each beat's HeroPhraseSpec using `StaggeredTextItem`
+ * (`damping: 12, stiffness: 200`, `translateY: 20 -> 0`, `opacity: 0 -> 1`, `delay = word.startFrame - scene.from`),
+ * with zero future-word previews and smooth reverse-eased phrase exits.
  */
 export const SceneKineticStage: React.FC<{
   scene: SceneSpec;
@@ -760,141 +956,103 @@ export const SceneKineticStage: React.FC<{
   const activeEnd =
     scene.id === 'outro' ? OUTRO_CUT_FRAME : scene.endFrame - scene.clearFrames;
 
-  const activeTwWin = SCENE_TYPEWRITER_WINDOWS[scene.id].find(
-    (w) => globalFrame >= w.renderStartFrame && globalFrame < w.renderEndFrame,
+  const phrase = SCENE_HERO_PHRASES[scene.id].find(
+    (p) => globalFrame >= p.renderStartFrame && globalFrame < p.renderEndFrame,
   );
+  if (!phrase) return null;
 
-  // Render outgoing/pre-warm terminal box if activeCue is absent or belongs to a non-typewriter schema
-  const activeIsTypewriter =
-    activeCue !== null && resolveCueTypographicSchema(activeCue, scene.id) === 'code-typewriter';
-
-  const backgroundTerminalNode =
-    activeTwWin && !activeIsTypewriter
-      ? (() => {
-          const env = computeAssetTransition(
-            globalFrame - activeTwWin.renderStartFrame,
-            activeTwWin.renderEndFrame - activeTwWin.renderStartFrame,
-            {
-              enterFrames: TYPEWRITER_ENTER_FRAMES,
-              exitFrames: TYPEWRITER_EXIT_FRAMES,
-              slidePx: 18,
-            },
-          );
-          const isPreWarm = globalFrame < activeTwWin.firstWordStartFrame;
-          const blink = Math.floor(globalFrame / 4) % 2 === 0;
-
-          if (isPreWarm) {
-            return (
-              <TerminalTypewriterBox
-                variant={scene.id}
-                envelope={env}
-                tokenAttr=""
-                charCounterLabel="0/0"
-                placeholderText="      "
-                visibleText=""
-                primaryColor={WHITE}
-                hot={false}
-                cursorBlinkOn={blink}
-                fontSize={96}
-              />
-            );
-          }
-
-          const lastTwCue = SCRIPT_CUES[activeTwWin.lastWordIndex];
-          const size = fitMonoWordSize(lastTwCue.text, 112, 868);
-          const hot = isEmphasis(lastTwCue.text);
-          // If another non-typewriter word is simultaneously speaking right at phrase end, slide the receding terminal shell slightly further down so they never collide
-          const extraDown = activeCue ? (1 - env.exitProgress) * 34 : 0;
-
-          return (
-            <TerminalTypewriterBox
-              variant={scene.id}
-              envelope={env}
-              tokenAttr={lastTwCue.text}
-              charCounterLabel={`${lastTwCue.text.length}/${lastTwCue.text.length}`}
-              placeholderText={lastTwCue.text}
-              visibleText={activeCue ? '' : lastTwCue.text}
-              primaryColor={hot ? ORANGE : WHITE}
-              hot={hot}
-              cursorBlinkOn={blink}
-              fontSize={size}
-              textOpacity={env.exitProgress}
-              extraTranslateY={extraDown}
-            />
-          );
-        })()
-      : null;
-
-  if (activeCue) {
-    // If this is the final word before scene clear, gently reverse-ease its final frames if cue reaches activeEnd
-    const remainingToClear = activeEnd - globalFrame;
-    const clearTail =
-      remainingToClear <= 6
-        ? interpolate(remainingToClear, [0, 6], [0, 1], {
-            easing: Easing.out(Easing.cubic),
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          })
-        : 1;
+  // Pre-warm awaiting CLI cursor shell for code-typewriter phrases (zero future-word preview)
+  if (phrase.schema === 'code-typewriter' && globalFrame < phrase.firstWordStartFrame) {
+    const env = computeAssetTransition(
+      globalFrame - phrase.renderStartFrame,
+      phrase.renderEndFrame - phrase.renderStartFrame,
+      {
+        enterFrames: TYPEWRITER_ENTER_FRAMES,
+        exitFrames: TYPEWRITER_EXIT_FRAMES,
+        slidePx: 18,
+      },
+    );
+    const blink = Math.floor(globalFrame / 4) % 2 === 0;
     return (
-      <>
-        {backgroundTerminalNode}
-        <KineticEngine
-          cue={activeCue}
-          variant={scene.id}
-          globalFrame={globalFrame}
-          releaseOpacity={clearTail}
-          releaseScale={0.95 + 0.05 * clearTail}
-          releaseTranslateY={(1 - clearTail) * 14}
-        />
-      </>
+      <TerminalTypewriterBox
+        variant={scene.id}
+        sceneFrom={scene.from}
+        envelope={env}
+        tokenAttr=""
+        charCounterLabel="0/0"
+        spokenWords={[]}
+        cursorBlinkOn={blink}
+        fontSize={fitMonoPhraseSize(phrase.fullCharCount)}
+      />
     );
   }
 
-  if (backgroundTerminalNode) {
-    return backgroundTerminalNode;
-  }
-
-  // Smooth post-word reverse-eased release for non-typewriter words during breath pauses
-  let prevCue: ScriptCue | null = null;
-  for (let i = scene.firstWordIndex; i <= scene.lastWordIndex; i += 1) {
-    if (SCRIPT_CUES[i].endFrame <= globalFrame) {
-      prevCue = SCRIPT_CUES[i];
+  // Strictly include ONLY words that have begun speaking at or before globalFrame
+  const spokenPhraseCues: ScriptCue[] = [];
+  for (let i = phrase.firstWordIndex; i <= phrase.lastWordIndex; i += 1) {
+    const c = SCRIPT_CUES[i];
+    if (c.startFrame <= globalFrame) {
+      spokenPhraseCues.push(c);
     }
   }
-  if (!prevCue || resolveCueTypographicSchema(prevCue, scene.id) === 'code-typewriter') {
-    return null;
-  }
+  if (spokenPhraseCues.length === 0) return null;
 
-  const nextCue =
-    prevCue.globalIndex + 1 <= scene.lastWordIndex
-      ? SCRIPT_CUES[prevCue.globalIndex + 1]
-      : null;
-  const maxTailEnd = Math.min(activeEnd, nextCue ? nextCue.startFrame : activeEnd);
-  const gapLen = maxTailEnd - prevCue.endFrame;
-  const tailDuration = Math.min(9, gapLen);
-  const postElapsed = globalFrame - prevCue.endFrame;
+  const leadCue =
+    activeCue &&
+    activeCue.globalIndex >= phrase.firstWordIndex &&
+    activeCue.globalIndex <= phrase.lastWordIndex
+      ? activeCue
+      : spokenPhraseCues[spokenPhraseCues.length - 1];
 
-  if (tailDuration < 2 || postElapsed < 0 || postElapsed >= tailDuration) {
-    return null;
-  }
+  const isPostPhraseRelease = globalFrame >= phrase.lastWordEndFrame;
+  const postSpan = Math.max(1, phrase.renderEndFrame - phrase.lastWordEndFrame);
+  const postProgress = isPostPhraseRelease
+    ? interpolate(globalFrame - phrase.lastWordEndFrame, [0, postSpan], [1, 0], {
+        easing: Easing.inOut(Easing.cubic),
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      })
+    : 1;
 
-  const releaseProgress = interpolate(postElapsed, [0, tailDuration], [1, 0], {
-    easing: Easing.inOut(Easing.cubic),
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const releaseScale = 0.95 + 0.05 * releaseProgress;
-  const releaseTranslateY = (1 - releaseProgress) * 14;
+  const remainingToClear = activeEnd - globalFrame;
+  const clearTail =
+    remainingToClear <= 6
+      ? interpolate(remainingToClear, [0, 6], [0, 1], {
+          easing: Easing.out(Easing.cubic),
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
+      : 1;
+
+  const releaseOpacity = Number(Math.min(postProgress, clearTail).toFixed(4));
+  const releaseScale = Number((0.95 + 0.05 * releaseOpacity).toFixed(4));
+  const releaseTranslateY = Number(((1 - releaseOpacity) * 14).toFixed(2));
+
+  const phraseTwEnv =
+    phrase.schema === 'code-typewriter'
+      ? computeAssetTransition(
+          globalFrame - phrase.renderStartFrame,
+          Math.max(12, phrase.renderEndFrame - phrase.renderStartFrame),
+          {
+            enterFrames: TYPEWRITER_ENTER_FRAMES,
+            exitFrames: TYPEWRITER_EXIT_FRAMES,
+            slidePx: 18,
+          },
+        )
+      : undefined;
 
   return (
     <KineticEngine
-      cue={prevCue}
+      cue={leadCue}
       variant={scene.id}
-      globalFrame={prevCue.endFrame - 1}
-      releaseOpacity={Number(releaseProgress.toFixed(4))}
-      releaseScale={Number(releaseScale.toFixed(4))}
-      releaseTranslateY={Number(releaseTranslateY.toFixed(2))}
+      globalFrame={isPostPhraseRelease ? phrase.lastWordEndFrame - 1 : globalFrame}
+      phraseCues={spokenPhraseCues}
+      fullPhraseCharCount={phrase.fullCharCount}
+      useLiveRemotionHooks
+      releaseOpacity={releaseOpacity}
+      releaseScale={releaseScale}
+      releaseTranslateY={releaseTranslateY}
+      terminalEnvelope={phraseTwEnv}
     />
   );
 };

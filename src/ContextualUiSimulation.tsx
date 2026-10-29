@@ -1,6 +1,7 @@
 import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame} from 'remotion';
 import {CRIMSON} from './EmotionalPacing';
+import {StaggeredTextItem} from './StaggeredTextItem';
 import {TimelineGrid} from './TimelineGrid';
 import {
   FPS,
@@ -160,6 +161,8 @@ export const computeAssetTransition = (
 
 export type ActiveUiSimulationState = SceneUiClauseSpec & {
   globalFrame: number;
+  sceneFrom: number;
+  clauseStartLocal: number;
   renderStartFrame: number;
   renderEndFrame: number;
   clauseElapsed: number;
@@ -487,6 +490,8 @@ const buildSimulationStateForSpec = (
   return {
     ...spec,
     globalFrame,
+    sceneFrom: scene.from,
+    clauseStartLocal: renderStartFrame - scene.from,
     renderStartFrame,
     renderEndFrame,
     clauseElapsed: elapsed,
@@ -596,9 +601,22 @@ const SciFiUiCard: React.FC<{
   accentColor: string;
   alertMode?: boolean;
   envelope: AssetTransitionEnvelope;
+  baseDelay: number;
+  frameOverride?: number;
   children: React.ReactNode;
   dataAttrs?: Record<string, string | number | boolean>;
-}> = ({slot, title, badge, accentColor, alertMode = false, envelope, children, dataAttrs}) => {
+}> = ({
+  slot,
+  title,
+  badge,
+  accentColor,
+  alertMode = false,
+  envelope,
+  baseDelay,
+  frameOverride,
+  children,
+  dataAttrs,
+}) => {
   const isUpper = slot === 'upper-focal';
   const top = isUpper ? 120 : 1144;
   const height = isUpper ? 552 : 632;
@@ -661,7 +679,10 @@ const SciFiUiCard: React.FC<{
               display: 'inline-block',
             }}
           />
-          <span
+          <StaggeredTextItem
+            text={title}
+            delay={baseDelay + 1}
+            frameOverride={frameOverride}
             style={{
               fontFamily: MONO,
               fontSize: 13,
@@ -669,11 +690,12 @@ const SciFiUiCard: React.FC<{
               letterSpacing: 2.1,
               color: WHITE,
             }}
-          >
-            {title}
-          </span>
+          />
         </div>
-        <span
+        <StaggeredTextItem
+          text={badge}
+          delay={baseDelay + 3}
+          frameOverride={frameOverride}
           style={{
             fontFamily: MONO,
             fontSize: 11.5,
@@ -684,9 +706,7 @@ const SciFiUiCard: React.FC<{
             border: `1px solid ${alertMode ? 'rgba(225,29,72,0.65)' : 'rgba(255,69,0,0.45)'}`,
             background: alertMode ? 'rgba(225,29,72,0.22)' : 'rgba(255,69,0,0.10)',
           }}
-        >
-          {badge}
-        </span>
+        />
       </div>
 
       <div
@@ -901,7 +921,10 @@ const getPromptPreset = (state: ActiveUiSimulationState): PromptPreset => {
   }
 };
 
-const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({state}) => {
+const PromptCliSimulationPair: React.FC<{
+  state: ActiveUiSimulationState;
+  frameOverride?: number;
+}> = ({state, frameOverride}) => {
   const preset = getPromptPreset(state);
   const accent = preset.rejected ? CRIMSON : ORANGE;
 
@@ -938,6 +961,8 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
         accentColor={accent}
         alertMode={Boolean(preset.rejected)}
         envelope={state.upperEnvelope}
+        baseDelay={state.clauseStartLocal}
+        frameOverride={frameOverride}
         dataAttrs={{
           'data-ui-sim-kind': 'prompt-cli',
           'data-ui-variant': state.variant,
@@ -1045,7 +1070,12 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                   <span style={{color: tok.err ? '#ff8fa3' : ORANGE, fontWeight: 700, fontSize: 11}}>
                     [{tok.tag}]
                   </span>
-                  <span style={{color: WHITE}}>{tok.val}</span>
+                  <StaggeredTextItem
+                    text={tok.val}
+                    delay={state.clauseStartLocal + 3 + idx * 3}
+                    frameOverride={frameOverride}
+                    style={{color: WHITE}}
+                  />
                 </div>
               );
             })}
@@ -1075,11 +1105,15 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                   fontFamily: MONO,
                   fontSize: 13,
                   opacity: stReveal.opacity,
-                  transform: `translate3d(0, ${stReveal.translateY}px, 0)`,
                 }}
               >
                 <span style={{color: MUTED, letterSpacing: 1.4}}>{st.label}</span>
-                <span style={{color: statusCol, fontWeight: 700}}>{st.value}</span>
+                <StaggeredTextItem
+                  text={st.value}
+                  delay={state.clauseStartLocal + 4 + idx * 3}
+                  frameOverride={frameOverride}
+                  style={{color: statusCol, fontWeight: 700}}
+                />
               </div>
             );
           })}
@@ -1093,6 +1127,8 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
         accentColor={accent}
         alertMode={Boolean(preset.rejected)}
         envelope={state.lowerEnvelope}
+        baseDelay={state.clauseStartLocal + 2}
+        frameOverride={frameOverride}
         dataAttrs={{
           'data-ui-lower-kind': state.variant === 'intent-to-engine' ? 'engine-pipeline' : 'prompt-cli',
         }}
@@ -1162,12 +1198,17 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
                   background: row.alert ? 'rgba(225,29,72,0.12)' : 'rgba(244,247,255,0.03)',
                   borderLeft: `3px solid ${row.alert ? CRIMSON : ORANGE}`,
                   opacity: rowEnv.opacity,
-                  transform: `translate3d(0, ${rowEnv.translateY}px, 0) scale(${rowEnv.scale})`,
                   fontFamily: MONO,
                   fontSize: 14,
+                  overflow: 'hidden',
                 }}
               >
-                <span style={{color: row.alert ? '#ffd6df' : WHITE}}>{row.line}</span>
+                <StaggeredTextItem
+                  text={row.line}
+                  delay={state.clauseStartLocal + 2 + idx * 4}
+                  frameOverride={frameOverride}
+                  style={{color: row.alert ? '#ffd6df' : WHITE}}
+                />
                 <span
                   style={{
                     color: row.alert ? CRIMSON : ORANGE,
@@ -1210,7 +1251,10 @@ const PromptCliSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({st
 // ============================================================================
 // 2. ENGINE / COMPILER SIMULATION: Live Node-Graph Pipeline & Execution Terminal
 // ============================================================================
-const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({state}) => {
+const EnginePipelineSimulationPair: React.FC<{
+  state: ActiveUiSimulationState;
+  frameOverride?: number;
+}> = ({state, frameOverride}) => {
   const gf = state.globalFrame;
 
   const graphConfig = (() => {
@@ -1461,6 +1505,8 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
         accentColor={graphConfig.alert ? CRIMSON : ORANGE}
         alertMode={graphConfig.alert}
         envelope={state.upperEnvelope}
+        baseDelay={state.clauseStartLocal}
+        frameOverride={frameOverride}
         dataAttrs={{
           'data-ui-sim-kind': 'engine-pipeline',
           'data-ui-variant': state.variant,
@@ -1689,21 +1735,22 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                       border: '1px solid rgba(244,247,255,0.09)',
                       fontFamily: MONO,
                       opacity: mr.opacity,
-                      transform: `translate3d(0, ${mr.translateY}px, 0) scale(${mr.scale})`,
+                      overflow: 'hidden',
                     }}
                   >
                     <div style={{fontSize: 10.5, letterSpacing: 1.6, color: MUTED, marginBottom: 6}}>
                       {m.k}
                     </div>
-                    <div
+                    <StaggeredTextItem
+                      text={m.v}
+                      delay={state.clauseStartLocal + 3 + idx * 3}
+                      frameOverride={frameOverride}
                       style={{
                         fontSize: 14,
                         fontWeight: 700,
                         color: graphConfig.alert && m.k === 'STATE_ISOLATION' ? CRIMSON : WHITE,
                       }}
-                    >
-                      {m.v}
-                    </div>
+                    />
                   </div>
                 );
               })}
@@ -1719,6 +1766,8 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
         accentColor={graphConfig.alert ? CRIMSON : ORANGE}
         alertMode={graphConfig.alert}
         envelope={state.lowerEnvelope}
+        baseDelay={state.clauseStartLocal + 2}
+        frameOverride={frameOverride}
         dataAttrs={{'data-ui-lower-kind': 'execution-terminal'}}
       >
         <div style={{display: 'flex', flexDirection: 'column', gap: 15, flex: 1, justifyContent: 'center'}}>
@@ -1736,12 +1785,17 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
                   background: isErr ? 'rgba(225,29,72,0.13)' : 'rgba(244,247,255,0.03)',
                   borderLeft: `3px solid ${isErr ? CRIMSON : ORANGE}`,
                   opacity: rowEnv.opacity,
-                  transform: `translate3d(0, ${rowEnv.translateY}px, 0) scale(${rowEnv.scale})`,
                   fontFamily: MONO,
                   fontSize: 14,
+                  overflow: 'hidden',
                 }}
               >
-                <span style={{color: isErr ? '#ffd6df' : WHITE}}>{row.cmd}</span>
+                <StaggeredTextItem
+                  text={row.cmd}
+                  delay={state.clauseStartLocal + 2 + idx * 4}
+                  frameOverride={frameOverride}
+                  style={{color: isErr ? '#ffd6df' : WHITE}}
+                />
                 <span
                   style={{
                     color: isErr ? CRIMSON : '#34d399',
@@ -1784,7 +1838,10 @@ const EnginePipelineSimulationPair: React.FC<{state: ActiveUiSimulationState}> =
 // ============================================================================
 // 3. BREAK / ERROR SIMULATION: Red Diagnostic Warning Overlay + Stack-Trace Logs
 // ============================================================================
-const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> = ({state}) => {
+const ErrorDiagnosticSimulationPair: React.FC<{
+  state: ActiveUiSimulationState;
+  frameOverride?: number;
+}> = ({state, frameOverride}) => {
   const gf = state.globalFrame;
 
   const diag = (() => {
@@ -1904,6 +1961,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
         accentColor={CRIMSON}
         alertMode
         envelope={state.upperEnvelope}
+        baseDelay={state.clauseStartLocal}
+        frameOverride={frameOverride}
         dataAttrs={{
           'data-ui-sim-kind': 'error-diagnostic',
           'data-ui-variant': state.variant,
@@ -1918,7 +1977,10 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
             borderLeft: `5px solid ${CRIMSON}`,
           }}
         >
-          <div
+          <StaggeredTextItem
+            text={diag.headline}
+            delay={state.clauseStartLocal + 2}
+            frameOverride={frameOverride}
             style={{
               fontFamily: MONO,
               fontSize: 16.5,
@@ -1926,9 +1988,7 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
               color: '#ffe4e8',
               marginBottom: 8,
             }}
-          >
-            {diag.headline}
-          </div>
+          />
           <div style={{fontFamily: MONO, fontSize: 13, color: 'rgba(255,228,232,0.78)', lineHeight: 1.45}}>
             {diag.subline}
           </div>
@@ -1962,13 +2022,18 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
                   border: '1px solid rgba(225,29,72,0.38)',
                   fontFamily: MONO,
                   opacity: mr.opacity,
-                  transform: `translate3d(0, ${mr.translateY}px, 0) scale(${mr.scale})`,
+                  overflow: 'hidden',
                 }}
               >
                 <div style={{fontSize: 10.5, letterSpacing: 1.5, color: '#fda4af', marginBottom: 6}}>
                   {m.k}
                 </div>
-                <div style={{fontSize: 13.5, fontWeight: 700, color: WHITE}}>{m.v}</div>
+                <StaggeredTextItem
+                  text={m.v}
+                  delay={state.clauseStartLocal + 3 + idx * 3}
+                  frameOverride={frameOverride}
+                  style={{fontSize: 13.5, fontWeight: 700, color: WHITE}}
+                />
               </div>
             );
           })}
@@ -1982,6 +2047,8 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
         accentColor={CRIMSON}
         alertMode
         envelope={state.lowerEnvelope}
+        baseDelay={state.clauseStartLocal + 2}
+        frameOverride={frameOverride}
         dataAttrs={{'data-ui-lower-kind': 'stack-trace-logs'}}
       >
         <div
@@ -2010,13 +2077,19 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
                   padding: '8px 12px',
                   background: isHeader ? 'rgba(225,29,72,0.20)' : 'rgba(225,29,72,0.05)',
                   borderLeft: `3px solid ${isHeader ? CRIMSON : 'rgba(225,29,72,0.45)'}`,
-                  color: isHeader ? '#ffe4e8' : '#fda4af',
-                  fontWeight: isHeader ? 700 : 400,
                   opacity: rowEnv.opacity,
-                  transform: `translate3d(0, ${rowEnv.translateY}px, 0)`,
+                  overflow: 'hidden',
                 }}
               >
-                {line}
+                <StaggeredTextItem
+                  text={line}
+                  delay={state.clauseStartLocal + 2 + idx * 4}
+                  frameOverride={frameOverride}
+                  style={{
+                    color: isHeader ? '#ffe4e8' : '#fda4af',
+                    fontWeight: isHeader ? 700 : 400,
+                  }}
+                />
               </div>
             );
           })}
@@ -2042,11 +2115,13 @@ const ErrorDiagnosticSimulationPair: React.FC<{state: ActiveUiSimulationState}> 
 export const ContextualUiSimulationLayer: React.FC<{
   scene: SceneSpec;
   localFrame: number;
-}> = ({scene, localFrame}) => {
+  useLiveRemotionHooks?: boolean;
+}> = ({scene, localFrame, useLiveRemotionHooks = false}) => {
   const states = getActiveUiSimulations(scene, localFrame);
   if (states.length === 0) return null;
 
   const primary = getActiveUiSimulation(scene, localFrame) ?? states[states.length - 1];
+  const frameOverride = useLiveRemotionHooks ? undefined : localFrame;
 
   return (
     <div
@@ -2059,9 +2134,15 @@ export const ContextualUiSimulationLayer: React.FC<{
         const isAlert = state.kind === 'error-diagnostic';
         return (
           <div key={state.id} style={{position: 'absolute', inset: 0}}>
-            {state.kind === 'prompt-cli' && <PromptCliSimulationPair state={state} />}
-            {state.kind === 'engine-pipeline' && <EnginePipelineSimulationPair state={state} />}
-            {state.kind === 'error-diagnostic' && <ErrorDiagnosticSimulationPair state={state} />}
+            {state.kind === 'prompt-cli' && (
+              <PromptCliSimulationPair state={state} frameOverride={frameOverride} />
+            )}
+            {state.kind === 'engine-pipeline' && (
+              <EnginePipelineSimulationPair state={state} frameOverride={frameOverride} />
+            )}
+            {state.kind === 'error-diagnostic' && (
+              <ErrorDiagnosticSimulationPair state={state} frameOverride={frameOverride} />
+            )}
 
             <div
               data-spoken-clause-strip={state.id}
@@ -2076,7 +2157,7 @@ export const ContextualUiSimulationLayer: React.FC<{
                 justifyContent: 'center',
                 gap: 10,
                 padding: '0 20px',
-                background: 'rgba(11, 15, 25, 0.82)',
+                background: 'rgba(11, 15, 25, 0.90)',
                 borderTop: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
                 borderBottom: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
                 fontFamily: MONO,
@@ -2099,21 +2180,25 @@ export const ContextualUiSimulationLayer: React.FC<{
                 {state.moduleCode} //
               </span>
               {state.spokenClauseWords.length === 0 ? (
-                <span style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}>
-                  SYNCING_CLAUSE_LOCK...
-                </span>
+                <StaggeredTextItem
+                  text="SYNCING_CLAUSE_LOCK..."
+                  delay={state.clauseStartLocal + 1}
+                  frameOverride={frameOverride}
+                  style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}
+                />
               ) : (
                 state.spokenClauseWords.map((w) => (
-                  <span
+                  <StaggeredTextItem
                     key={w.index}
+                    text={w.text}
+                    delay={SCRIPT_CUES[w.index].startFrame - scene.from}
+                    frameOverride={frameOverride}
+                    dataAttrs={{'data-clause-word-index': w.index}}
                     style={{
-                      color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : WHITE,
+                      color: w.isCurrent ? (isAlert ? '#ff8fa3' : ORANGE) : 'rgba(244, 247, 255, 0.80)',
                       fontWeight: w.isCurrent ? 800 : 500,
-                      opacity: w.isCurrent ? 1 : 0.76,
                     }}
-                  >
-                    {w.text}
-                  </span>
+                  />
                 ))
               )}
             </div>
@@ -2129,5 +2214,5 @@ export const ContextualUiSimulationLayer: React.FC<{
  */
 export const ConnectedContextualUiSimulation: React.FC<{scene: SceneSpec}> = ({scene}) => {
   const localFrame = useCurrentFrame();
-  return <ContextualUiSimulationLayer scene={scene} localFrame={localFrame} />;
+  return <ContextualUiSimulationLayer scene={scene} localFrame={localFrame} useLiveRemotionHooks />;
 };

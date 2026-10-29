@@ -37,6 +37,7 @@ const {
 const {
   KineticEngine,
   SceneSemanticGraph,
+  SCENE_HERO_PHRASES,
   SCENE_TYPEWRITER_WINDOWS,
   TYPEWRITER_ENTER_FRAMES,
   getTypewriterWindowEnvelope,
@@ -44,6 +45,11 @@ const {
   resolveCueTypographicSchema,
   computeTypographicKinematics,
 } = require('../src/KineticEngine.tsx');
+const {
+  STAGGERED_SPRING_CONFIG,
+  StaggeredTextItem,
+  computeStaggeredTextMotion,
+} = require('../src/StaggeredTextItem.tsx');
 const {
   SFX_PATHS,
   getSceneWordAudioCues,
@@ -97,6 +103,7 @@ const requiredFiles = [
   'src/EmotionalPacing.tsx',
   'src/TelemetryHud.tsx',
   'src/KineticEngine.tsx',
+  'src/StaggeredTextItem.tsx',
   'src/TimelineGrid.tsx',
   'src/scenes/HookScene.tsx',
   'src/scenes/TwistScene.tsx',
@@ -383,6 +390,80 @@ for (const sceneFile of [
     `${sceneFile} must mount <SceneKineticStage> and <ConnectedAtmosphericOverlays>`,
   );
 }
+
+// Verify StaggeredTextItem ({ damping: 12, stiffness: 200 }, translateY: 20 -> 0, opacity: 0 -> 1)
+// across BOTH multi-word Hero Phrases and UI Simulation cards / Clause Strip across all 6 scenes!
+const staggeredSrc = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'StaggeredTextItem.tsx'),
+  'utf8',
+);
+assert.ok(
+  staggeredSrc.includes('useCurrentFrame') && staggeredSrc.includes('useVideoConfig'),
+  'StaggeredTextItem must use Remotion useCurrentFrame() and useVideoConfig()',
+);
+assert.equal(STAGGERED_SPRING_CONFIG.damping, 12, 'StaggeredTextItem damping must be 12');
+assert.equal(STAGGERED_SPRING_CONFIG.stiffness, 200, 'StaggeredTextItem stiffness must be 200');
+
+const stPre = computeStaggeredTextMotion(5, 10, 30);
+const stMid = computeStaggeredTextMotion(13, 10, 30);
+const stSettled = computeStaggeredTextMotion(55, 10, 30);
+assert.equal(stPre.opacity, 0, 'StaggeredTextItem before delay must have opacity 0');
+assert.equal(stPre.translateY, 20, 'StaggeredTextItem before delay must start at translateY 20px');
+assert.ok(stMid.opacity > 0.4 && stMid.translateY < 15, 'StaggeredTextItem must spring upward after delay');
+assert.ok(Math.abs(stSettled.opacity - 1) < 0.01, 'StaggeredTextItem must settle at opacity 1');
+assert.ok(Math.abs(stSettled.translateY) < 0.05, 'StaggeredTextItem must settle at translateY 0px');
+
+const sampleStaggerMarkup = renderToStaticMarkup(
+  React.createElement(StaggeredTextItem, {text: 'ENGINE', delay: 10, frameOverride: 10}),
+);
+assert.ok(sampleStaggerMarkup.includes('display:inline-block'), 'StaggeredTextItem must be inline-block');
+assert.ok(sampleStaggerMarkup.includes('translateY(20px)'), 'StaggeredTextItem must start at translateY(20px)');
+
+let heroPhraseWordTotal = 0;
+for (const scene of SCENE_SEQUENCES) {
+  const phrases = SCENE_HERO_PHRASES[scene.id];
+  assert.ok(phrases.length >= 3, `Scene ${scene.id} must define multi-phrase staggered hero progression`);
+  for (const ph of phrases) {
+    for (let wi = ph.firstWordIndex; wi <= ph.lastWordIndex; wi += 1) {
+      assert.equal(
+        resolveCueTypographicSchema(SCRIPT_CUES[wi], scene.id),
+        ph.schema,
+        `Hero phrase ${ph.id} must maintain homogeneous schema ${ph.schema}`,
+      );
+      heroPhraseWordTotal += 1;
+    }
+    if (ph.lastWordIndex > ph.firstWordIndex) {
+      const phraseCues = SCRIPT_CUES.slice(ph.firstWordIndex, ph.lastWordIndex + 1);
+      const lastCue = phraseCues[phraseCues.length - 1];
+      const phraseHtml = renderToStaticMarkup(
+        React.createElement(KineticEngine, {
+          cue: lastCue,
+          variant: scene.id,
+          globalFrame: lastCue.startFrame + 2,
+          phraseCues,
+          fullPhraseCharCount: ph.fullCharCount,
+        }),
+      );
+      const itemMatches = phraseHtml.match(/data-staggered-item="true"/g) || [];
+      assert.ok(
+        itemMatches.length >= phraseCues.length,
+        `Multi-word hero phrase ${ph.id} must render each spoken word via StaggeredTextItem`,
+      );
+    }
+  }
+  const midUiHtml = renderToStaticMarkup(
+    React.createElement(ContextualUiSimulationLayer, {
+      scene,
+      localFrame: Math.min(scene.durationInFrames - 10, 30),
+    }),
+  );
+  const uiStaggerMatches = midUiHtml.match(/data-staggered-item="true"/g) || [];
+  assert.ok(
+    uiStaggerMatches.length >= 6,
+    `UI simulation & clause strip in ${scene.id} must animate items via StaggeredTextItem`,
+  );
+}
+assert.equal(heroPhraseWordTotal, SCRIPT_CUES.length, 'SCENE_HERO_PHRASES must partition all 91 script cues');
 
 // Verify specific narrative UI components at key script moments:
 // A) "Prompt harder?" (F0376) & "pretty prompt." (F0616) & "Same inputs." (F0942) -> AI CLI input box + blinking cursor + tokenization
