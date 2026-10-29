@@ -21,32 +21,37 @@ import {
 export {SceneContainer} from '../SceneContainer';
 
 /**
- * Clean, subtle, non-distracting architectural coordinate grid on deep obsidian (#0b0f19).
- * Zero random grid dots, zero orbital circles, zero unscripted geometric loops.
+ * Clean, subtle, non-distracting two-tier architectural coordinate grid on deep obsidian (#0b0f19).
+ * Zero radial blobs, zero random grid dots, zero orbital circles, zero unscripted geometric loops.
  */
 export const CleanCoordinateGrid: React.FC<{
   gridOpacity?: number;
   glowOpacity?: number;
-}> = ({gridOpacity = 0.085, glowOpacity = 0.05}) => (
+}> = ({gridOpacity = 0.075}) => (
   <div
     data-clean-coordinate-grid="true"
     style={{position: 'absolute', inset: 0, background: OBSIDIAN, overflow: 'hidden'}}
   >
+    {/* Minor 90px coordinate subdivisions */}
     <div
       style={{
         position: 'absolute',
         inset: 0,
-        background: `radial-gradient(circle at 50% 48%, rgba(255,69,0,${glowOpacity.toFixed(3)}), transparent 56%)`,
-      }}
-    />
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        opacity: gridOpacity,
+        opacity: gridOpacity * 0.55,
         backgroundImage:
           'linear-gradient(rgba(244,247,255,.32) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.32) 1px, transparent 1px)',
         backgroundSize: '90px 90px',
+      }}
+    />
+    {/* Major 360px coordinate axes */}
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        opacity: gridOpacity * 0.9,
+        backgroundImage:
+          'linear-gradient(rgba(244,247,255,.38) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,255,.38) 1px, transparent 1px)',
+        backgroundSize: '360px 360px',
       }}
     />
   </div>
@@ -101,12 +106,7 @@ export const SceneStage: React.FC<{
             }}
           >
             <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
-              {background ?? (
-                <CleanCoordinateGrid
-                  gridOpacity={cinema.ambientGridOpacity}
-                  glowOpacity={cinema.mode === 'tension' ? 0.065 : 0.038}
-                />
-              )}
+              {background ?? <CleanCoordinateGrid gridOpacity={cinema.ambientGridOpacity} />}
               <ContextualVectorBroll scene={scene} localFrame={localFrame} />
             </div>
             {threeD && (
@@ -140,7 +140,7 @@ export const SceneThreeCanvas: React.FC<{
   fov?: number;
   opacity?: number;
   children?: React.ReactNode;
-}> = ({scene, localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.56, children}) => {
+}> = ({scene, localFrame, energy, baseZ = 13.4, fov = 42, opacity = 0.5, children}) => {
   const activeBursts = getActiveBrollBursts(scene, localFrame);
   if (activeBursts.length === 0 && !children) {
     return null;
@@ -152,7 +152,7 @@ export const SceneThreeCanvas: React.FC<{
       height={STAGE_HEIGHT}
       dpr={1}
       camera={{
-        position: [0, 0, baseZ - energy * 0.2],
+        position: [0, 0, baseZ - energy * 0.15],
         fov,
         near: 0.1,
         far: 70,
