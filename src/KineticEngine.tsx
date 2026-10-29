@@ -518,6 +518,7 @@ const TerminalTypewriterBox: React.FC<{
   fontSize: number;
   allowWrap?: boolean;
   textOpacity?: number;
+  foregroundShakeX?: number;
   frameOverride?: number;
   style?: React.CSSProperties;
 }> = ({
@@ -531,19 +532,22 @@ const TerminalTypewriterBox: React.FC<{
   fontSize,
   allowWrap = false,
   textOpacity = 1,
+  foregroundShakeX = 0,
   frameOverride,
   style,
 }) => {
   // Smooth horizontal terminal slide envelope (-84px -> 0 on entrance, +72px on exit)
   const slideX =
-    envelope.phase === 'entering'
+    (envelope.phase === 'entering'
       ? (1 - envelope.enterProgress) * -84
       : envelope.phase === 'exiting'
         ? (1 - envelope.exitProgress) * 72
-        : 0;
+        : 0) + foregroundShakeX;
 
   return (
     <div
+      data-canvas-layer="hero-kinetic-text"
+      data-layer-z={55}
       data-kinetic-variant={variant}
       data-typography-schema="code-typewriter"
       data-motion-family="horizontal-terminal-slide"
@@ -551,33 +555,30 @@ const TerminalTypewriterBox: React.FC<{
       data-typed-chars={charCounterLabel}
       data-terminal-box-opacity={envelope.opacity}
       data-terminal-box-slide-x={slideX.toFixed(2)}
+      data-terminal-typewriter-box="true"
       style={{
         position: 'absolute',
-        left: 60,
-        right: 60,
-        top: 852,
-        transform: `translate3d(${slideX.toFixed(2)}px, -50%, 0)`,
+        left: '50%',
+        top: 848,
+        zIndex: 55,
+        transform: `translate3d(calc(-50% + ${slideX.toFixed(2)}px), -50%, 0)`,
         opacity: envelope.opacity,
-        display: 'grid',
-        placeItems: 'center',
+        padding: '18px 34px 22px',
+        background: 'rgba(7, 11, 21, 0.96)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 69, 0, 0.52)',
+        borderLeft: `4px solid ${ORANGE}`,
+        boxShadow:
+          '0 36px 90px rgba(0, 0, 0, 0.92), 0 0 44px rgba(255, 69, 0, 0.14), inset 0 0 24px rgba(255, 69, 0, 0.06)',
+        maxWidth: 948,
+        minWidth: 440,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
         pointerEvents: 'none',
         ...style,
       }}
     >
-      <div
-        data-terminal-typewriter-box="true"
-        style={{
-          padding: '16px 32px 20px',
-          background: 'rgba(8, 13, 24, 0.94)',
-          border: '1px solid rgba(255, 69, 0, 0.44)',
-          borderLeft: `4px solid ${ORANGE}`,
-          boxShadow: '0 18px 48px rgba(0, 0, 0, 0.74), inset 0 0 24px rgba(255, 69, 0, 0.06)',
-          maxWidth: 948,
-          minWidth: 440,
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
-      >
+      <div>
         <div
           style={{
             display: 'flex',
@@ -665,6 +666,7 @@ export const KineticEngine: React.FC<{
   releaseOpacity?: number;
   releaseScale?: number;
   releaseTranslateY?: number;
+  foregroundShakeX?: number;
   terminalEnvelope?: AssetTransitionEnvelope;
   style?: React.CSSProperties;
 }> = ({
@@ -677,6 +679,7 @@ export const KineticEngine: React.FC<{
   releaseOpacity = 1,
   releaseScale = 1,
   releaseTranslateY = 0,
+  foregroundShakeX = 0,
   terminalEnvelope,
   style,
 }) => {
@@ -702,6 +705,8 @@ export const KineticEngine: React.FC<{
 
     return (
       <div
+        data-canvas-layer="hero-kinetic-text"
+        data-layer-z={55}
         data-kinetic-variant={variant}
         data-typography-schema="hook-climax"
         data-motion-family="heavy-spring-pop"
@@ -709,30 +714,34 @@ export const KineticEngine: React.FC<{
         data-staggered-word-count={spokenCues.length}
         style={{
           position: 'absolute',
-          left: 56,
-          right: 56,
-          top: 852,
-          transform: `translateY(calc(-50% + ${releaseTranslateY.toFixed(1)}px))`,
+          left: 44,
+          right: 44,
+          top: 848,
+          zIndex: 55,
+          transform: `translate3d(${foregroundShakeX.toFixed(2)}px, calc(-50% + ${releaseTranslateY.toFixed(1)}px), 0)`,
           opacity: releaseOpacity,
-          display: 'grid',
-          placeItems: 'center',
+          textAlign: 'center',
           pointerEvents: 'none',
           ...style,
         }}
       >
+        {/* Foreground Z-separation depth shadow + radial glow */}
         <div
           data-red-glow-flash={kin.redGlowFlash.toFixed(3)}
           style={{
             position: 'absolute',
-            width: 840,
-            height: 240,
+            left: '50%',
+            top: '50%',
+            width: 920,
+            height: 290,
+            transform: 'translate(-50%, -50%)',
             borderRadius: '50%',
-            background: `radial-gradient(ellipse at center, rgba(225, 29, 72, ${(
-              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.58 : 0.36)
-            ).toFixed(3)}) 0%, rgba(255, 69, 0, ${(kin.redGlowFlash * 0.18).toFixed(
+            background: `radial-gradient(ellipse at center, rgba(6, 9, 17, 0.84) 0%, rgba(225, 29, 72, ${(
+              kin.redGlowFlash * (conflictWeight >= 0.6 ? 0.56 : 0.34)
+            ).toFixed(3)}) 34%, rgba(255, 69, 0, ${(kin.redGlowFlash * 0.18).toFixed(
               3,
-            )}) 46%, transparent 74%)`,
-            filter: 'blur(8px)',
+            )}) 56%, transparent 78%)`,
+            filter: 'blur(10px)',
             pointerEvents: 'none',
           }}
         />
@@ -740,12 +749,8 @@ export const KineticEngine: React.FC<{
         <div
           style={{
             position: 'relative',
+            display: 'inline-block',
             transform: `scale(${((isSingle ? kin.scale : 0.92 + 0.08 * kin.springPop) * releaseScale).toFixed(4)})`,
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'baseline',
-            gap: `${Math.round(size * 0.15)}px ${Math.round(size * 0.24)}px`,
             maxWidth: 948,
           }}
         >
@@ -770,9 +775,10 @@ export const KineticEngine: React.FC<{
                   fontSize: size,
                   fontWeight: 900,
                   letterSpacing: '-0.045em',
-                  lineHeight: 0.98,
+                  lineHeight: 1.04,
+                  margin: `0 ${Math.round(size * 0.12)}px`,
                   color: wordHot ? ORANGE : WHITE,
-                  textShadow: glowShadow,
+                  textShadow: `${glowShadow}, 0 22px 48px rgba(0, 0, 0, 0.92)`,
                   whiteSpace: 'nowrap',
                 }}
               />
@@ -869,6 +875,7 @@ export const KineticEngine: React.FC<{
         fontSize={size}
         allowWrap={totalCharBudget > 32}
         textOpacity={releaseOpacity}
+        foregroundShakeX={foregroundShakeX}
         frameOverride={frameOverride}
         style={style}
       />
@@ -886,6 +893,8 @@ export const KineticEngine: React.FC<{
 
   return (
     <div
+      data-canvas-layer="hero-kinetic-text"
+      data-layer-z={55}
       data-kinetic-variant={variant}
       data-typography-schema="metric-glitch"
       data-motion-family="digital-flicker-fade"
@@ -895,54 +904,58 @@ export const KineticEngine: React.FC<{
       data-staggered-word-count={spokenCues.length}
       style={{
         position: 'absolute',
-        left: 56,
-        right: 56,
-        top: 852,
-        transform: `translateY(-50%) scale(${releaseScale.toFixed(4)})`,
+        left: 44,
+        right: 44,
+        top: 848,
+        zIndex: 55,
+        transform: `translate3d(${foregroundShakeX.toFixed(2)}px, -50%, 0) scale(${releaseScale.toFixed(4)})`,
         opacity: releaseOpacity,
-        display: 'grid',
-        placeItems: 'center',
+        textAlign: 'center',
         pointerEvents: 'none',
         ...style,
       }}
     >
+      {/* Foreground Z-separation depth shadow */}
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          maxWidth: 948,
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: 900,
+          height: 260,
+          transform: 'translate(-50%, -50%)',
+          borderRadius: '50%',
+          background:
+            'radial-gradient(ellipse at center, rgba(6, 9, 17, 0.82) 0%, rgba(6, 9, 17, 0.40) 52%, transparent 78%)',
+          filter: 'blur(10px)',
+          pointerEvents: 'none',
         }}
-      >
-        <StaggeredTextItem
-          text={`TELEMETRY_DATA // IDX_${String(cue.globalIndex).padStart(2, '0')}`}
-          delay={firstPhraseDelay}
-          profile="telemetry-flicker"
-          variantSeed={cue.globalIndex}
-          frameOverride={frameOverride}
-          style={{
-            fontFamily: MONO_STACK,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: 2.4,
-            color: '#38bdf8',
-            marginBottom: 10,
-            padding: '3px 12px',
-            border: '1px solid rgba(56, 189, 248, 0.42)',
-            background: 'rgba(8, 18, 32, 0.88)',
-          }}
-        />
+      />
 
-        <div
-          style={{
-            position: 'relative',
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'baseline',
-            gap: `${Math.round(metricSize * 0.14)}px ${Math.round(metricSize * 0.24)}px`,
-          }}
-        >
+      <div style={{position: 'relative', display: 'inline-block', maxWidth: 948}}>
+        <div>
+          <StaggeredTextItem
+            text={`TELEMETRY_DATA // IDX_${String(cue.globalIndex).padStart(2, '0')}`}
+            delay={firstPhraseDelay}
+            profile="telemetry-flicker"
+            variantSeed={cue.globalIndex}
+            frameOverride={frameOverride}
+            style={{
+              fontFamily: MONO_STACK,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 2.4,
+              color: '#38bdf8',
+              marginBottom: 12,
+              padding: '3px 12px',
+              border: '1px solid rgba(56, 189, 248, 0.42)',
+              background: 'rgba(8, 18, 32, 0.92)',
+              boxShadow: '0 10px 28px rgba(0, 0, 0, 0.72)',
+            }}
+          />
+        </div>
+
+        <div style={{position: 'relative'}}>
           {spokenCues.map((wordCue, idx) => {
             const wordHot = isEmphasis(wordCue.text);
             const isCurrent = wordCue.globalIndex === cue.globalIndex;
@@ -966,9 +979,10 @@ export const KineticEngine: React.FC<{
                   fontSize: metricSize,
                   fontWeight: 800,
                   letterSpacing: '-0.036em',
-                  lineHeight: 0.98,
+                  lineHeight: 1.04,
+                  margin: `0 ${Math.round(metricSize * 0.12)}px`,
                   color: wordHot ? ORANGE : WHITE,
-                  textShadow: chromaShadow,
+                  textShadow: `${chromaShadow}, 0 22px 48px rgba(0, 0, 0, 0.90)`,
                   whiteSpace: 'nowrap',
                 }}
               />
@@ -1006,7 +1020,8 @@ export const KineticEngine: React.FC<{
 export const SceneKineticStage: React.FC<{
   scene: SceneSpec;
   activeCue: ScriptCue | null;
-}> = ({scene, activeCue}) => {
+  foregroundShakeX?: number;
+}> = ({scene, activeCue, foregroundShakeX = 0}) => {
   const localFrame = useCurrentFrame();
   if (isSceneCleared(scene, localFrame)) return null;
   const globalFrame = scene.from + localFrame;
@@ -1041,6 +1056,7 @@ export const SceneKineticStage: React.FC<{
         cursorBlinkOn={blink}
         fontSize={fitMonoPhraseSize(phrase.fullCharCount)}
         allowWrap={phrase.fullCharCount > 32}
+        foregroundShakeX={foregroundShakeX}
       />
     );
   }
@@ -1121,6 +1137,7 @@ export const SceneKineticStage: React.FC<{
       releaseOpacity={releaseOpacity}
       releaseScale={releaseScale}
       releaseTranslateY={releaseTranslateY}
+      foregroundShakeX={foregroundShakeX}
       terminalEnvelope={phraseTwEnv}
     />
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
+import {getCinematographyState} from '../EmotionalPacing';
 import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -27,6 +28,7 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
   const noTemplateIdx = cueIndexFor('No template roulette.', sameFramesIdx + 1);
 
   const subtleGridBreath = 0.07 + 0.025 * (0.5 + 0.5 * Math.sin(localFrame * 0.08));
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <SceneContainer>
@@ -53,12 +55,8 @@ export const MechanismScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP
         activeCue={activeCue}
         background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.038} />}
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.44} />}
-        typography={
-          <>
-            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
-            <SceneKineticStage scene={scene} activeCue={activeCue} />
-          </>
-        }
+        overlays={<ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />}
+        typography={<SceneKineticStage scene={scene} activeCue={activeCue} foregroundShakeX={cinema.shakeX * 1.15} />}
       />
     </SceneContainer>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
+import {getCinematographyState} from '../EmotionalPacing';
 import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -24,6 +25,7 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
   const broken = globalFrame >= breakCue.startFrame;
   const realLocalFrame = WORD_START_FRAMES[realCue.globalIndex] - scene.from;
   const breakLocalFrame = WORD_START_FRAMES[breakCue.globalIndex] - scene.from;
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <SceneContainer>
@@ -45,12 +47,8 @@ export const TwistScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.twi
           />
         }
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} opacity={0.44} />}
-        typography={
-          <>
-            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
-            <SceneKineticStage scene={scene} activeCue={activeCue} />
-          </>
-        }
+        overlays={<ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />}
+        typography={<SceneKineticStage scene={scene} activeCue={activeCue} foregroundShakeX={cinema.shakeX * 1.15} />}
       />
     </SceneContainer>
   );

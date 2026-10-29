@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
+import {getCinematographyState} from '../EmotionalPacing';
 import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -21,6 +22,7 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
   const energy = energyAt(globalFrame);
   const pastedCue = cueAfter('pasted', scene.firstWordIndex);
   const pastedLocalFrame = WORD_START_FRAMES[pastedCue.globalIndex] - scene.from;
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <SceneContainer>
@@ -34,12 +36,8 @@ export const HookScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.hook
         activeCue={activeCue}
         background={<CleanCoordinateGrid gridOpacity={0.075} glowOpacity={0.05 + energy * 0.035} />}
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.5} />}
-        typography={
-          <>
-            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
-            <SceneKineticStage scene={scene} activeCue={activeCue} />
-          </>
-        }
+        overlays={<ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />}
+        typography={<SceneKineticStage scene={scene} activeCue={activeCue} foregroundShakeX={cinema.shakeX * 1.15} />}
       />
     </SceneContainer>
   );

@@ -70,6 +70,10 @@ export type AssetTransitionEnvelope = {
   enterProgress: number;
   exitProgress: number;
   phase: 'entering' | 'active' | 'exiting' | 'hidden';
+  spatialLeft?: number;
+  spatialWidth?: number;
+  spatialTop?: number;
+  layerZ?: number;
 };
 
 export const ASSET_TRANSITION_FRAMES = 12;
@@ -526,18 +530,52 @@ const buildSimulationStateForSpec = (
     slideX: sig.slideX,
     slidePx: sig.slideY || 22,
   });
-  // Upper vs Lower cards use distinct opposing slide/spring parameters so adjacent cards never mirror identically
-  const upperEnvelope = computeAssetTransition(elapsed, renderDuration, {
-    mode: sig.mode,
-    damping: sig.damping,
-    stiffness: sig.stiffness,
-    enterFrames: ASSET_TRANSITION_FRAMES,
-    exitFrames: ASSET_TRANSITION_FRAMES,
-    slideX: sig.slideX,
-    slidePx: sig.slideY || -20,
-  });
-  const lowerEnvelope = computeAssetTransition(elapsed, renderDuration, {
-    mode: sig.mode === 'heavy-spring-pop' ? 'horizontal-terminal-slide' : sig.mode === 'horizontal-terminal-slide' ? 'digital-flicker-fade' : 'heavy-spring-pop',
+  // Asymmetric spatial anchors & decoupled Z-planes across the 1080x1920 canvas
+  const spatialOffsets = [34, 110, 44, 100] as const;
+  const globalClauseOrder = ALL_UI_CLAUSES.findIndex((c) => c.id === spec.id);
+  const upperLeft = spatialOffsets[(globalClauseOrder >= 0 ? globalClauseOrder : clauseIdx) % spatialOffsets.length];
+  const cardWidth = 936;
+  const lowerLeft = 1080 - cardWidth - upperLeft;
+  const microDriftX = Number((Math.sin(elapsed * 0.045) * 3.5).toFixed(2));
+
+  // Upper vs Lower cards occupy distinct Z-planes (z=20 background widget vs z=30 terminal box)
+  // and opposing horizontal anchors so they never stack into a single-board column
+  const upperEnvelope: AssetTransitionEnvelope = {
+    ...computeAssetTransition(elapsed, renderDuration, {
+      mode: sig.mode,
+      damping: sig.damping,
+      stiffness: sig.stiffness,
+      enterFrames: ASSET_TRANSITION_FRAMES,
+      exitFrames: ASSET_TRANSITION_FRAMES,
+      slideX: sig.slideX,
+      slidePx: sig.slideY || -20,
+    }),
+    spatialLeft: upperLeft,
+    spatialWidth: cardWidth,
+    spatialTop: 118 + (clauseIdx % 2) * 8,
+    layerZ: 20,
+    translateX: Number(
+      (
+        computeAssetTransition(elapsed, renderDuration, {
+          mode: sig.mode,
+          damping: sig.damping,
+          stiffness: sig.stiffness,
+          enterFrames: ASSET_TRANSITION_FRAMES,
+          exitFrames: ASSET_TRANSITION_FRAMES,
+          slideX: sig.slideX,
+          slidePx: sig.slideY || -20,
+        }).translateX + microDriftX
+      ).toFixed(2),
+    ),
+  };
+  const lowerMode: UiTransitionMode =
+    sig.mode === 'heavy-spring-pop'
+      ? 'horizontal-terminal-slide'
+      : sig.mode === 'horizontal-terminal-slide'
+        ? 'digital-flicker-fade'
+        : 'heavy-spring-pop';
+  const baseLowerEnv = computeAssetTransition(elapsed, renderDuration, {
+    mode: lowerMode,
     damping: sig.damping + 3.5,
     stiffness: sig.stiffness - 25,
     enterFrames: ASSET_TRANSITION_FRAMES,
@@ -545,6 +583,14 @@ const buildSimulationStateForSpec = (
     slideX: -sig.slideX || 42,
     slidePx: 22,
   });
+  const lowerEnvelope: AssetTransitionEnvelope = {
+    ...baseLowerEnv,
+    spatialLeft: lowerLeft,
+    spatialWidth: cardWidth,
+    spatialTop: 1152 + ((clauseIdx + 1) % 2) * 8,
+    layerZ: 30,
+    translateX: Number((baseLowerEnv.translateX - microDriftX * 1.15).toFixed(2)),
+  };
 
   const logicalDuration = Math.max(1, spec.endFrame - spec.startFrame);
   const clauseProgress = clamp(elapsed / logicalDuration, 0, 1);
@@ -695,16 +741,29 @@ const SciFiUiCard: React.FC<{
   dataAttrs,
 }) => {
   const isUpper = slot === 'upper-focal';
-  const top = isUpper ? 120 : 1144;
-  const height = isUpper ? 552 : 632;
+  const left = envelope.spatialLeft ?? (isUpper ? 36 : 108);
+  const width = envelope.spatialWidth ?? 936;
+  const top = envelope.spatialTop ?? (isUpper ? 120 : 1152);
+  const height = isUpper ? 548 : 620;
+  const zIndex = envelope.layerZ ?? (isUpper ? 20 : 30);
 
-  const borderColor = alertMode ? 'rgba(225, 29, 72, 0.66)' : 'rgba(244, 247, 255, 0.16)';
+  const borderColor = alertMode
+    ? 'rgba(225, 29, 72, 0.68)'
+    : isUpper
+      ? 'rgba(244, 247, 255, 0.14)'
+      : 'rgba(244, 247, 255, 0.20)';
   const bgGradient = alertMode
-    ? 'linear-gradient(180deg, rgba(44, 10, 22, 0.97) 0%, rgba(15, 9, 18, 0.99) 100%)'
-    : 'linear-gradient(180deg, rgba(15, 22, 37, 0.97) 0%, rgba(9, 13, 23, 0.99) 100%)';
+    ? isUpper
+      ? 'linear-gradient(180deg, rgba(40, 9, 20, 0.89) 0%, rgba(14, 8, 17, 0.92) 100%)'
+      : 'linear-gradient(180deg, rgba(46, 10, 22, 0.94) 0%, rgba(12, 7, 15, 0.96) 100%)'
+    : isUpper
+      ? 'linear-gradient(180deg, rgba(13, 20, 35, 0.87) 0%, rgba(8, 12, 22, 0.91) 100%)'
+      : 'linear-gradient(180deg, rgba(11, 17, 30, 0.93) 0%, rgba(7, 10, 19, 0.96) 100%)';
 
   return (
     <div
+      data-canvas-layer={isUpper ? 'ui-background-widget' : 'terminal-box'}
+      data-layer-z={zIndex}
       data-ui-slot={slot}
       data-transition-mode={envelope.mode}
       data-transition-phase={envelope.phase}
@@ -715,20 +774,25 @@ const SciFiUiCard: React.FC<{
       {...dataAttrs}
       style={{
         position: 'absolute',
-        left: 60,
-        right: 60,
+        left,
+        width,
         top,
         height,
+        zIndex,
         background: bgGradient,
+        backdropFilter: 'blur(8px)',
         border: `1px solid ${borderColor}`,
         borderTop: `2px solid ${accentColor}`,
         boxShadow: alertMode
-          ? '0 22px 60px rgba(0,0,0,0.68), 0 0 42px rgba(225,29,72,0.22), inset 0 0 28px rgba(225,29,72,0.12)'
-          : '0 22px 60px rgba(0,0,0,0.62), inset 0 1px 0 rgba(244,247,255,0.06)',
+          ? '0 32px 84px rgba(0,0,0,0.82), 0 0 46px rgba(225,29,72,0.22), inset 0 0 28px rgba(225,29,72,0.12)'
+          : isUpper
+            ? '0 28px 72px rgba(0,0,0,0.74), inset 0 1px 0 rgba(244,247,255,0.06)'
+            : '0 38px 92px rgba(0,0,0,0.86), 0 0 32px rgba(255,69,0,0.08), inset 0 1px 0 rgba(244,247,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
+        pointerEvents: 'none',
         opacity: envelope.opacity,
         transform: `translate3d(${envelope.translateX}px, ${envelope.translateY}px, 0) scale(${envelope.scale})`,
         transformOrigin: isUpper ? '50% 0%' : '50% 100%',
@@ -2278,24 +2342,35 @@ export const ContextualUiSimulationLayer: React.FC<{
   scene: SceneSpec;
   localFrame: number;
   useLiveRemotionHooks?: boolean;
-}> = ({scene, localFrame, useLiveRemotionHooks = false}) => {
+  parallaxShakeX?: number;
+}> = ({scene, localFrame, useLiveRemotionHooks = false, parallaxShakeX = 0}) => {
   const states = getActiveUiSimulations(scene, localFrame);
   if (states.length === 0) return null;
 
-  const primary = getActiveUiSimulation(scene, localFrame) ?? states[states.length - 1];
   const frameOverride = useLiveRemotionHooks ? undefined : localFrame;
 
+  // Render decoupled independent `position: 'absolute'` layers directly onto the 1080x1920 canvas
+  // (zero single-board flex/grid or unified wrapper grouping UI widgets, terminals, and ribbons).
   return (
-    <div
-      data-contextual-ui-scene={scene.id}
-      data-contextual-ui-kind={primary.kind}
-      data-contextual-ui-clause={primary.id}
-      style={{position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden'}}
-    >
-      {states.map((state) => {
+    <>
+      {states.map((rawState) => {
+        const state: ActiveUiSimulationState =
+          parallaxShakeX === 0
+            ? rawState
+            : {
+                ...rawState,
+                upperEnvelope: {
+                  ...rawState.upperEnvelope,
+                  translateX: Number((rawState.upperEnvelope.translateX + parallaxShakeX * 0.55).toFixed(2)),
+                },
+                lowerEnvelope: {
+                  ...rawState.lowerEnvelope,
+                  translateX: Number((rawState.lowerEnvelope.translateX + parallaxShakeX * 0.85).toFixed(2)),
+                },
+              };
         const isAlert = state.kind === 'error-diagnostic';
         return (
-          <div key={state.id} style={{position: 'absolute', inset: 0}}>
+          <React.Fragment key={state.id}>
             {state.kind === 'prompt-cli' && (
               <PromptCliSimulationPair state={state} frameOverride={frameOverride} />
             )}
@@ -2307,27 +2382,35 @@ export const ContextualUiSimulationLayer: React.FC<{
             )}
 
             <div
+              data-canvas-layer="clause-ribbon"
+              data-layer-z={42}
+              data-contextual-ui-scene={scene.id}
+              data-contextual-ui-kind={state.kind}
+              data-contextual-ui-clause={state.id}
               data-spoken-clause-strip={state.id}
               style={{
                 position: 'absolute',
-                left: 60,
-                right: 60,
-                top: 1030,
-                height: 54,
+                left: 84,
+                right: 84,
+                top: 1038,
+                height: 50,
+                zIndex: 42,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 10,
-                padding: '0 20px',
-                background: 'rgba(11, 15, 25, 0.90)',
-                borderTop: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
-                borderBottom: `1px solid ${isAlert ? 'rgba(225,29,72,0.38)' : 'rgba(244,247,255,0.12)'}`,
+                padding: '0 22px',
+                background: 'rgba(8, 12, 22, 0.86)',
+                backdropFilter: 'blur(10px)',
+                border: `1px solid ${isAlert ? 'rgba(225,29,72,0.42)' : 'rgba(244,247,255,0.14)'}`,
+                boxShadow: '0 18px 46px rgba(0, 0, 0, 0.78)',
                 fontFamily: MONO,
-                fontSize: 14,
+                fontSize: 13.5,
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
+                pointerEvents: 'none',
                 opacity: state.envelope.opacity,
-                transform: `translate3d(0, ${(state.envelope.translateY * 0.55).toFixed(1)}px, 0) scale(${state.envelope.scale})`,
+                transform: `translate3d(${(parallaxShakeX * 0.92).toFixed(1)}px, ${(state.envelope.translateY * 0.55).toFixed(1)}px, 0) scale(${state.envelope.scale})`,
               }}
             >
               <span
@@ -2351,7 +2434,7 @@ export const ContextualUiSimulationLayer: React.FC<{
                   style={{color: MUTED, letterSpacing: 1.8, fontSize: 12}}
                 />
               ) : (
-                state.spokenClauseWords.map((w, wordPos) => {
+                state.spokenClauseWords.map((w) => {
                   const profiles: readonly TextMotionProfile[] = [
                     'hook-pop',
                     'terminal-slide',
@@ -2376,17 +2459,27 @@ export const ContextualUiSimulationLayer: React.FC<{
                 })
               )}
             </div>
-          </div>
+          </React.Fragment>
         );
       })}
-    </div>
+    </>
   );
 };
 
 /**
  * Connected Remotion hook component reading `useCurrentFrame()` directly per scene <Sequence>.
  */
-export const ConnectedContextualUiSimulation: React.FC<{scene: SceneSpec}> = ({scene}) => {
+export const ConnectedContextualUiSimulation: React.FC<{
+  scene: SceneSpec;
+  parallaxShakeX?: number;
+}> = ({scene, parallaxShakeX = 0}) => {
   const localFrame = useCurrentFrame();
-  return <ContextualUiSimulationLayer scene={scene} localFrame={localFrame} useLiveRemotionHooks />;
+  return (
+    <ContextualUiSimulationLayer
+      scene={scene}
+      localFrame={localFrame}
+      useLiveRemotionHooks
+      parallaxShakeX={parallaxShakeX}
+    />
+  );
 };

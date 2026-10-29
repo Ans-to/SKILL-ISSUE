@@ -170,6 +170,8 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
 
   return (
     <svg
+      data-canvas-layer="atmospheric-calibration"
+      data-layer-z={36}
       data-scene-graph={scene.id}
       data-hud-motion={env.mode}
       data-active-cue={activeCueId}
@@ -179,6 +181,7 @@ export const AtmosphericOverlays: React.FC<TelemetryHudProps> = ({
       style={{
         position: 'absolute',
         inset: 0,
+        zIndex: 36,
         width: '100%',
         height: '100%',
         opacity: env.opacity * 0.28,
@@ -230,33 +233,31 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
     cueElapsed === 0 ? 0.54 : cueElapsed === 1 ? 0.94 : cueElapsed === 2 ? 0.72 : 1.0;
 
   return (
-    <div
-      data-scene-telemetry={scene.id}
-      data-hud-motion={env.mode}
-      data-active-cue={activeCueId}
-      data-hud-opacity={env.opacity}
-      data-hud-scale={env.scale.toFixed(4)}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        color: WHITE,
-        opacity: env.opacity,
-      }}
-    >
-      {/* Top Viewport Telemetry Header */}
+    <>
+      {/* Independent Absolute Layer z=75: Top Viewport Telemetry Header */}
       <div
+        data-canvas-layer="hud-header"
+        data-layer-z={75}
+        data-scene-telemetry={scene.id}
+        data-hud-motion={env.mode}
+        data-active-cue={activeCueId}
+        data-hud-opacity={env.opacity}
+        data-hud-scale={env.scale.toFixed(4)}
         style={{
           position: 'absolute',
-          left: 60,
-          right: 60,
-          top: 46,
+          left: 48,
+          right: 48,
+          top: 44,
+          zIndex: 75,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingBottom: 12,
           borderBottom: '1px solid rgba(244,247,255,0.10)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: WHITE,
+          opacity: env.opacity,
+          pointerEvents: 'none',
           transform: `translate3d(${env.translateX}px, ${env.translateY}px, 0) scale(${env.scale.toFixed(4)})`,
           transformOrigin: '50% 0%',
         }}
@@ -284,18 +285,25 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
         </span>
       </div>
 
-      {/* Bottom Viewport Telemetry Footer */}
+      {/* Independent Absolute Layer z=76: Bottom Viewport Telemetry Footer */}
       <div
+        data-canvas-layer="hud-footer"
+        data-layer-z={76}
         style={{
           position: 'absolute',
-          left: 60,
-          right: 60,
-          bottom: 44,
+          left: 48,
+          right: 48,
+          bottom: 42,
+          zIndex: 76,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingTop: 12,
           borderTop: '1px solid rgba(244,247,255,0.10)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: WHITE,
+          opacity: env.opacity,
+          pointerEvents: 'none',
           transform: `translate3d(${(-env.translateX).toFixed(2)}px, ${(-env.translateY).toFixed(2)}px, 0) scale(${env.scale.toFixed(4)})`,
           transformOrigin: '50% 100%',
         }}
@@ -319,7 +327,7 @@ const TelemetryHudView: React.FC<TelemetryHudProps> = ({
           1080×1920 · 30FPS · ENGINE_TELEMETRY
         </span>
       </div>
-    </div>
+    </>
   );
 };
 

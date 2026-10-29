@@ -239,14 +239,18 @@ export const AmbientPrecisionGrid: React.FC<{opacity: number; mode: PacingMode}>
 export const CrimsonConflictFlashOverlay: React.FC<{
   flash: number;
   conflictWord: string | null;
-}> = ({flash, conflictWord}) => {
+  zIndex?: number;
+}> = ({flash, conflictWord, zIndex = 65}) => {
   if (flash <= 0.005) return null;
   return (
     <div
+      data-canvas-layer="conflict-flash"
+      data-layer-z={zIndex}
       data-crimson-flash={conflictWord ?? 'active'}
       style={{
         position: 'absolute',
         inset: 0,
+        zIndex,
         pointerEvents: 'none',
         background: `radial-gradient(circle at 50% 48%, rgba(225,29,72,${(flash * 0.58).toFixed(3)}), rgba(190,18,60,${(flash * 0.92).toFixed(3)}) 92%)`,
         boxShadow: `inset 0 0 140px rgba(225,29,72,${Math.min(0.85, flash * 1.65).toFixed(3)})`,

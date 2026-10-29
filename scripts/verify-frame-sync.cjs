@@ -27,6 +27,7 @@ for (const extension of ['.ts', '.tsx']) {
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const model = require('../src/engine/agentEngineModel.ts');
+const {CANVAS_Z_LAYERS} = require('../src/SceneContainer.tsx');
 const {
   TelemetryHud,
   AtmosphericOverlays,
@@ -393,6 +394,104 @@ assert.ok(
   sceneStageSource.includes('<ConnectedContextualUiSimulation'),
   'SceneStage must mount <ConnectedContextualUiSimulation> driven by useCurrentFrame()',
 );
+// ============================================================================
+// FULL-CANVAS LAYER DECOUPLING OVERRIDE:
+// 1. Eliminate single-board container (no parent flex/grid or unified wrapper
+//    grouping background UI widgets and central hero text).
+// 2. Absolute z-index layering across the 1080x1920 canvas:
+//    z=1 grid < z=10 WebGL < z=20 UI widget < z=30 terminal box < z=36 calibration
+//    < z=42 clause ribbon < z=55 hero kinetic text < z=65 conflict flash < z=75/76 HUD.
+// ============================================================================
+const decoupledContainerSrc = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'SceneContainer.tsx'),
+  'utf8',
+);
+const kineticEngineSource = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'KineticEngine.tsx'),
+  'utf8',
+);
+assert.ok(
+  !/<div\b/.test(decoupledContainerSrc),
+  'SceneContainer must not wrap children in an intermediate grouping <div>',
+);
+const sceneStageFnBody = sceneStageSource.slice(
+  sceneStageSource.indexOf('export const SceneStage'),
+);
+assert.ok(
+  !/<div\b/.test(sceneStageFnBody),
+  'SceneStage must NEVER wrap layers in a single-board or grouping <div>',
+);
+assert.ok(
+  !sceneStageSource.includes('display:') && !kineticEngineSource.includes("display: 'grid'"),
+  'Stage and KineticEngine must not use a parent flex/grid board wrapper around hero text',
+);
+assert.ok(
+  CANVAS_Z_LAYERS.coordinateGrid < CANVAS_Z_LAYERS.webglDepth &&
+    CANVAS_Z_LAYERS.webglDepth < CANVAS_Z_LAYERS.uiBackgroundWidget &&
+    CANVAS_Z_LAYERS.uiBackgroundWidget < CANVAS_Z_LAYERS.terminalBox &&
+    CANVAS_Z_LAYERS.terminalBox < CANVAS_Z_LAYERS.atmosphericCalibration &&
+    CANVAS_Z_LAYERS.atmosphericCalibration < CANVAS_Z_LAYERS.clauseRibbon &&
+    CANVAS_Z_LAYERS.clauseRibbon < CANVAS_Z_LAYERS.heroKineticText &&
+    CANVAS_Z_LAYERS.heroKineticText < CANVAS_Z_LAYERS.conflictFlash &&
+    CANVAS_Z_LAYERS.conflictFlash < CANVAS_Z_LAYERS.hudHeader &&
+    CANVAS_Z_LAYERS.hudHeader < CANVAS_Z_LAYERS.hudFooter,
+  'CANVAS_Z_LAYERS must define a strictly ascending independent z-index depth stack',
+);
+
+for (const scene of SCENE_SEQUENCES) {
+  const lf = Math.min(scene.durationInFrames - 15, 36);
+  const uiLayerHtml = renderToStaticMarkup(
+    React.createElement(ContextualUiSimulationLayer, {scene, localFrame: lf}),
+  );
+  // Top-level markup of ContextualUiSimulationLayer must start directly with Upper Widget (z=20), NOT a wrapper board
+  assert.ok(
+    uiLayerHtml.startsWith('<div data-canvas-layer="ui-background-widget" data-layer-z="20"'),
+    `ContextualUiSimulationLayer in ${scene.id} must emit decoupled top-level absolute layers without a parent wrapper`,
+  );
+  assert.ok(
+    uiLayerHtml.includes('data-canvas-layer="terminal-box" data-layer-z="30"') &&
+      uiLayerHtml.includes('data-canvas-layer="clause-ribbon" data-layer-z="42"') &&
+      uiLayerHtml.includes('z-index:20') &&
+      uiLayerHtml.includes('z-index:30') &&
+      uiLayerHtml.includes('z-index:42'),
+    `Decoupled z-index layers (20, 30, 42) missing in ${scene.id}`,
+  );
+  const sim = getActiveUiSimulation(scene, lf);
+  assert.notEqual(
+    sim.upperEnvelope.spatialLeft,
+    sim.lowerEnvelope.spatialLeft,
+    `Upper UI widget (z=20) and lower terminal box (z=30) in ${scene.id} must be spatially offset across 1080x1920`,
+  );
+
+  const sampleCue = SCRIPT_CUES[scene.firstWordIndex];
+  const heroHtml = renderToStaticMarkup(
+    React.createElement(KineticEngine, {
+      cue: sampleCue,
+      variant: scene.id,
+      globalFrame: sampleCue.startFrame,
+    }),
+  );
+  assert.ok(
+    heroHtml.includes('data-canvas-layer="hero-kinetic-text" data-layer-z="55"') &&
+      heroHtml.includes('position:absolute') &&
+      heroHtml.includes('z-index:55'),
+    `Hero kinetic text in ${scene.id} must mount as independent absolute z-index:55 foreground layer`,
+  );
+  const hudHtml = renderToStaticMarkup(
+    React.createElement(TelemetryHud, {
+      scene,
+      localFrame: lf,
+      energy: 0.5,
+      activeCue: sampleCue,
+    }),
+  );
+  assert.ok(
+    hudHtml.startsWith('<div data-canvas-layer="hud-header" data-layer-z="75"') &&
+      hudHtml.includes('data-canvas-layer="hud-footer" data-layer-z="76"'),
+    `HUD header (z=75) and footer (z=76) in ${scene.id} must mount as decoupled absolute layers`,
+  );
+}
+
 for (const sceneFile of [
   'src/scenes/HookScene.tsx',
   'src/scenes/TwistScene.tsx',
@@ -403,8 +502,10 @@ for (const sceneFile of [
 ]) {
   const src = fs.readFileSync(path.join(__dirname, '..', sceneFile), 'utf8');
   assert.ok(
-    src.includes('<SceneKineticStage') && src.includes('<ConnectedAtmosphericOverlays'),
-    `${sceneFile} must mount <SceneKineticStage> and <ConnectedAtmosphericOverlays>`,
+    src.includes('<SceneKineticStage') &&
+      src.includes('<ConnectedAtmosphericOverlays') &&
+      src.includes('overlays={'),
+    `${sceneFile} must pass decoupled overlays and typography planes to <SceneStage>`,
   );
 }
 

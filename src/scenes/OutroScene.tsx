@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
+import {getCinematographyState} from '../EmotionalPacing';
 import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -23,6 +24,7 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
   const energy = energyAt(globalFrame);
   const buildPhase = globalFrame >= SCRIPT_CUES[OUTRO_BUILD_INDEX].startFrame;
   const toysCue = cueAfter('toys.', scene.firstWordIndex);
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <SceneContainer>
@@ -54,12 +56,8 @@ export const OutroScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.out
           />
         }
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.2} opacity={0.44} />}
-        typography={
-          <>
-            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
-            <SceneKineticStage scene={scene} activeCue={activeCue} />
-          </>
-        }
+        overlays={<ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />}
+        typography={<SceneKineticStage scene={scene} activeCue={activeCue} foregroundShakeX={cinema.shakeX * 1.15} />}
       />
     </SceneContainer>
   );

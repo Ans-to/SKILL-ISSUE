@@ -1,5 +1,6 @@
 import React from 'react';
 import {Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
+import {getCinematographyState} from '../EmotionalPacing';
 import {SceneKineticStage} from '../KineticEngine';
 import {SceneAudioBed, SFX_PATHS} from '../SceneAudio';
 import {SceneContainer} from '../SceneContainer';
@@ -25,6 +26,7 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
   const framesCue = cueAfter('frames,', codeCue.globalIndex);
   const mp4Cue = cueAfter('MP4.', framesCue.globalIndex);
   const subtleGridBreath = 0.07 + 0.025 * (0.5 + 0.5 * Math.sin(localFrame * 0.08));
+  const cinema = getCinematographyState(scene, localFrame);
 
   return (
     <SceneContainer>
@@ -54,12 +56,8 @@ export const PayoffScene: React.FC<{scene?: SceneSpec}> = ({scene = SCENE_MAP.pa
         activeCue={activeCue}
         background={<CleanCoordinateGrid gridOpacity={subtleGridBreath} glowOpacity={0.04} />}
         threeD={<SceneThreeCanvas scene={scene} localFrame={localFrame} energy={energy} baseZ={13.3} opacity={0.42} />}
-        typography={
-          <>
-            <ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />
-            <SceneKineticStage scene={scene} activeCue={activeCue} />
-          </>
-        }
+        overlays={<ConnectedAtmosphericOverlays scene={scene} energy={energy} activeCue={activeCue} />}
+        typography={<SceneKineticStage scene={scene} activeCue={activeCue} foregroundShakeX={cinema.shakeX * 1.15} />}
       />
     </SceneContainer>
   );
