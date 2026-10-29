@@ -1,0 +1,773 @@
+{
+  "version": 1,
+  "title": "Bretton Woods & The Global Dollar Standard",
+  "fps": 30,
+  "durationSeconds": 60.0,
+  "durationFrames": 1800,
+  "audioFile": "bretton-woods/voiceover.wav",
+  "audioSha256": "a406d86326754d2c7d28d376db44ae1b347252f4b496b5e18734b76f36c2919a",
+  "aligner": "PocketSphinx phonetic forced alignment on 1.0x voice-02 narration",
+  "tracks": [
+    {
+      "id": "narration",
+      "words": [
+        {
+          "text": "If",
+          "start": 0.42,
+          "end": 0.58,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "you",
+          "start": 0.58,
+          "end": 0.78,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "buy",
+          "start": 0.78,
+          "end": 1.24,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "oil",
+          "start": 1.24,
+          "end": 1.59,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "in",
+          "start": 1.59,
+          "end": 1.72,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "Saudi",
+          "start": 1.72,
+          "end": 2.14,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "Arabia,",
+          "start": 2.14,
+          "end": 2.74,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "a",
+          "start": 2.99,
+          "end": 3.04,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "coffee",
+          "start": 3.04,
+          "end": 3.53,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "in",
+          "start": 3.53,
+          "end": 3.64,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "Tokyo,",
+          "start": 3.64,
+          "end": 4.28,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "or",
+          "start": 4.52,
+          "end": 4.63,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "shoes",
+          "start": 4.63,
+          "end": 5.06,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "in",
+          "start": 5.06,
+          "end": 5.14,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "Italy...",
+          "start": 5.14,
+          "end": 5.66,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "chances",
+          "start": 6.35,
+          "end": 6.81,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "are,",
+          "start": 6.81,
+          "end": 7.13,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "you're",
+          "start": 7.29,
+          "end": 7.41,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "paying",
+          "start": 7.41,
+          "end": 7.79,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "in",
+          "start": 7.79,
+          "end": 7.88,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "one",
+          "start": 7.88,
+          "end": 8.35,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "currency.",
+          "start": 8.35,
+          "end": 9.02,
+          "sceneIndex": 0,
+          "sceneId": "global-standard"
+        },
+        {
+          "text": "Back",
+          "start": 10.54,
+          "end": 10.91,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "in",
+          "start": 10.91,
+          "end": 11.02,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "1944,",
+          "start": 11.02,
+          "end": 12.38,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "at",
+          "start": 12.38,
+          "end": 12.58,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "Bretton",
+          "start": 12.58,
+          "end": 13.03,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "Woods,",
+          "start": 13.03,
+          "end": 13.51,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "war-torn",
+          "start": 13.73,
+          "end": 14.41,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "nations",
+          "start": 14.41,
+          "end": 14.89,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "tied",
+          "start": 14.89,
+          "end": 15.26,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "their",
+          "start": 15.26,
+          "end": 15.39,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "currencies",
+          "start": 15.39,
+          "end": 16.01,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "to",
+          "start": 16.01,
+          "end": 16.14,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "the",
+          "start": 16.14,
+          "end": 16.23,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "US",
+          "start": 16.23,
+          "end": 16.69,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "dollar—",
+          "start": 16.69,
+          "end": 17.13,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "because",
+          "start": 17.39,
+          "end": 17.68,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "America",
+          "start": 17.68,
+          "end": 18.4,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "held",
+          "start": 18.4,
+          "end": 18.62,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "most",
+          "start": 18.62,
+          "end": 19.02,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "of",
+          "start": 19.02,
+          "end": 19.12,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "the",
+          "start": 19.12,
+          "end": 19.18,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "world's",
+          "start": 19.18,
+          "end": 19.56,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "gold.",
+          "start": 19.56,
+          "end": 20.04,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "Even",
+          "start": 21.16,
+          "end": 21.41,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "when",
+          "start": 21.41,
+          "end": 21.58,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "we",
+          "start": 21.58,
+          "end": 21.74,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "left",
+          "start": 21.74,
+          "end": 22.16,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "the",
+          "start": 22.16,
+          "end": 22.25,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "gold",
+          "start": 22.25,
+          "end": 22.52,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "standard,",
+          "start": 22.52,
+          "end": 23.04,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "the",
+          "start": 23.3,
+          "end": 23.37,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "world",
+          "start": 23.37,
+          "end": 23.8,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "stayed.",
+          "start": 23.8,
+          "end": 24.34,
+          "sceneIndex": 1,
+          "sceneId": "bretton-woods-origin"
+        },
+        {
+          "text": "Why?",
+          "start": 25.57,
+          "end": 26.12,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "Because",
+          "start": 27.12,
+          "end": 27.47,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "of",
+          "start": 27.47,
+          "end": 27.58,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "trust,",
+          "start": 27.58,
+          "end": 28.18,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "liquidity,",
+          "start": 28.37,
+          "end": 29.18,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "and",
+          "start": 29.32,
+          "end": 29.56,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "depth.",
+          "start": 29.56,
+          "end": 30.03,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "The",
+          "start": 32.7,
+          "end": 32.85,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "US",
+          "start": 32.85,
+          "end": 33.27,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "financial",
+          "start": 33.27,
+          "end": 33.77,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "markets",
+          "start": 33.77,
+          "end": 34.16,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "are",
+          "start": 34.16,
+          "end": 34.34,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "so",
+          "start": 34.34,
+          "end": 34.7,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "massive",
+          "start": 34.7,
+          "end": 35.41,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "and",
+          "start": 35.41,
+          "end": 35.59,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "stable",
+          "start": 35.59,
+          "end": 36.2,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "that",
+          "start": 36.85,
+          "end": 36.95,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "global",
+          "start": 36.95,
+          "end": 37.41,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "banks",
+          "start": 37.41,
+          "end": 37.81,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "and",
+          "start": 37.81,
+          "end": 37.96,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "governments",
+          "start": 37.96,
+          "end": 38.46,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "keep",
+          "start": 38.46,
+          "end": 38.77,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "trillions",
+          "start": 38.77,
+          "end": 39.59,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "in",
+          "start": 39.59,
+          "end": 39.73,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "US",
+          "start": 39.73,
+          "end": 40.08,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "Treasury",
+          "start": 40.08,
+          "end": 40.52,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "bonds",
+          "start": 40.52,
+          "end": 40.89,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "as",
+          "start": 40.89,
+          "end": 41.09,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "their",
+          "start": 41.09,
+          "end": 41.23,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "ultimate",
+          "start": 41.39,
+          "end": 41.81,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "safety",
+          "start": 41.81,
+          "end": 42.21,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "net.",
+          "start": 42.21,
+          "end": 42.54,
+          "sceneIndex": 2,
+          "sceneId": "liquidity-power-engine"
+        },
+        {
+          "text": "It",
+          "start": 45.69,
+          "end": 45.83,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "gives",
+          "start": 45.83,
+          "end": 46.2,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "America",
+          "start": 46.2,
+          "end": 46.78,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "immense",
+          "start": 46.78,
+          "end": 47.5,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "economic",
+          "start": 47.5,
+          "end": 48.15,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "power—",
+          "start": 48.15,
+          "end": 48.64,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "and",
+          "start": 49.27,
+          "end": 49.56,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "immense",
+          "start": 49.56,
+          "end": 50.07,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "responsibility.",
+          "start": 50.07,
+          "end": 50.96,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "Love",
+          "start": 53.41,
+          "end": 53.68,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "it",
+          "start": 53.68,
+          "end": 53.75,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "or",
+          "start": 53.75,
+          "end": 53.86,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "hate",
+          "start": 53.86,
+          "end": 54.09,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "it...",
+          "start": 54.09,
+          "end": 54.26,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "for",
+          "start": 55.46,
+          "end": 55.62,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "now,",
+          "start": 55.62,
+          "end": 56.0,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "the",
+          "start": 56.0,
+          "end": 56.29,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "greenback",
+          "start": 56.29,
+          "end": 56.94,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "holds",
+          "start": 56.94,
+          "end": 57.37,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "the",
+          "start": 57.37,
+          "end": 57.45,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        },
+        {
+          "text": "crown.",
+          "start": 57.45,
+          "end": 57.91,
+          "sceneIndex": 3,
+          "sceneId": "heavy-crown-conclusion"
+        }
+      ]
+    }
+  ]
+}

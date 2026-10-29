@@ -2,12 +2,13 @@
   "name": "deterministic-motion-documentaries",
   "version": "1.0.0",
   "private": true,
-  "description": "Two word-synchronized deterministic motion documentaries",
+  "description": "Word-synchronized deterministic Remotion motion documentaries",
   "scripts": {
     "start": "remotion preview src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify:sync": "python3 scripts/verify-word-cues.py && node scripts/verify-frame-sync.cjs",
-    "render": "remotion render src/index.ts EngineFirstExplainer out/AI-Agent-Engine-First.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite",
+    "render": "remotion render Root out/Bretton-Woods-Global-Dollar.mp4 --props=./props.json --overwrite",
+    "render:agent-engine": "remotion render src/index.ts EngineFirstExplainer out/AI-Agent-Engine-First.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite",
     "render:after-effects": "remotion render src/index.ts TheCodeThatReplacedAfterEffects out/The-Code-That-Replaced-After-Effects.mp4 --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=100% --gl=angle --overwrite"
   },
   "dependencies": {

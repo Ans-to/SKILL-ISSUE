@@ -1,6 +1,17 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Composition, Sequence, staticFile} from 'remotion';
 import {
+  BrettonWoodsDocumentary,
+  DEFAULT_BRETTON_WOODS_PROPS,
+  type BrettonWoodsProps,
+} from './bretton-woods/BrettonWoodsDocumentary';
+import {
+  BW_DURATION_FRAMES,
+  BW_FPS,
+  BW_HEIGHT,
+  BW_WIDTH,
+} from './bretton-woods/brettonWoodsModel';
+import {
   MotionEngine as AfterEffectsMotion,
   MOTION_ENGINE_DURATION_FRAMES,
 } from './engine/MotionEngine';
@@ -12,30 +23,26 @@ import {MechanismScene} from './scenes/MechanismScene';
 import {PayoffScene} from './scenes/PayoffScene';
 import {OutroScene} from './scenes/OutroScene';
 export {SceneContainer} from './SceneContainer';
+export {BrettonWoodsDocumentary, DEFAULT_BRETTON_WOODS_PROPS};
 
-export type RootProps = {
-  title?: string;
-  compositionId?: string;
-  backgroundColor?: string;
-  accentColor?: string;
-  voiceoverFile?: string;
-  muted?: boolean;
-};
+export type RootProps = BrettonWoodsProps;
 
-export const DEFAULT_ROOT_PROPS: Required<RootProps> = {
+export const DEFAULT_ROOT_PROPS = DEFAULT_BRETTON_WOODS_PROPS;
+
+export const DEFAULT_ENGINE_FIRST_PROPS: Required<BrettonWoodsProps> = {
   title: 'Engine-First AI Agent Documentary',
-  compositionId: 'Root',
+  compositionId: 'EngineFirstExplainer',
   backgroundColor: OBSIDIAN,
   accentColor: '#ff4500',
   voiceoverFile: 'agent-engine/voiceover.wav',
   muted: false,
 };
 
-export const Root: React.FC<RootProps> = ({
-  title = DEFAULT_ROOT_PROPS.title,
-  backgroundColor = DEFAULT_ROOT_PROPS.backgroundColor,
-  voiceoverFile = DEFAULT_ROOT_PROPS.voiceoverFile,
-  muted = DEFAULT_ROOT_PROPS.muted,
+export const EngineFirstExplainer: React.FC<BrettonWoodsProps> = ({
+  title = DEFAULT_ENGINE_FIRST_PROPS.title,
+  backgroundColor = DEFAULT_ENGINE_FIRST_PROPS.backgroundColor,
+  voiceoverFile = DEFAULT_ENGINE_FIRST_PROPS.voiceoverFile,
+  muted = DEFAULT_ENGINE_FIRST_PROPS.muted,
 }) => (
   <AbsoluteFill
     data-root-title={title}
@@ -63,27 +70,36 @@ export const Root: React.FC<RootProps> = ({
   </AbsoluteFill>
 );
 
-export const EngineFirstExplainer = Root;
+export const Root = BrettonWoodsDocumentary;
 
 export const RemotionRoot: React.FC = () => (
   <>
     <Composition
       id="Root"
-      component={Root}
-      durationInFrames={DURATION_FRAMES}
-      fps={FPS}
-      width={1080}
-      height={1920}
-      defaultProps={DEFAULT_ROOT_PROPS}
+      component={BrettonWoodsDocumentary}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_WIDTH}
+      height={BW_HEIGHT}
+      defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
+    />
+    <Composition
+      id="BrettonWoodsDocumentary"
+      component={BrettonWoodsDocumentary}
+      durationInFrames={BW_DURATION_FRAMES}
+      fps={BW_FPS}
+      width={BW_WIDTH}
+      height={BW_HEIGHT}
+      defaultProps={DEFAULT_BRETTON_WOODS_PROPS}
     />
     <Composition
       id="EngineFirstExplainer"
-      component={Root}
+      component={EngineFirstExplainer}
       durationInFrames={DURATION_FRAMES}
       fps={FPS}
       width={1080}
       height={1920}
-      defaultProps={DEFAULT_ROOT_PROPS}
+      defaultProps={DEFAULT_ENGINE_FIRST_PROPS}
     />
     <Composition
       id="TheCodeThatReplacedAfterEffects"

@@ -12,7 +12,7 @@ Config.setOverwriteOutput(true);
 
 if (fs.existsSync('/tmp/chromium')) {
   Config.setBrowserExecutable('/tmp/chromium');
-  Config.setChromiumOpenGlRenderer('angle');
+  Config.setChromiumOpenGlRenderer('swangle');
   if (fs.existsSync('/tmp/al2023')) {
     const extraLd = '/tmp/al2023/lib:/tmp/al2023:/tmp';
     const currentLd = process.env.LD_LIBRARY_PATH ?? '';
